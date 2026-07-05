@@ -1,0 +1,51 @@
+{
+  "models": {
+    "opus-4.8": {
+      "transport": "self"
+    },
+    "gpt-5.5": {
+      "transport": "codex-exec",
+      "context": "repo-access",
+      "params": {
+        "sandbox": "read-only",
+        "ephemeral": true
+      }
+    },
+    "opus-4.7": {
+      "transport": "anthropic",
+      "model": "claude-opus-4-7",
+      "key_env": "ANTHROPIC_API_KEY"
+    },
+    "kimi": {
+      "transport": "openai-compatible",
+      "base_url": "https://api.example.invalid/v1",
+      "key_env": "KIMI_API_KEY"
+    }
+  },
+  "panels": {
+    "default": {
+      "topology": "review",
+      "drafter": "opus-4.8",
+      "reviewers": ["gpt-5.5"],
+      "arbiter": "escalate-human"
+    },
+    "parallel-default": {
+      "topology": "panel",
+      "proposers": ["gpt-5.5", "opus-4.7"],
+      "aggregator": "gpt-5.5"
+    }
+  },
+  "verify": {
+    "python": {
+      "commands": [
+        "ruff check .",
+        "mypy --strict src tests",
+        "pytest -q"
+      ]
+    }
+  },
+  "rounds": 2,
+  "receipts": {
+    "directory": ".fusion/runs"
+  }
+}
