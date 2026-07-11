@@ -580,6 +580,7 @@ def validate_grounding(
                 f"finding {finding_id} checkable must be a boolean"
             )
         raw_verification_id = finding.get("verification_id")
+        pair: tuple[str, str] | None
         if checkable:
             verification_id = as_string(
                 raw_verification_id,
