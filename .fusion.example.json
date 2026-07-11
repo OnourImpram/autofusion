@@ -1,51 +1,406 @@
 {
+  "schema_version": "0.2-alpha",
   "models": {
-    "opus-4.8": {
-      "transport": "self"
+    "self": {
+      "transport": "self",
+      "callable": false,
+      "identity_source": "runtime-attested",
+      "allowed_models": [
+        "claude-opus-4-8",
+        "claude-fable-5"
+      ],
+      "vendor": "anthropic",
+      "family": "active-claude-session",
+      "context": "active-session"
     },
-    "gpt-5.5": {
+    "gpt-sol": {
       "transport": "codex-exec",
-      "context": "repo-access",
+      "callable": true,
+      "model": "gpt-5.6-sol",
+      "vendor": "openai",
+      "family": "gpt-5.6",
+      "effort": "xhigh",
+      "context": "repo-snapshot",
+      "compound": false,
+      "capabilities": {
+        "repo_access": true,
+        "structured_output": "prompt-and-schema",
+        "read_only": true
+      },
       "params": {
         "sandbox": "read-only",
-        "ephemeral": true
+        "ephemeral": true,
+        "ignore_user_config": true
       }
     },
-    "opus-4.7": {
-      "transport": "anthropic",
-      "model": "claude-opus-4-7",
-      "key_env": "ANTHROPIC_API_KEY"
+    "gpt-sol-ultra": {
+      "transport": "codex-exec",
+      "callable": true,
+      "model": "gpt-5.6-sol",
+      "vendor": "openai",
+      "family": "gpt-5.6",
+      "effort": "ultra",
+      "context": "repo-snapshot",
+      "compound": true,
+      "worker_visibility": "opaque",
+      "capabilities": {
+        "repo_access": true,
+        "structured_output": "prompt-and-schema",
+        "read_only": true
+      },
+      "params": {
+        "sandbox": "read-only",
+        "ephemeral": true,
+        "ignore_user_config": true
+      }
     },
-    "kimi": {
+    "claude-opus": {
+      "transport": "claude-exec",
+      "callable": true,
+      "model": "opus",
+      "canonical_model": "claude-opus-4-8",
+      "vendor": "anthropic",
+      "family": "claude-opus",
+      "effort": "xhigh",
+      "context": "repo-snapshot",
+      "compound": false,
+      "capabilities": {
+        "repo_access": true,
+        "structured_output": "native-schema",
+        "read_only": true
+      },
+      "params": {
+        "permission_mode": "plan",
+        "no_session_persistence": true,
+        "allowed_tools": [
+          "Read",
+          "Glob",
+          "Grep"
+        ]
+      }
+    },
+    "claude-fable": {
+      "transport": "claude-exec",
+      "callable": true,
+      "model": "fable",
+      "canonical_model": "claude-fable-5",
+      "vendor": "anthropic",
+      "family": "claude-fable",
+      "effort": "xhigh",
+      "context": "repo-snapshot",
+      "compound": false,
+      "capabilities": {
+        "repo_access": true,
+        "structured_output": "native-schema",
+        "read_only": true
+      },
+      "params": {
+        "permission_mode": "plan",
+        "no_session_persistence": true,
+        "allowed_tools": [
+          "Read",
+          "Glob",
+          "Grep"
+        ]
+      }
+    },
+    "openrouter-fusion-reference": {
+      "enabled": false,
       "transport": "openai-compatible",
-      "base_url": "https://api.example.invalid/v1",
-      "key_env": "KIMI_API_KEY"
+      "base_url": "https://openrouter.ai/api/v1",
+      "key_env": "OPENROUTER_API_KEY",
+      "model": "openrouter/fusion",
+      "vendor": "openrouter",
+      "family": "compound-router",
+      "context": "packet",
+      "compound": true,
+      "worker_visibility": "opaque",
+      "usage": "evaluation-only"
+    },
+    "sakana-fugu-reference": {
+      "enabled": false,
+      "transport": "openai-compatible",
+      "base_url": "https://api.sakana.ai/v1",
+      "key_env": "SAKANA_API_KEY",
+      "model": "fugu",
+      "vendor": "sakana-ai",
+      "family": "learned-orchestrator",
+      "context": "packet",
+      "compound": true,
+      "worker_visibility": "opaque",
+      "usage": "evaluation-only"
+    }
+  },
+  "presets": {
+    "fast": {
+      "panel": "default",
+      "max_rounds": 1,
+      "signoff": "blockers-only",
+      "latency_class": "fast"
+    },
+    "balanced": {
+      "panel": "dual-opus",
+      "max_rounds": 2,
+      "signoff": "conditional",
+      "latency_class": "balanced"
+    },
+    "high": {
+      "panel": "quality",
+      "max_rounds": 2,
+      "signoff": "required",
+      "latency_class": "quality-first"
+    },
+    "quality": {
+      "alias_for": "high",
+      "panel": "quality",
+      "max_rounds": 2,
+      "signoff": "required",
+      "latency_class": "quality-first"
+    },
+    "budget": {
+      "panel": "default",
+      "max_rounds": 1,
+      "cost_policy": "prefer-existing-entitlements",
+      "claim_zero_cost": false
+    },
+    "adaptive": {
+      "router": "risk-rules-v1",
+      "allowed_presets": [
+        "fast",
+        "balanced",
+        "quality"
+      ],
+      "direction": "escalate-only"
     }
   },
   "panels": {
     "default": {
       "topology": "review",
-      "drafter": "opus-4.8",
-      "reviewers": ["gpt-5.5"],
+      "drafter": "self",
+      "reviewers": [
+        "gpt-sol"
+      ],
       "arbiter": "escalate-human"
     },
-    "parallel-default": {
-      "topology": "panel",
-      "proposers": ["gpt-5.5", "opus-4.7"],
-      "aggregator": "gpt-5.5"
+    "dual-opus": {
+      "topology": "dual-review",
+      "drafter": "self",
+      "reviewers": [
+        "gpt-sol",
+        "claude-opus"
+      ],
+      "blind": true,
+      "arbiter": "escalate-human"
+    },
+    "dual-fable": {
+      "topology": "dual-review",
+      "drafter": "self",
+      "reviewers": [
+        "gpt-sol",
+        "claude-fable"
+      ],
+      "blind": true,
+      "arbiter": "escalate-human"
+    },
+    "quality": {
+      "topology": "adversarial-review",
+      "drafter": "self",
+      "reviewers": [
+        "gpt-sol-ultra",
+        "claude-fable"
+      ],
+      "blind": true,
+      "arbiter": "escalate-human"
+    },
+    "external-council": {
+      "topology": "panel-rank",
+      "proposers": [
+        "gpt-sol",
+        "claude-opus",
+        "claude-fable"
+      ],
+      "judge": "gpt-sol-ultra",
+      "blind": true,
+      "pairwise_order_check": true,
+      "arbiter": "escalate-human"
     }
   },
-  "verify": {
-    "python": {
-      "commands": [
-        "ruff check .",
-        "mypy --strict src tests",
-        "pytest -q"
-      ]
+  "roles": {
+    "thinker": "Decompose the problem, identify assumptions, and define success criteria.",
+    "reviewer": "Find consequential defects and support each claim with artifact evidence.",
+    "verifier": "Map checkable claims only to trusted verification IDs.",
+    "adversary": "Construct counterexamples and expose structural failure modes.",
+    "judge": "Analyze agreement, contradiction, coverage, unique insight, and blind spots without naive merging."
+  },
+  "routing": {
+    "require_explicit_fusion_invocation": true,
+    "signals": [
+      "artifact-kind",
+      "reversibility",
+      "verification-strength",
+      "sensitive-paths",
+      "cross-module-scope",
+      "model-availability",
+      "latency-budget",
+      "cost-budget"
+    ],
+    "hard_gates": {
+      "patterns": [
+        "**/auth/**",
+        "**/migrations/**",
+        "**/permissions/**",
+        "**/payments/**",
+        "**/infrastructure/**"
+      ],
+      "minimum_preset": "balanced"
+    },
+    "compound": {
+      "max_depth": 1,
+      "default_allow_as_panel_member": false,
+      "allowed_handles": [
+        "gpt-sol-ultra"
+      ],
+      "allowed_roles": {
+        "gpt-sol-ultra": [
+          "reviewer",
+          "judge"
+        ]
+      },
+      "count_hidden_workers_as_independent": false
     }
   },
-  "rounds": 2,
+  "orchestration": {
+    "max_workflow_steps": 5,
+    "per_step_routing": true,
+    "communication_graph": "explicit-access-list",
+    "intra_workflow_tool_trace_isolation": true,
+    "inter_workflow_memory": "hash-addressed-approved-only",
+    "function_call_owner_required": true,
+    "marginal_value_stop": "shadow"
+  },
+  "provider_routing": {
+    "allow_fallbacks": true,
+    "fallback_scope": "same-model-endpoint",
+    "model_fallback_requires_explicit_policy": true,
+    "fallback_on": [
+      "rate-limit",
+      "provider-unavailable",
+      "timeout"
+    ],
+    "never_fallback_on": [
+      "policy-blocked",
+      "moderation-blocked",
+      "identity-unverified"
+    ],
+    "require_parameters": true,
+    "effective_identity_recheck": true,
+    "quorum_recheck_after_fallback": true,
+    "data_collection": "deny",
+    "zdr": "policy-required",
+    "region": "policy-required",
+    "performance_thresholds": {
+      "latency_percentile": "p90",
+      "throughput_percentile": "p90"
+    },
+    "session_stickiness": {
+      "within_run": true,
+      "across_runs": false
+    }
+  },
+  "output_repair": {
+    "max_attempts": 1,
+    "syntax_only": true,
+    "record_original_hash": true,
+    "record_repaired_hash": true,
+    "fail_on_semantic_delta": true,
+    "protected_fields": [
+      "agreement_strength",
+      "decision_impact",
+      "finding_status",
+      "severity",
+      "source_ids",
+      "verification_id"
+    ]
+  },
+  "analysis": {
+    "schema": "schemas/fusion-analysis.schema.json",
+    "blind_model_identity": true,
+    "pairwise_order_check": true,
+    "agreement_is_confidence": false,
+    "required_sections": [
+      "consensus",
+      "contradictions",
+      "partial_coverage",
+      "unique_insights",
+      "blind_spots",
+      "grounding_candidates",
+      "grounding_results",
+      "decision_impact"
+    ]
+  },
+  "verification": {
+    "profiles": {
+      "python": {
+        "commands": {
+          "ruff": {
+            "argv": [
+              "ruff",
+              "check",
+              "."
+            ],
+            "timeout_s": 120,
+            "kind": "static"
+          },
+          "mypy": {
+            "argv": [
+              "mypy",
+              "--strict",
+              "src",
+              "tests"
+            ],
+            "timeout_s": 180,
+            "kind": "static"
+          },
+          "pytest": {
+            "argv": [
+              "pytest",
+              "-q"
+            ],
+            "timeout_s": 600,
+            "kind": "dynamic"
+          }
+        }
+      }
+    },
+    "reviewer_commands_are_advisory": true,
+    "shell_strings_allowed": false,
+    "network": "deny"
+  },
+  "guardrails": {
+    "model_allowlist": [
+      "gpt-sol",
+      "gpt-sol-ultra",
+      "claude-opus",
+      "claude-fable"
+    ],
+    "provider_denylist": [],
+    "max_panel_size": 4,
+    "max_calls_per_run": 8,
+    "max_wallclock_s": 900,
+    "max_output_chars_per_call": 120000,
+    "prompt_injection_action": "flag",
+    "sensitive_data_action": "redact",
+    "reviewer_network": "provider-only",
+    "verifier_network": "deny",
+    "fail_closed": true
+  },
   "receipts": {
-    "directory": ".fusion/runs"
+    "directory": ".fusion/runs",
+    "schema": "schemas/fusion-receipt.schema.json",
+    "privacy": "metadata-only",
+    "include_raw_prompts": false,
+    "include_per_call_cost": true,
+    "include_requested_and_effective_models": true,
+    "include_context_hash": true
   }
 }

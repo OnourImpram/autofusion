@@ -1,0 +1,36 @@
+{
+  "schema_version": "0.1",
+  "self_identity": {
+    "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff": {
+      "source": "runtime-attested",
+      "model": "claude-opus-4-8",
+      "issuer": "claude-code-runtime"
+    }
+  },
+  "runner": {
+    "5555555555555555555555555555555555555555555555555555555555555555": {
+      "runner_trust": "trusted-runner",
+      "verification_id": "python.pytest",
+      "finding_id": "f01",
+      "invocation_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+      "output_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "execution_status": "completed",
+      "failure_class": "assertion",
+      "matched_expected_failure": true,
+      "exit_code": 1
+    }
+  },
+  "cost": {},
+  "routing": {
+    "8888888888888888888888888888888888888888888888888888888888888888": {
+      "handle": "gpt-sol",
+      "vendor": "openai",
+      "effective_model": "gpt-5.6-sol",
+      "fallback_scope": "same-model-endpoint",
+      "zdr": "policy-required",
+      "region": "policy-required",
+      "effective_identity_recheck": true,
+      "quorum_recheck_after_fallback": true
+    }
+  }
+}

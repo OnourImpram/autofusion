@@ -4,15 +4,15 @@
     "name": "Onour Impram",
     "email": ""
   },
-  "description": "Claude Code first cross model review, grounding, and receipt workflows.",
-  "version": "0.1.0",
+  "description": "Skill-only Claude Code protocol for adaptive cross-model review and evidence design.",
+  "version": "0.2.0-alpha.1",
   "plugins": [
     {
       "name": "autofusion",
       "displayName": "autofusion",
       "source": "./plugins/autofusion",
-      "description": "Claude Code first cross model escalation workflow for plans, diffs, and serious engineering decisions.",
-      "version": "0.1.0",
+      "description": "Skill-only adaptive fusion protocol for plans, diffs, research, and consequential engineering decisions.",
+      "version": "0.2.0-alpha.1",
       "author": {
         "name": "Onour Impram"
       },
@@ -20,8 +20,8 @@
       "repository": "https://github.com/OnourImpram/autofusion",
       "license": "MIT",
       "category": "Productivity",
-      "tags": ["claude-code", "codex", "multi-model", "review", "verification"],
-      "keywords": ["claude-code", "codex", "multi-model", "review", "verification"]
+      "tags": ["claude-code", "codex", "multi-model", "model-routing", "review", "verification"],
+      "keywords": ["claude-code", "codex", "multi-model", "adaptive-orchestration", "review", "verification"]
     }
   ]
 }

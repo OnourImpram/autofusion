@@ -1,0 +1,113 @@
+{
+  "schema_version": "0.2",
+  "packet_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "topology": "review",
+  "context_complete": true,
+  "participants": [
+    {
+      "source_id": "self",
+      "effective_model": "claude-opus-4-8",
+      "family": "claude-opus",
+      "compound": false,
+      "worker_visibility": "not-applicable",
+      "status": "completed",
+      "call_id": null,
+      "output_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "identity_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "source_id": "gpt-sol",
+      "effective_model": "gpt-5.6-sol",
+      "family": "gpt-5.6",
+      "compound": false,
+      "worker_visibility": "not-applicable",
+      "status": "completed",
+      "call_id": "call-1",
+      "output_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "identity_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "consensus": [
+    {
+      "id": "c01",
+      "claim": "The artifact preserves the declared trust boundary.",
+      "supporters": [
+        "self",
+        "gpt-sol"
+      ],
+      "evidence": {
+        "summary": "Both completed participants cited the same contract boundary.",
+        "strength": "corroborated",
+        "sources": [
+          "self",
+          "gpt-sol"
+        ]
+      },
+      "agreement_strength": "cross-family"
+    }
+  ],
+  "contradictions": [],
+  "partial_coverage": [
+    {
+      "area": "Repository contract",
+      "covered_by": [
+        "self",
+        "gpt-sol"
+      ],
+      "missing": ""
+    }
+  ],
+  "unique_insights": [],
+  "blind_spots": [],
+  "grounding_candidates": [
+    {
+      "finding_id": "f01",
+      "verification_id": "python.pytest",
+      "relevance": "The approved test profile can reproduce the finding."
+    }
+  ],
+  "grounding_results": [
+    {
+      "finding_id": "f01",
+      "verification_id": "python.pytest",
+      "verdict": "confirmed",
+      "exit_code": 1,
+      "output_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "execution_status": "completed",
+      "failure_class": "assertion",
+      "matched_expected_failure": true,
+      "invocation_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+      "runner_attestation_hash": "5555555555555555555555555555555555555555555555555555555555555555",
+      "runner_trust": "trusted-runner"
+    }
+  ],
+  "decision_impact": {
+    "changed": true,
+    "effect": "revised",
+    "rationale": "Grounding changed the final disposition."
+  },
+  "findings": [
+    {
+      "id": "f01",
+      "source_ids": [
+        "gpt-sol"
+      ],
+      "severity": "minor",
+      "category": "contract",
+      "claim": "One branch requires a regression check.",
+      "evidence": {
+        "summary": "The approved verification profile reproduced the issue.",
+        "strength": "grounded",
+        "sources": [
+          "gpt-sol"
+        ]
+      },
+      "suggested_fix": "Preserve the regression check in CI.",
+      "checkable": true,
+      "verification_id": "python.pytest",
+      "status": "grounded"
+    }
+  ],
+  "run_id": "run-contract-valid",
+  "panel": "default"
+}
