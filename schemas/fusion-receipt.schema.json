@@ -18,6 +18,8 @@
     "cross_model",
     "compound",
     "self_model",
+    "self_identity_source",
+    "self_identity_hash",
     "task_hash",
     "snapshot_hash",
     "packet_hash",
@@ -102,6 +104,15 @@
       "description": "Canonical effective model ID for the active self session, or null when self is absent.",
       "type": ["string", "null"],
       "minLength": 1
+    },
+    "self_identity_source": {
+      "description": "Trusted origin of the active self model identity.",
+      "enum": ["runtime-attested", null]
+    },
+    "self_identity_hash": {
+      "description": "Hash of immutable runtime evidence for the active self model identity.",
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
     },
     "task_hash": {
       "$ref": "#/$defs/hash"
@@ -199,12 +210,24 @@
           "self_model": {
             "type": "string",
             "minLength": 1
+          },
+          "self_identity_source": {
+            "const": "runtime-attested"
+          },
+          "self_identity_hash": {
+            "$ref": "#/$defs/hash"
           }
         }
       },
       "else": {
         "properties": {
           "self_model": {
+            "type": "null"
+          },
+          "self_identity_source": {
+            "type": "null"
+          },
+          "self_identity_hash": {
             "type": "null"
           }
         }
@@ -581,6 +604,9 @@
           "type": ["number", "null"],
           "minimum": 0
         },
+        "cost_verified": {
+          "type": "boolean"
+        },
         "output_hash": {
           "type": ["string", "null"],
           "pattern": "^[a-f0-9]{64}$"
@@ -619,7 +645,8 @@
         "max_wallclock_s",
         "wallclock_s",
         "max_cost_usd",
-        "cost_usd"
+        "cost_usd",
+        "cost_verified"
       ],
       "properties": {
         "max_calls": {
@@ -645,6 +672,9 @@
         "cost_usd": {
           "type": ["number", "null"],
           "minimum": 0
+        },
+        "cost_verified": {
+          "type": "boolean"
         }
       }
     }
