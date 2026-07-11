@@ -348,7 +348,7 @@ def validate_config_graph(
             raw_panel,
             f"panel {panel_name} must be an object",
         )
-        validate_panel_shape(panel_name, panel)
+        topology = validate_panel_shape(panel_name, panel)
         assignments = panel_assignments(panel_name, panel)
         handles = [handle for handle, _role in assignments]
         require(
@@ -373,7 +373,18 @@ def validate_config_graph(
                 models[handle],
                 f"model {handle} must be an object",
             )
-            if handle != "self":
+            if handle == "self":
+                require(
+                    role == "drafter"
+                    and topology
+                    in {"review", "adversarial-review", "dual-review"},
+                    f"panel {panel_name} uses self in external role {role}",
+                )
+            else:
+                require(
+                    model.get("callable") is True,
+                    f"panel {panel_name} dispatches noncallable model {handle}",
+                )
                 require(
                     handle in model_allowlist,
                     f"panel {panel_name} uses non-allowlisted model {handle}",
@@ -435,26 +446,44 @@ def validate_config() -> None:
 
     require(self_model.get("callable") is False, "self must be non-callable")
     require(
+        self_model.get("identity_source") == "runtime-attested",
+        "self identity must come from runtime attestation",
+    )
+    require(
+        set(
+            as_string_list(
+                self_model.get("allowed_models"),
+                "self.allowed_models must be a string array",
+            )
+        )
+        == {"claude-opus-4-8", "claude-fable-5"},
+        "self allowed model identities must remain explicit",
+    )
+    require(
         gpt_sol.get("model") == "gpt-5.6-sol"
         and gpt_sol.get("effort") == "xhigh"
-        and gpt_sol.get("compound") is False,
+        and gpt_sol.get("compound") is False
+        and gpt_sol.get("callable") is True,
         "gpt-sol must map to non-compound gpt-5.6-sol xhigh",
     )
     require(
         gpt_ultra.get("model") == "gpt-5.6-sol"
         and gpt_ultra.get("effort") == "ultra"
         and gpt_ultra.get("compound") is True
-        and gpt_ultra.get("worker_visibility") == "opaque",
+        and gpt_ultra.get("worker_visibility") == "opaque"
+        and gpt_ultra.get("callable") is True,
         "gpt-sol-ultra must map to opaque compound gpt-5.6-sol ultra",
     )
     require(
         claude_opus.get("model") == "opus"
-        and claude_opus.get("canonical_model") == "claude-opus-4-8",
+        and claude_opus.get("canonical_model") == "claude-opus-4-8"
+        and claude_opus.get("callable") is True,
         "claude-opus mapping mismatch",
     )
     require(
         claude_fable.get("model") == "fable"
-        and claude_fable.get("canonical_model") == "claude-fable-5",
+        and claude_fable.get("canonical_model") == "claude-fable-5"
+        and claude_fable.get("callable") is True,
         "claude-fable mapping mismatch",
     )
     require("gpt-5.5" not in models, "obsolete gpt-5.5 handle must not return")
