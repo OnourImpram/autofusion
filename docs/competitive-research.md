@@ -77,6 +77,47 @@ Sources:
 4. A failed panel may return partial findings, but it cannot silently become a successful single-model answer.
 5. Same-model repeated sampling is measured as replication, not cross-model diversity.
 
+## Second-pass coverage audit
+
+A second review of the public Fugu technical report and the broader OpenRouter routing surface found several mechanisms beyond the first product summary. Every item below is classified so upstream inspiration does not become an untracked dependency.
+
+### Additional Fugu mechanisms
+
+1. **Per-step routing.** The latency-oriented Fugu can choose a different worker at critical turns in a longer trajectory. autofusion now reserves per-step routing in the orchestration contract. It remains deterministic or shadow-only until outcome calibration exists.
+2. **Explicit communication graphs.** Fugu Ultra workflows assign each subtask a worker and an access list describing which earlier outputs it may see. autofusion adopts an explicit access-list graph instead of exposing the entire transcript to every participant.
+3. **Intra-workflow isolation.** Fugu Ultra isolates current tool trajectories so an early worker does not steer every later worker onto the same path. autofusion adopts isolated first-pass tool traces and records every function-call owner.
+4. **Controlled shared memory.** Fugu Ultra distinguishes isolated current-workflow traces from shared prior-workflow memory. autofusion permits only hash-addressed, policy-approved inter-workflow memory. It does not expose an ambient conversation transcript.
+5. **Outcome-trained routing.** Fugu learns worker selection from replicated task rewards and end-to-end terminal outcomes. autofusion does not copy the training method. Receipts will support a capability ledger and a shadow router before any learned policy can affect execution.
+6. **Pool substitution.** Fugu can exclude providers without retraining. autofusion already treats provider, region, retention, and model exclusions as policy inputs.
+
+### Additional OpenRouter mechanisms
+
+1. **Provider-aware fallback.** OpenRouter can retry models or providers after availability, rate-limit, moderation, or context errors and reports the concrete model that served the request. autofusion permits same-model endpoint fallback by default. A different-model fallback requires explicit policy, attested effective identity, and a fresh independence-quorum check. Policy or moderation blocks never become fallback triggers.
+2. **Parameter and privacy routing.** Provider selection can require parameter support, deny data collection, enforce Zero Data Retention, and apply provider allowlists. These are now explicit provider-routing contract fields.
+3. **Performance thresholds.** OpenRouter can rank providers using price, latency, throughput, and rolling percentiles. autofusion records p90 latency and throughput requirements as routing evidence rather than treating a transient fastest response as a stable capability claim.
+4. **Structured-output healing.** OpenRouter can repair malformed JSON syntax. autofusion permits one syntax-only repair, hashes both forms, and fails when protected semantic fields change.
+5. **Session stickiness.** OpenRouter can pin a model and provider during a conversation. autofusion permits stickiness inside one run for consistency and caching, but disables it across evaluation runs so provider pinning does not create hidden correlation.
+6. **Isolated delegation.** OpenRouter Subagent workers see only a self-contained task description. autofusion maps this to packet completeness and explicit access lists.
+7. **Named advisor memory.** OpenRouter Advisor can retain separate memory per advisor identity. autofusion reserves isolated role-memory channels, but shared memory remains opt-in and hash-addressed.
+8. **Lossy context compression.** OpenRouter can trim the middle of oversized conversations. autofusion does not use lossy compression for mandatory code or policy context. Optional material may be summarized only when the context manifest records what was omitted.
+9. **Quality-tier routing.** OpenRouter exposes high and budget Fusion tiers and a Pareto coding router that selects within a quality band. autofusion adds a canonical high preset, retains quality as a compatibility alias, and keeps fast as its own latency-oriented preset.
+
+Additional sources:
+
+1. [Fugu full technical report](https://ar5iv.labs.arxiv.org/html/2606.21228v2)
+2. [OpenRouter provider routing](https://openrouter.ai/docs/guides/routing/provider-selection)
+3. [OpenRouter model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks)
+4. [OpenRouter Zero Data Retention](https://openrouter.ai/docs/guides/features/zdr)
+5. [OpenRouter structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs)
+6. [OpenRouter response healing](https://openrouter.ai/docs/guides/features/plugins/response-healing)
+7. [OpenRouter Subagent](https://openrouter.ai/docs/guides/features/server-tools/subagent)
+8. [OpenRouter Advisor](https://openrouter.ai/docs/guides/features/server-tools/advisor)
+9. [OpenRouter Pareto Router](https://openrouter.ai/docs/guides/routing/routers/pareto-router)
+10. [OpenRouter message transforms](https://openrouter.ai/docs/guides/features/message-transforms)
+
+### Coverage conclusion
+
+As of 11 July 2026, no additional high-value public Fugu or OpenRouter orchestration mechanism remains unclassified. Some are adopted in the current contract, some are explicitly constrained, and the learned or stateful mechanisms are placed behind future engine and evaluation gates. This is a point-in-time audit, not a claim that either upstream product will stop evolving.
 ## What autofusion adds
 
 autofusion is designed around an active engineering agent and repository truth.
