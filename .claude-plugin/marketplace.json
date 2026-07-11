@@ -4,14 +4,14 @@
     "name": "Onour Impram",
     "email": ""
   },
-  "description": "Claude Code first adaptive cross model review, grounding, and receipt workflows.",
+  "description": "Skill-only Claude Code protocol for adaptive cross-model review and evidence design.",
   "version": "0.2.0-alpha.1",
   "plugins": [
     {
       "name": "autofusion",
       "displayName": "autofusion",
       "source": "./plugins/autofusion",
-      "description": "Adaptive Claude Code first fusion workflows for plans, diffs, research, and consequential engineering decisions.",
+      "description": "Skill-only adaptive fusion protocol for plans, diffs, research, and consequential engineering decisions.",
       "version": "0.2.0-alpha.1",
       "author": {
         "name": "Onour Impram"
