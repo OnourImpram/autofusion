@@ -213,7 +213,11 @@
     },
     "compound": {
       "max_depth": 1,
-      "allow_as_panel_member": false,
+      "default_allow_as_panel_member": false,
+      "allowed_handles": ["gpt-sol-ultra"],
+      "allowed_roles": {
+        "gpt-sol-ultra": ["reviewer", "judge"]
+      },
       "count_hidden_workers_as_independent": false
     }
   },
