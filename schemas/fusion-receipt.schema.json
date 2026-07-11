@@ -99,6 +99,7 @@
       "type": "boolean"
     },
     "self_model": {
+      "description": "Canonical effective model ID for the active self session, or null when self is absent.",
       "type": ["string", "null"],
       "minLength": 1
     },
