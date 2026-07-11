@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema.exceptions import SchemaError
 
 ROOT = Path(__file__).resolve().parents[1]
 LOGGER = logging.getLogger("autofusion.contracts")
@@ -106,11 +107,24 @@ def validate_schema_instance(
         )
 
 
+def canonicalize_model_identity(
+    identity: str,
+    models: dict[str, Any],
+) -> str:
+    for raw_model in models.values():
+        model = as_object(raw_model, "each model must be an object")
+        alias = model.get("model")
+        canonical = model.get("canonical_model")
+        if identity == alias and isinstance(canonical, str) and canonical:
+            return canonical
+    return identity
+
+
 def validate_call_registry(
     call: dict[str, Any],
     models: dict[str, Any],
     participants: set[str],
-) -> str:
+) -> tuple[str, str | None]:
     handle = as_string(call.get("handle"), "call handle must be a string")
     require(handle != "self", "self cannot appear as an external call")
     require(handle in participants, f"call handle {handle} was not requested")
@@ -153,8 +167,20 @@ def validate_call_registry(
         call.get("worker_visibility") == expected_visibility,
         f"call {handle} worker visibility differs from the registry",
     )
-    return handle
 
+    raw_effective_model = call.get("effective_model")
+    effective_model = (
+        None
+        if raw_effective_model is None
+        else canonicalize_model_identity(
+            as_string(
+                raw_effective_model,
+                f"call {handle} effective_model must be a string or null",
+            ),
+            models,
+        )
+    )
+    return handle, effective_model
 
 def validate_budget_semantics(
     receipt: dict[str, Any],
@@ -252,24 +278,32 @@ def validate_receipt_semantics(
         "requested participants exceed max_panel_size",
     )
 
-    families: set[str] = set()
+    resolved_models: set[str] = set()
+    if "self" in participants:
+        self_model = canonicalize_model_identity(
+            as_string(
+                receipt.get("self_model"),
+                "self_model must identify the active session model",
+            ),
+            models,
+        )
+        resolved_models.add(self_model)
+    else:
+        require(
+            receipt.get("self_model") is None,
+            "self_model must be null when self is not a participant",
+        )
+
     contains_compound = False
     for handle in participant_list:
         require(handle in models, f"unknown requested participant {handle}")
         model = as_object(models[handle], f"model {handle} must be an object")
-        families.add(
-            as_string(
-                model.get("family"),
-                f"model {handle} family must be a string",
-            )
+        as_string(
+            model.get("family"),
+            f"model {handle} family must be a string",
         )
         contains_compound = contains_compound or model.get("compound") is True
 
-    expected_cross_model = len(families) >= 2
-    require(
-        receipt.get("cross_model") is expected_cross_model,
-        "cross_model does not match requested participant families",
-    )
     require(
         receipt.get("compound") is contains_compound,
         "compound does not match requested participant metadata",
@@ -277,19 +311,45 @@ def validate_receipt_semantics(
 
     calls = as_list(receipt.get("calls"), "calls must be an array")
     call_ids: list[str] = []
+    completed_handles: set[str] = set()
     for raw_call in calls:
         call = as_object(raw_call, "each call must be an object")
         call_ids.append(
             as_string(call.get("call_id"), "call_id must be a string")
         )
-        validate_call_registry(call, models, participants)
+        handle, effective_model = validate_call_registry(
+            call,
+            models,
+            participants,
+        )
+        if call.get("status") == "completed":
+            completed_handles.add(handle)
+            require(
+                effective_model is not None,
+                f"completed call {handle} lacks effective model identity",
+            )
+            resolved_models.add(effective_model)
+
     require(
         len(call_ids) == len(set(call_ids)),
         "call_id values must be unique",
     )
 
-    validate_budget_semantics(receipt, config, len(calls))
+    if receipt.get("fused") is True:
+        required_external = participants - {"self"}
+        require(
+            completed_handles == required_external,
+            "fused receipt requires a completed call for every "
+            "external participant",
+        )
 
+    expected_cross_model = len(resolved_models) >= 2
+    require(
+        receipt.get("cross_model") is expected_cross_model,
+        "cross_model does not match resolved model identities",
+    )
+
+    validate_budget_semantics(receipt, config, len(calls))
 
 def validate_receipt(
     receipt: dict[str, Any],
@@ -366,6 +426,36 @@ def exercise_negative_cases(
     assert_rejected("cost budget exceeded", candidate, schema, config)
 
     candidate = clone(valid)
+    candidate["requested_participants"] = [
+        "self",
+        "gpt-sol",
+        "claude-opus",
+    ]
+    assert_rejected(
+        "missing external participant call",
+        candidate,
+        schema,
+        config,
+    )
+
+    candidate = clone(valid)
+    candidate["requested_participants"] = ["self", "claude-opus"]
+    candidate["self_model"] = "claude-opus-4-8"
+    call = first_call(candidate)
+    call["handle"] = "claude-opus"
+    call["requested_model"] = "opus"
+    call["effective_model"] = "claude-opus-4-8"
+    call["vendor"] = "anthropic"
+    call["family"] = "claude-opus"
+    call["mode"] = "xhigh"
+    assert_rejected(
+        "same model mislabeled as cross-model",
+        candidate,
+        schema,
+        config,
+    )
+
+    candidate = clone(valid)
     calls = as_list(candidate.get("calls"), "calls must be an array")
     calls.append(copy.deepcopy(calls[0]))
     budgets = receipt_budgets(candidate)
@@ -387,7 +477,7 @@ def main() -> int:
         Draft202012Validator.check_schema(schema)
         validate_receipt(valid, schema, config)
         exercise_negative_cases(valid, schema, config)
-    except (ContractError, Exception) as exc:
+    except (ContractError, SchemaError) as exc:
         LOGGER.error("%s", exc)
         return 1
     LOGGER.info("receipt contract instances passed")
