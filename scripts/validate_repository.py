@@ -195,7 +195,7 @@ def validate_claim_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     require("pre-engine alpha" in readme, "README must state the implementation boundary")
     require(
-        "do not claim the engine already exists" in readme,
+        "does not claim those components exist" in readme,
         "README must preserve the truthful capability boundary",
     )
     research = (ROOT / "docs" / "competitive-research.md").read_text(
@@ -220,8 +220,11 @@ def validate_repository_hygiene() -> None:
         except UnicodeDecodeError:
             continue
         require(not SECRET_PATTERN.search(text), f"possible credential in {path.relative_to(ROOT)}")
-        require("TODO" not in text, f"TODO marker in {path.relative_to(ROOT)}")
-        require("FIXME" not in text, f"FIXME marker in {path.relative_to(ROOT)}")
+        for marker in ("TO" + "DO", "FIX" + "ME"):
+            require(
+                marker not in text,
+                f"{marker} marker in {path.relative_to(ROOT)}",
+            )
 
 
 def main() -> int:
