@@ -20,7 +20,9 @@ REQUIRED_PATHS = (
     ROOT / "schemas" / "fusion-analysis.schema.json",
     ROOT / "schemas" / "fusion-receipt.schema.json",
     ROOT / "scripts" / "validate_contract_instances.py",
+    ROOT / "scripts" / "validate_analysis_instances.py",
     ROOT / "tests" / "fixtures" / "receipt-valid.json",
+    ROOT / "tests" / "fixtures" / "analysis-valid.json",
     ROOT / "docs" / "competitive-research.md",
     ROOT / "docs" / "fusion-topologies.md",
 )
