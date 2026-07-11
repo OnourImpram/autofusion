@@ -2,7 +2,7 @@
   "name": "autofusion",
   "displayName": "autofusion",
   "version": "0.2.0-alpha.1",
-  "description": "Claude Code first adaptive cross model review, grounding, and receipt workflow.",
+  "description": "Skill-only Claude Code protocol for adaptive cross-model review and evidence design.",
   "author": {
     "name": "Onour Impram"
   },
