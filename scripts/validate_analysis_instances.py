@@ -580,7 +580,7 @@ def validate_grounding(
                 f"finding {finding_id} checkable must be a boolean"
             )
         raw_verification_id = finding.get("verification_id")
-        pair: tuple[str, str] | None
+        finding_pair: tuple[str, str] | None
         if checkable:
             verification_id = as_string(
                 raw_verification_id,
@@ -590,9 +590,9 @@ def validate_grounding(
                 verification_id in trusted_verifications,
                 f"finding {finding_id} uses unknown verification",
             )
-            pair = (finding_id, verification_id)
+            finding_pair = (finding_id, verification_id)
             require(
-                pair in candidates,
+                finding_pair in candidates,
                 f"finding {finding_id} lacks a grounding candidate",
             )
         else:
@@ -600,7 +600,7 @@ def validate_grounding(
                 raw_verification_id is None,
                 f"noncheckable finding {finding_id} cannot name verification",
             )
-            pair = None
+            finding_pair = None
 
         status = as_string(
             finding.get("status"),
@@ -608,11 +608,11 @@ def validate_grounding(
         )
         if status == "grounded" or strength == "grounded":
             require(
-                checkable and pair is not None,
+                checkable and finding_pair is not None,
                 f"grounded finding {finding_id} must be checkable",
             )
             require(
-                results.get(pair) == "confirmed",
+                results.get(finding_pair) == "confirmed",
                 f"grounded finding {finding_id} lacks confirmed execution",
             )
 
