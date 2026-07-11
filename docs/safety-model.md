@@ -85,7 +85,7 @@ Provider restrictions may include:
 5. Compound-provider exclusions.
 6. Maximum context exposure.
 
-Optional Sakana Fugu and OpenRouter Fusion reference profiles are disabled by default.
+Optional Sakana Fugu and OpenRouter Fusion reference profiles are disabled by default. Compound handles require an explicit handle-and-role allowlist before panel use. The built-in gpt-sol-ultra profile may be allowed as reviewer or judge without treating its hidden workers as independent participants.
 
 ## Recursion and compound systems
 
