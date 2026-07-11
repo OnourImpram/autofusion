@@ -856,6 +856,22 @@ def validate_skills() -> None:
         )
 
 
+def validate_workflow_security() -> None:
+    workflow = (
+        ROOT / ".github" / "workflows" / "validate.yml"
+    ).read_text(encoding="utf-8")
+    for action in ("actions/checkout", "actions/setup-python"):
+        pattern = re.compile(rf"uses:\s+{re.escape(action)}@[a-f0-9]{{40}}")
+        require(
+            bool(pattern.search(workflow)),
+            f"{action} must be pinned to a full commit SHA",
+        )
+    require(
+        "@v" not in workflow,
+        "workflow must not use mutable version action tags",
+    )
+
+
 def validate_claim_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_lower = readme.lower()
@@ -920,6 +936,7 @@ def main() -> int:
         validate_negative_config_guards,
         validate_schemas,
         validate_skills,
+        validate_workflow_security,
         validate_claim_boundaries,
         validate_repository_hygiene,
     )
