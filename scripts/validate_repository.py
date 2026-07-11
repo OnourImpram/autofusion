@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 LOGGER = logging.getLogger("autofusion.validate")
@@ -64,7 +64,30 @@ def load_json(path: Path) -> dict[str, Any]:
         raise ValidationError(f"invalid JSON at {path.relative_to(ROOT)}: {exc}") from exc
     if not isinstance(value, dict):
         raise ValidationError(f"expected JSON object at {path.relative_to(ROOT)}")
+    if not all(isinstance(key, str) for key in value):
+        raise ValidationError(f"expected string keys at {path.relative_to(ROOT)}")
+    return cast(dict[str, Any], value)
+
+
+def as_object(value: Any, message: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or not all(
+        isinstance(key, str) for key in value
+    ):
+        raise ValidationError(message)
+    return cast(dict[str, Any], value)
+
+
+def as_list(value: Any, message: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ValidationError(message)
     return value
+
+
+def as_string_list(value: Any, message: str) -> list[str]:
+    items = as_list(value, message)
+    if not all(isinstance(item, str) for item in items):
+        raise ValidationError(message)
+    return cast(list[str], items)
 
 
 def require(condition: bool, message: str) -> None:
@@ -82,13 +105,18 @@ def validate_versions() -> None:
     plugin = load_json(
         ROOT / "plugins" / "autofusion" / ".claude-plugin" / "plugin.json"
     )
-    marketplace_plugins = marketplace.get("plugins")
+    marketplace_plugins = as_list(
+        marketplace.get("plugins"),
+        "marketplace plugins must be an array",
+    )
     require(
-        isinstance(marketplace_plugins, list) and len(marketplace_plugins) == 1,
+        len(marketplace_plugins) == 1,
         "marketplace must contain exactly one plugin",
     )
-    entry = marketplace_plugins[0]
-    require(isinstance(entry, dict), "marketplace plugin entry must be an object")
+    entry = as_object(
+        marketplace_plugins[0],
+        "marketplace plugin entry must be an object",
+    )
     versions = {
         marketplace.get("version"),
         entry.get("version"),
@@ -99,40 +127,54 @@ def validate_versions() -> None:
 
 def validate_config() -> None:
     config = load_json(ROOT / ".fusion.example.json")
-    models = config.get("models")
-    presets = config.get("presets")
-    panels = config.get("panels")
-    require(isinstance(models, dict), "models must be an object")
-    require(isinstance(presets, dict), "presets must be an object")
-    require(isinstance(panels, dict), "panels must be an object")
+    models = as_object(config.get("models"), "models must be an object")
+    presets = as_object(config.get("presets"), "presets must be an object")
+    as_object(config.get("panels"), "panels must be an object")
     require(REQUIRED_MODELS <= set(models), "required built-in model handles are missing")
     require(REQUIRED_PRESETS <= set(presets), "required presets are missing")
-    require(models["self"].get("callable") is False, "self must be non-callable")
+
+    self_model = as_object(models.get("self"), "self model must be an object")
+    gpt_sol = as_object(models.get("gpt-sol"), "gpt-sol must be an object")
+    gpt_ultra = as_object(
+        models.get("gpt-sol-ultra"),
+        "gpt-sol-ultra must be an object",
+    )
+    claude_opus = as_object(
+        models.get("claude-opus"),
+        "claude-opus must be an object",
+    )
+    claude_fable = as_object(
+        models.get("claude-fable"),
+        "claude-fable must be an object",
+    )
+
+    require(self_model.get("callable") is False, "self must be non-callable")
     require(
-        models["gpt-sol"].get("model") == "gpt-5.6-sol"
-        and models["gpt-sol"].get("effort") == "xhigh",
+        gpt_sol.get("model") == "gpt-5.6-sol"
+        and gpt_sol.get("effort") == "xhigh",
         "gpt-sol must map to gpt-5.6-sol xhigh",
     )
     require(
-        models["gpt-sol-ultra"].get("model") == "gpt-5.6-sol"
-        and models["gpt-sol-ultra"].get("effort") == "ultra",
+        gpt_ultra.get("model") == "gpt-5.6-sol"
+        and gpt_ultra.get("effort") == "ultra",
         "gpt-sol-ultra must map to gpt-5.6-sol ultra",
     )
     require(
-        models["claude-opus"].get("canonical_model") == "claude-opus-4-8",
+        claude_opus.get("canonical_model") == "claude-opus-4-8",
         "claude-opus canonical model mismatch",
     )
     require(
-        models["claude-fable"].get("canonical_model") == "claude-fable-5",
+        claude_fable.get("canonical_model") == "claude-fable-5",
         "claude-fable canonical model mismatch",
     )
     require("gpt-5.5" not in models, "obsolete gpt-5.5 handle must not return")
     require("opus-4.7" not in models, "obsolete opus-4.7 handle must not return")
 
-    routing = config.get("routing")
-    require(isinstance(routing, dict), "routing must be an object")
-    compound = routing.get("compound")
-    require(isinstance(compound, dict), "routing.compound must be an object")
+    routing = as_object(config.get("routing"), "routing must be an object")
+    compound = as_object(
+        routing.get("compound"),
+        "routing.compound must be an object",
+    )
     require(compound.get("max_depth") == 1, "compound max_depth must remain one")
     require(
         compound.get("allow_as_panel_member") is False,
@@ -143,10 +185,11 @@ def validate_config() -> None:
         "hidden compound workers must not count as independent",
     )
 
-    analysis = config.get("analysis")
-    require(isinstance(analysis, dict), "analysis must be an object")
-    required_sections = analysis.get("required_sections")
-    require(isinstance(required_sections, list), "analysis sections must be an array")
+    analysis = as_object(config.get("analysis"), "analysis must be an object")
+    required_sections = as_string_list(
+        analysis.get("required_sections"),
+        "analysis sections must be a string array",
+    )
     require(
         REQUIRED_ANALYSIS_SECTIONS == set(required_sections),
         "analysis section contract changed unexpectedly",
@@ -171,20 +214,29 @@ def validate_schemas() -> None:
 
 
     receipt = load_json(ROOT / "schemas" / "fusion-receipt.schema.json")
-    receipt_required = receipt.get("required")
-    require(
-        isinstance(receipt_required, list) and "privacy" in receipt_required,
-        "receipt schema must require privacy mode",
+    receipt_required = as_string_list(
+        receipt.get("required"),
+        "receipt schema required must be a string array",
     )
-    receipt_defs = receipt.get("$defs")
-    require(isinstance(receipt_defs, dict), "receipt schema must define reusable types")
-    call_schema = receipt_defs.get("call")
-    require(isinstance(call_schema, dict), "receipt schema must define call")
-    call_properties = call_schema.get("properties")
-    require(isinstance(call_properties, dict), "call schema properties are missing")
-    effective_model = call_properties.get("effective_model")
+    require("privacy" in receipt_required, "receipt schema must require privacy mode")
+    receipt_defs = as_object(
+        receipt.get("$defs"),
+        "receipt schema must define reusable types",
+    )
+    call_schema = as_object(
+        receipt_defs.get("call"),
+        "receipt schema must define call",
+    )
+    call_properties = as_object(
+        call_schema.get("properties"),
+        "call schema properties are missing",
+    )
+    effective_model = as_object(
+        call_properties.get("effective_model"),
+        "effective_model schema is missing",
+    )
     require(
-        isinstance(effective_model, dict) and "anyOf" in effective_model,
+        "anyOf" in effective_model,
         "effective_model must permit honest unresolved calls",
     )
     require(
