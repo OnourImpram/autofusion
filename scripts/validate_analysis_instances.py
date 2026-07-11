@@ -607,10 +607,10 @@ def validate_grounding(
             f"finding {finding_id} status must be a string",
         )
         if status == "grounded" or strength == "grounded":
-            require(
-                checkable and finding_pair is not None,
-                f"grounded finding {finding_id} must be checkable",
-            )
+            if not checkable or finding_pair is None:
+                raise AnalysisError(
+                    f"grounded finding {finding_id} must be checkable"
+                )
             require(
                 results.get(finding_pair) == "confirmed",
                 f"grounded finding {finding_id} lacks confirmed execution",
