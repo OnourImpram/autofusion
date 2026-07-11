@@ -11,7 +11,7 @@ This is an escalation workflow. It is not an autopilot.
 
 ## Current repository status
 
-The repository is a pre-engine alpha. The skill can guide a manual workflow. If the autofusion helper CLI or a requested transport is unavailable, state that limitation and do not claim the unavailable operation ran.
+The repository is a pre-engine alpha. This plugin is a skill-only manual protocol and exposes no model transport, grounding runner, DLP scanner, or receipt writer by itself. If the autofusion helper CLI or another verified callable route is unavailable, state that limitation and do not claim the unavailable operation ran.
 
 ## Invocation
 
@@ -57,24 +57,27 @@ Before calling any reviewer:
 4. Choose the minimum permitted preset.
 5. Select a bounded topology.
 6. Assign Thinker, Reviewer, Verifier, Adversary, or Judge roles as needed.
-7. Check model availability and context quorum.
-8. Record a scaffold plan with reasons.
+7. Check model availability, provider policy, data policy, and context quorum.
+8. Run the configured sensitive-data and prompt-injection preflight when tooling exists.
+9. If no preflight tool exists, inspect the packet for credentials and restricted data, then require operator confirmation before external dispatch.
+10. Record a scaffold plan with reasons.
 
 Adaptive routing may escalate upward. It must not silently route below a hard gate.
 
 ## Workflow
 
 1. Build the frozen packet with task, constraints, artifact, relevant files, snapshot identity, and verification registry.
-2. Dispatch independent reviewers.
-3. Require structured findings with severity, evidence, impact, suggested fix, checkability, and optional verification ID.
-4. Produce panel analysis with consensus, contradictions, partial coverage, unique insights, blind spots, grounding candidates, and decision impact.
-5. Treat consensus as overlap, not proof.
-6. Validate file and line evidence against the frozen packet.
-7. Ground eligible findings with approved verification IDs.
-8. Reconcile each finding as accepted, rejected, deadlock, resolved, or waived.
-9. Run one challenge and one rebuttal only for unresolved blocker or major claims.
-10. Request operator judgment when evidence remains insufficient.
-11. Write a receipt when helper tooling exists.
+2. Apply provider allowlists, privacy rules, DLP policy, and operator approval before any external dispatch.
+3. Dispatch independent reviewers only through a verified callable route.
+4. Require structured findings with severity, evidence, impact, suggested fix, checkability, and optional verification ID.
+5. Produce panel analysis with consensus, contradictions, partial coverage, unique insights, blind spots, grounding candidates, and decision impact.
+6. Treat consensus as overlap, not proof.
+7. Validate file and line evidence against the frozen packet.
+8. Ground eligible findings with approved verification IDs only when a real grounding runner exists.
+9. Reconcile each finding as accepted, rejected, deadlock, resolved, or waived.
+10. Run one challenge and one rebuttal only for unresolved blocker or major claims.
+11. Request operator judgment when evidence remains insufficient.
+12. Write a receipt only when verified helper tooling exists.
 
 ## Preset intent
 
