@@ -12,6 +12,8 @@
   "cross_model": true,
   "compound": false,
   "self_model": "claude-opus-4-8",
+  "self_identity_source": "runtime-attested",
+  "self_identity_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
   "task_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "packet_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -46,7 +48,8 @@
     "max_wallclock_s": 900,
     "wallclock_s": 10,
     "max_cost_usd": null,
-    "cost_usd": null
+    "cost_usd": null,
+    "cost_verified": false
   },
   "findings": {
     "blocker": 0,
