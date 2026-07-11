@@ -503,6 +503,7 @@ def validate_schemas() -> None:
     required_receipt_fields = {
         "finished_at",
         "consulted",
+        "self_model",
         "packet_hash",
         "analysis_hash",
         "findings",
