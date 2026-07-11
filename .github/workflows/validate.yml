@@ -22,6 +22,30 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-validation.txt
+
+      - name: Install validation dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-validation.txt
+
+      - name: Lint validator
+        run: ruff check scripts/validate_repository.py
+
+      - name: Type-check validator
+        run: mypy --strict scripts/validate_repository.py
 
       - name: Validate repository contracts
         run: python scripts/validate_repository.py
+
+      - name: Validate JSON Schema documents
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+
+          for path in sorted(Path("schemas").glob("*.schema.json")):
+              schema = json.loads(path.read_text(encoding="utf-8"))
+              Draft202012Validator.check_schema(schema)
+              print(f"{path}: valid")
+          PY
