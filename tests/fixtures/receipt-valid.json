@@ -1,0 +1,59 @@
+{
+  "schema_version": "0.2",
+  "run_id": "run-contract-valid",
+  "started_at": "2026-07-11T00:00:00Z",
+  "finished_at": "2026-07-11T00:00:10Z",
+  "state": "signed_off",
+  "verdict": "ship",
+  "topology": "review",
+  "preset": "fast",
+  "fused": true,
+  "consulted": false,
+  "cross_model": true,
+  "compound": false,
+  "task_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "packet_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "context_complete": true,
+  "requested_participants": [
+    "self",
+    "gpt-sol"
+  ],
+  "calls": [
+    {
+      "call_id": "call-1",
+      "handle": "gpt-sol",
+      "requested_model": "gpt-5.6-sol",
+      "effective_model": "gpt-5.6-sol",
+      "vendor": "openai",
+      "family": "gpt-5.6",
+      "mode": "xhigh",
+      "compound": false,
+      "worker_visibility": "not-applicable",
+      "status": "completed",
+      "duration_ms": 1000,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "output_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "analysis_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "budgets": {
+    "max_calls": 1,
+    "used_calls": 1,
+    "max_wallclock_s": 900,
+    "wallclock_s": 10,
+    "max_cost_usd": null,
+    "cost_usd": null
+  },
+  "findings": {
+    "blocker": 0,
+    "major": 0,
+    "minor": 0,
+    "confirmed_by_exec": 0,
+    "deadlocks": 0
+  },
+  "degradation_reasons": [],
+  "privacy": "metadata-only"
+}
