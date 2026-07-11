@@ -84,6 +84,14 @@ def as_nonnegative_number(value: Any, message: str) -> float:
     return float(value)
 
 
+def as_nonnegative_decimal(value: Any, message: str) -> Decimal:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ContractError(message)
+    if value < 0:
+        raise ContractError(message)
+    return Decimal(str(value))
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise ContractError(message)
@@ -242,13 +250,9 @@ def validate_budget_semantics(
             has_unknown_cost = True
             continue
         call_costs.append(
-            Decimal(
-                str(
-                    as_nonnegative_number(
-                        raw_call_cost,
-                        "call cost_usd must be null or nonnegative",
-                    )
-                )
+            as_nonnegative_decimal(
+                raw_call_cost,
+                "call cost_usd must be null or nonnegative",
             )
         )
 
@@ -274,13 +278,9 @@ def validate_budget_semantics(
             "a hard monetary budget cannot be verified with unknown call cost",
         )
     else:
-        aggregate_cost = Decimal(
-            str(
-                as_nonnegative_number(
-                    aggregate_cost_raw,
-                    "aggregate cost_usd must be known when call costs are known",
-                )
-            )
+        aggregate_cost = as_nonnegative_decimal(
+            aggregate_cost_raw,
+            "aggregate cost_usd must be known when call costs are known",
         )
         expected_cost = sum(call_costs, start=Decimal("0"))
         require(
@@ -292,13 +292,9 @@ def validate_budget_semantics(
             "cost_verified must be true when all call costs are known",
         )
         if max_cost_raw is not None:
-            max_cost = Decimal(
-                str(
-                    as_nonnegative_number(
-                        max_cost_raw,
-                        "max_cost_usd must be null or nonnegative",
-                    )
-                )
+            max_cost = as_nonnegative_decimal(
+                max_cost_raw,
+                "max_cost_usd must be null or nonnegative",
             )
             require(
                 aggregate_cost <= max_cost,
