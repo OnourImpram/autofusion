@@ -361,6 +361,7 @@ def validate_budget_semantics(
 
     call_costs: list[Decimal] = []
     has_unknown_cost = not calls
+    all_known_costs_verified = bool(calls)
     for raw_call in calls:
         call = as_object(raw_call, "each call must be an object")
         raw_call_cost = call.get("cost_usd")
@@ -399,6 +400,7 @@ def validate_budget_semantics(
                 "verified cost requires provider_usage_hash",
             )
         else:
+            all_known_costs_verified = False
             require(
                 cost_source == "unknown",
                 "unverified known cost must use unknown cost_source",
@@ -446,8 +448,8 @@ def validate_budget_semantics(
             "aggregate cost_usd must equal the sum of call costs",
         )
         require(
-            cost_verified is True,
-            "cost_verified must be true when all call costs are known",
+            cost_verified is all_known_costs_verified,
+            "aggregate cost_verified must match per-call cost verification",
         )
         if max_cost_raw is not None:
             max_cost = as_nonnegative_decimal(
