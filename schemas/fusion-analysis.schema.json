@@ -16,6 +16,7 @@
     "unique_insights",
     "blind_spots",
     "grounding_candidates",
+    "grounding_results",
     "decision_impact",
     "findings"
   ],
@@ -79,6 +80,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/groundingCandidate"
+      }
+    },
+    "grounding_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/groundingResult"
       }
     },
     "decision_impact": {
@@ -309,6 +316,37 @@
         "relevance": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "groundingResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_id",
+        "verification_id",
+        "verdict",
+        "exit_code",
+        "output_hash"
+      ],
+      "properties": {
+        "finding_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verdict": {
+          "enum": ["confirmed", "not-reproduced", "inconclusive"]
+        },
+        "exit_code": {
+          "type": ["integer", "null"]
+        },
+        "output_hash": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
         }
       }
     },
