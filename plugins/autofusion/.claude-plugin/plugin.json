@@ -1,15 +1,15 @@
 {
   "name": "autofusion",
   "displayName": "autofusion",
-  "version": "0.1.0",
-  "description": "Claude Code first cross model review, grounding, and receipt workflow skeleton.",
+  "version": "0.2.0-alpha.1",
+  "description": "Claude Code first adaptive cross model review, grounding, and receipt workflow.",
   "author": {
     "name": "Onour Impram"
   },
   "homepage": "https://github.com/OnourImpram/autofusion",
   "repository": "https://github.com/OnourImpram/autofusion",
   "license": "MIT",
-  "keywords": ["claude-code", "codex", "multi-model", "review", "verification"],
+  "keywords": ["claude-code", "codex", "multi-model", "model-routing", "review", "verification"],
   "skills": "./skills",
   "defaultEnabled": true
 }
