@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/OnourImpram/autofusion/main/schemas/fusion-receipt.schema.json",
+  "title": "autofusion run receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "started_at",
+    "state",
+    "verdict",
+    "topology",
+    "preset",
+    "fused",
+    "cross_model",
+    "compound",
+    "task_hash",
+    "snapshot_hash",
+    "context_complete",
+    "requested_participants",
+    "calls",
+    "budgets",
+    "degradation_reasons"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.2"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "state": {
+      "enum": [
+        "prepared",
+        "routed",
+        "frozen",
+        "dispatched",
+        "analyzed",
+        "grounded",
+        "reconciled",
+        "signed_off",
+        "escalated",
+        "degraded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "verdict": {
+      "enum": ["ship", "revise", "blocked", "degraded", "failed", "cancelled", "not-run"]
+    },
+    "topology": {
+      "enum": ["review", "adversarial-review", "dual-review", "panel-rank", "advisor"]
+    },
+    "preset": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fused": {
+      "type": "boolean"
+    },
+    "consulted": {
+      "type": "boolean"
+    },
+    "cross_model": {
+      "type": "boolean"
+    },
+    "compound": {
+      "type": "boolean"
+    },
+    "task_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "snapshot_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "packet_hash": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "context_complete": {
+      "type": "boolean"
+    },
+    "requested_participants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "calls": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/call"
+      }
+    },
+    "analysis_hash": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "budgets": {
+      "$ref": "#/$defs/budgets"
+    },
+    "findings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "blocker": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "major": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confirmed_by_exec": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deadlocks": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "degradation_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "privacy": {
+      "enum": ["metadata-only", "redacted", "local-full"]
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "call": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "call_id",
+        "handle",
+        "requested_model",
+        "effective_model",
+        "vendor",
+        "family",
+        "mode",
+        "compound",
+        "worker_visibility",
+        "status",
+        "duration_ms"
+      ],
+      "properties": {
+        "call_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "handle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effective_model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vendor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "compound": {
+          "type": "boolean"
+        },
+        "worker_visibility": {
+          "enum": ["transparent", "opaque", "not-applicable"]
+        },
+        "status": {
+          "enum": ["completed", "refused", "failed", "timed-out", "policy-blocked"]
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "output_hash": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_calls", "used_calls", "max_wallclock_s", "wallclock_s"],
+      "properties": {
+        "max_calls": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "used_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_wallclock_s": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "wallclock_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_cost_usd": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "cost_usd": {
+          "type": ["number", "null"],
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
