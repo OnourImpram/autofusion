@@ -72,6 +72,8 @@ Policies may redact or block:
 
 Raw prompts and source content are excluded from receipts by default. Metadata-only receipts are the safe default.
 
+A successful cross-model receipt records the canonical active **self_model** when Claude Code participates. It must also contain a completed, identity-resolved call for every required external participant. Handle aliases alone never prove model diversity.
+
 ## Model and provider restrictions
 
 Global policy defines allowed model handles and denied providers. Repository configuration may become more restrictive but cannot weaken the global policy.
