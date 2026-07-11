@@ -18,7 +18,7 @@ Expected forms:
 ~~~text
 /autofusion:fusion-parallel --panel external-council
 /autofusion:fusion-parallel --preset balanced --topology dual-review
-/autofusion:fusion-parallel --preset quality --artifact plan.json
+/autofusion:fusion-parallel --preset high --artifact plan.json
 ~~~
 
 ## Operating contract

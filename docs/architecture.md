@@ -53,9 +53,13 @@ Each callable profile declares:
 7. Read-only capability.
 8. Compound or single-model status.
 9. Worker visibility.
-10. Cost and latency metadata when available.
+10. Callable status and effective-identity allowlist.
+11. Privacy, parameter, region, and fallback constraints.
+12. Cost, latency, and throughput metadata when available.
 
 The first implementation targets codex-exec and claude-exec. OpenAI-compatible and Anthropic API transports follow after the review vertical slice.
+
+Provider fallback is safe only when the concrete effective model remains allowed and the resulting panel still satisfies context and independence quorum. Same-model endpoint fallback is the default. Different-model substitution requires explicit policy and cannot bypass a moderation or policy block.
 
 ## Compound execution
 
@@ -101,6 +105,12 @@ The router outputs:
 
 A future learned router may recommend a scaffold, but policy validation remains deterministic. Learned routing starts in shadow mode and cannot affect production outcomes until calibrated against receipts.
 
+## Trajectory state and communication
+
+A multi-step scaffold records selected models, subtasks, access lists, function-call ownership, and per-step routing decisions. Blind first passes keep tool traces isolated so one worker cannot collapse later workers onto its trajectory.
+
+Inter-workflow memory is not ambient chat history. It is hash-addressed, policy-approved input listed in the next packet manifest. Per-step routing and marginal-value stopping remain deterministic or shadow-only until outcome calibration is complete.
+
 ## Context compiler
 
 Reviewers must evaluate the same frozen artifact.
@@ -133,8 +143,9 @@ It does not erase provenance and does not assume agreement is truth. It produces
 4. Unique insights.
 5. Blind spots.
 6. Grounding candidates.
-7. Decision impact.
-8. Findings.
+7. Executed grounding results.
+8. Decision impact.
+9. Findings.
 
 For panel ranking, model identities are replaced by random proposal IDs. Pairwise comparisons run in both orders. Order-sensitive outcomes abstain.
 
@@ -151,7 +162,7 @@ The grounding runner resolves the ID from trusted policy, executes its argv arra
 5. timeout
 6. policy_blocked
 
-A passing test is weak negative evidence. A failing relevant assertion may strongly confirm a finding. Environment errors do not confirm the claim.
+A passing test is weak negative evidence. A failing relevant assertion may strongly confirm a finding. Environment errors do not confirm the claim. Candidate verification and executed grounding are separate records.
 
 ## State machine
 

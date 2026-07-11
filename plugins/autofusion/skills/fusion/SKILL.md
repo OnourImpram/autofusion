@@ -24,7 +24,7 @@ Expected forms:
 /autofusion:fusion migration --topology adversarial-review --reviewers gpt-sol-ultra,claude-fable
 ~~~
 
-Supported presets are fast, balanced, quality, budget, and adaptive.
+Supported presets are fast, balanced, high, quality, budget, and adaptive. Quality is a compatibility alias for high.
 
 Supported topologies are review, adversarial-review, dual-review, panel-rank, and advisor.
 

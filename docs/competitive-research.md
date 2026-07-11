@@ -42,7 +42,7 @@ OpenRouter Fusion runs a panel in parallel, gives responses to a judge, returns 
 
 The official product also exposes:
 
-1. Curated high, budget, and fast presets.
+1. Curated high and budget tiers. autofusion defines fast as its own latency-oriented preset.
 2. Explicit panel and judge overrides.
 3. A bounded panel size and bounded tool-call budget.
 4. Selective invocation when the base model decides a task warrants fusion.
@@ -61,7 +61,7 @@ Sources:
 ### Ideas adopted
 
 1. Structured analysis is separate from final synthesis.
-2. Explicit model settings override presets.
+2. Explicit model settings override presets only inside enclosing policy.
 3. Presets represent quality, cost, and latency tradeoffs.
 4. A bounded advisor consultation is distinct from a full fusion run.
 5. Every receipt records requested models, effective models, latency, and cost when available.

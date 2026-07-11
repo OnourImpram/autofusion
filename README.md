@@ -54,9 +54,10 @@ Unresolved blocker or major findings may receive one challenge and one rebuttal.
 
 1. fast uses one cross-model review round and avoids a second call unless a blocker remains.
 2. balanced uses blind GPT and Claude reviews with bounded concurrency.
-3. quality uses the strongest configured profiles and adversarial review.
-4. budget minimizes additional paid API usage but never promises universal zero cost.
-5. adaptive chooses only among operator-approved presets and may escalate upward. It cannot silently downgrade a hard safety gate.
+3. high uses the strongest configured profiles and adversarial review.
+4. quality is a compatibility alias for high.
+5. budget minimizes additional paid API usage but never promises universal zero cost.
+6. adaptive chooses only among operator-approved presets and may escalate upward. It cannot silently downgrade a hard safety gate.
 
 Explicit topology and reviewer settings override a preset only inside immutable global policy, privacy, model, recursion, and budget limits.
 
@@ -70,7 +71,8 @@ The panel analyzer does not simply merge prose. It reports:
 4. Reviewer-specific insights.
 5. Blind spots.
 6. Grounding candidates.
-7. Decision impact.
+7. Executed grounding results.
+8. Decision impact.
 
 Agreement is not automatically confidence. Correlated models may agree for the same wrong reason. Evidence strength and reviewer independence remain separate fields.
 
@@ -82,7 +84,7 @@ The adaptive scaffold design is informed by Sakana Fugu, Trinity, and Conductor.
 
 autofusion differs in its operating target. It is repository-aware, Claude Code first, verification-oriented, and explicit about the non-callable self boundary. It also refuses to count opaque hidden workers as independent evidence and refuses to present a degraded single-model answer as fused.
 
-See [competitive research](docs/competitive-research.md) for the source analysis and adoption boundaries.
+See [competitive research](docs/competitive-research.md) for the source analysis and adoption boundaries. See [product differentiators](docs/product-differentiators.md) for the independently designed proof, routing, evaluation, and fault-testing roadmap.
 
 ## Install from Claude Code
 
@@ -120,6 +122,7 @@ Implemented now:
 4. JSON schemas for panel analysis and receipts.
 5. Repository validation workflow.
 6. Research-backed competitive design notes.
+7. Strict receipt and analysis provenance validators with adversarial fixtures.
 
 Not yet implemented:
 

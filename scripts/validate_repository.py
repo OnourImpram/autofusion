@@ -24,6 +24,7 @@ REQUIRED_PATHS = (
     ROOT / "tests" / "fixtures" / "receipt-valid.json",
     ROOT / "tests" / "fixtures" / "analysis-valid.json",
     ROOT / "docs" / "competitive-research.md",
+    ROOT / "docs" / "product-differentiators.md",
     ROOT / "docs" / "fusion-topologies.md",
 )
 

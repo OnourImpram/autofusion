@@ -31,9 +31,13 @@ Use one independent reviewer, one round, and conditional signoff only for blocke
 
 Use two blind reviewers from different model families where possible. Preserve separate provenance and run them with bounded concurrency.
 
-### quality
+### high
 
 Use the strongest allowed profiles, adversarial role cards, full signoff, and stricter human escalation.
+
+### quality
+
+Compatibility alias for high. New configurations should use high.
 
 ### budget
 
@@ -113,11 +117,13 @@ The future engine follows this bounded sequence:
 5. Assign targeted roles.
 6. Validate model capability and context quorum.
 7. Record the scaffold plan.
-8. Dispatch independent calls.
-9. Produce structured panel analysis.
-10. Ground eligible findings.
-11. Reconcile and sign off.
-12. Stop as ship, revise, blocked, degraded, failed, cancelled, or not-run.
+8. Declare the subtask access list and function-call ownership.
+9. Dispatch isolated first-pass calls.
+10. Route later steps only through the approved communication graph.
+11. Produce structured panel analysis.
+12. Ground eligible findings.
+13. Reconcile and sign off.
+14. Stop as ship, revise, blocked, degraded, failed, cancelled, or not-run.
 
 The scaffold plan records why each role and model was selected. Model-written routing remains advisory until the deterministic policy validates it.
 
@@ -157,10 +163,19 @@ The analysis schema includes:
 4. unique_insights
 5. blind_spots
 6. grounding_candidates
-7. decision_impact
-8. findings
+7. grounding_results
+8. decision_impact
+9. findings
 
 Consensus records overlap only. Evidence strength is evaluated separately.
+
+## Communication and memory
+
+Each adaptive scaffold declares a directed access list. A participant sees only the frozen packet, its own tool trace, and explicitly approved predecessor outputs. Every function call retains its participant owner.
+
+Current-workflow tool traces remain isolated to preserve independent solution paths. Memory from earlier workflows is shared only when it is hash-addressed, policy-approved, and listed in the context manifest.
+
+Per-step routing may switch workers at critical trajectory points. Before calibration, model-written routing is advisory and deterministic policy remains authoritative.
 
 ## Context quorum
 
@@ -176,6 +191,14 @@ The context compiler prioritizes:
 6. Optional supporting documentation.
 
 If required context is truncated, the receipt records context_complete false and the run cannot silently claim a complete review.
+
+## Provider fallback and output repair
+
+Same-model endpoint fallback may handle rate limits, provider unavailability, and timeouts. A different-model fallback requires explicit policy. Every fallback revalidates effective identity, required parameters, privacy policy, context capacity, and model independence.
+
+Policy blocks, moderation blocks, and unverified identities never trigger fallback. Session stickiness may apply within one run, but not across evaluation runs.
+
+Structured output receives at most one syntax-only repair. The original and repaired payloads are hashed. A semantic-field change fails the run.
 
 ## Compound providers
 

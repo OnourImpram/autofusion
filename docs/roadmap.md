@@ -4,11 +4,13 @@
 
 1. Replace obsolete model examples with gpt-5.6-sol xhigh and ultra profiles.
 2. Add Claude Opus 4.8 and Fable 5 profiles.
-3. Add fast, balanced, quality, budget, and adaptive presets.
+3. Add fast, balanced, high, quality compatibility, budget, and adaptive presets.
 4. Define review, adversarial-review, dual-review, panel-rank, and advisor contracts.
 5. Define structured panel analysis and receipt schemas.
 6. Document Fugu and OpenRouter research adoption boundaries.
 7. Add repository structure validation.
+8. Add attested identity, exact cost, participant provenance, and executed-grounding contract validation.
+9. Add per-step routing, access-list communication, safe provider fallback, and semantic-safe output repair contracts.
 
 Exit criteria: the plugin and documentation expose a coherent, truthful target contract and do not claim the engine already exists.
 
@@ -48,8 +50,11 @@ Exit criteria:
 8. Add record and replay for provider calls.
 9. Add base versus head differential grounding.
 10. Add optional OpenAI-compatible and Anthropic API transports.
-11. Add OpenRouter Fusion and Sakana Fugu as disabled comparison profiles.
-12. Add tamper-evident receipt chaining and opt-in telemetry.
+11. Add provider capability negotiation, ZDR and data-policy routing, p90 latency and throughput evidence, and fallback quorum rechecks.
+12. Add explicit communication graphs, tool-trace ownership, and hash-addressed role memory.
+13. Add syntax-only structured-output repair with semantic delta detection.
+14. Add OpenRouter Fusion and Sakana Fugu as disabled comparison profiles.
+15. Add tamper-evident receipt chaining and opt-in telemetry.
 
 Exit criteria:
 
@@ -73,8 +78,9 @@ Exit criteria: cross-model review demonstrates positive verified outcome value b
 
 ## 1.0: production hardening
 
-1. Add a calibrated adaptive router.
-2. Add disposable strong-isolation executors.
+1. Add a calibrated, correlation-aware adaptive router.
+2. Add marginal-value stopping after a successful shadow evaluation.
+3. Add disposable strong-isolation executors.
 3. Add capability-brokered credentials.
 4. Add signed policy bundles and release provenance.
 5. Add SBOM and dependency review.

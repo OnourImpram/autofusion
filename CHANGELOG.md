@@ -8,7 +8,7 @@ All notable changes to autofusion are recorded here.
 
 1. GPT 5.6 Sol xhigh and Sol Ultra profile contracts.
 2. Claude Opus 4.8 and Claude Fable 5 profile contracts.
-3. Fast, balanced, quality, budget, and adaptive presets.
+3. Fast, balanced, high, quality compatibility, budget, and adaptive presets.
 4. Review, adversarial review, dual review, panel rank, and advisor topology contracts.
 5. Thinker, Worker, Reviewer, Verifier, Adversary, and Judge role cards.
 6. Structured fusion analysis for agreement, contradictions, partial coverage, unique insights, blind spots, grounding candidates, and decision impact.
@@ -18,6 +18,9 @@ All notable changes to autofusion are recorded here.
 10. Competitive research notes for Sakana Fugu, Trinity, Conductor, and OpenRouter Fusion.
 11. Repository contract validator and GitHub Actions validation.
 12. Positive and adversarial receipt fixtures for state, identity, participant quorum, and budget invariants.
+13. Analysis provenance and executed-grounding fixtures.
+14. Per-step routing, access-list communication, safe provider fallback, and semantic-safe output repair contracts.
+15. Product differentiation roadmap for evidence graphs, independence budgets, replay, calibration, and fault testing.
 
 ### Changed
 
