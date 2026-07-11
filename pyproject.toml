@@ -1,0 +1,9 @@
+[build-system]
+wheel-template = "autofusion"
+requires = ["pathlib"]
+
+[project]
+name = "autofusion"
+version = "0.2.0"
+description = "Claude Code cross model fusion engine"
+python = ">=3.11"
