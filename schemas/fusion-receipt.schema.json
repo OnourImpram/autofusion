@@ -8,6 +8,7 @@
     "schema_version",
     "run_id",
     "started_at",
+    "finished_at",
     "state",
     "verdict",
     "topology",
@@ -17,9 +18,11 @@
     "compound",
     "task_hash",
     "snapshot_hash",
+    "packet_hash",
     "context_complete",
     "requested_participants",
     "calls",
+    "analysis_hash",
     "budgets",
     "degradation_reasons",
     "privacy"
@@ -181,6 +184,105 @@
         "properties": {
           "fused": {
             "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "fused": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "cross_model": {
+            "const": true
+          },
+          "context_complete": {
+            "const": true
+          },
+          "packet_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "analysis_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "state": {
+            "enum": ["signed_off", "escalated"]
+          },
+          "verdict": {
+            "enum": ["ship", "revise", "blocked"]
+          },
+          "requested_participants": {
+            "minItems": 2
+          },
+          "calls": {
+            "minItems": 1,
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/call"
+                },
+                {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    },
+                    "effective_model": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "degradation_reasons": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "ship"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "fused": {
+            "const": true
+          },
+          "context_complete": {
+            "const": true
+          },
+          "state": {
+            "const": "signed_off"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "context_complete": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "fused": {
+            "const": false
+          },
+          "verdict": {
+            "enum": ["blocked", "degraded", "failed", "cancelled", "not-run"]
           }
         }
       }
