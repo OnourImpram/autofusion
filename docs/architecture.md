@@ -71,6 +71,8 @@ A receipt distinguishes:
 
 Compound execution is not automatically cross-model fusion.
 
+Cross-model status is derived from canonical resolved model identities, not handle names. A self-driven receipt records the active Claude session as **self_model**. A successful fused receipt also requires at least one completed call from every required external participant.
+
 ## Adaptive orchestration
 
 The initial router is deterministic.
