@@ -48,6 +48,7 @@ REQUIRED_ANALYSIS_SECTIONS = {
     "unique_insights",
     "blind_spots",
     "grounding_candidates",
+    "grounding_results",
     "decision_impact",
 }
 
