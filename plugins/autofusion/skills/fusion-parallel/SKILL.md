@@ -9,7 +9,7 @@ Use this skill when the active Claude Code session should not act as self or whe
 
 ## Current repository status
 
-The repository is a pre-engine alpha. If the autofusion CLI is unavailable, do not claim a parallel panel ran.
+The repository is a pre-engine alpha. This plugin is a skill-only protocol and does not provide batch execution, model transports, grounding, or receipt persistence by itself. If the autofusion CLI or another verified callable route is unavailable, do not claim a parallel panel ran.
 
 ## Invocation
 
@@ -41,17 +41,18 @@ Expected forms:
 
 1. Load global and repository configuration.
 2. Resolve explicit settings over presets.
-3. Validate panel membership, capability, independence, and policy.
+3. Validate panel membership, capability, independence, provider policy, and data policy.
 4. Freeze the artifact and compile the packet.
-5. Verify context quorum.
-6. Record the scaffold plan.
-7. Dispatch independent participants.
-8. Produce the fusion analysis schema.
-9. For panel-rank, blind proposal identities and compare in both orders.
-10. Abstain when ordering changes the winner.
-11. Ground eligible findings through trusted verification IDs.
-12. Persist the receipt.
-13. Return the final state.
+5. Apply DLP, prompt-injection policy, and operator approval before external dispatch.
+6. Verify context quorum.
+7. Record the scaffold plan.
+8. Dispatch independent participants only through verified callable routes.
+9. Produce the fusion analysis schema.
+10. For panel-rank, blind proposal identities and compare in both orders.
+11. Abstain when ordering changes the winner.
+12. Ground eligible findings through trusted verification IDs only when a real grounding runner exists.
+13. Persist the receipt only when verified helper tooling exists.
+14. Return the final state.
 
 ## Output shape
 
