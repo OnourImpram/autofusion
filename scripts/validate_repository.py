@@ -533,6 +533,8 @@ def validate_schemas() -> None:
         "finished_at",
         "consulted",
         "self_model",
+        "self_identity_source",
+        "self_identity_hash",
         "packet_hash",
         "analysis_hash",
         "findings",
