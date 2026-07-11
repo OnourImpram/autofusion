@@ -665,8 +665,12 @@ def validate_grounding(
             "grounding result runner_attestation_hash must be present",
         )
         if verdict == "confirmed":
+            runner_attestation_hash = as_string(
+                result.get("runner_attestation_hash"),
+                "runner attestation hash must be a string",
+            )
             runner_attestation = as_object(
-                trusted_section("runner").get(result.get("runner_attestation_hash")),
+                trusted_section("runner").get(runner_attestation_hash),
                 "confirmed grounding requires trusted runner evidence",
             )
             require(
