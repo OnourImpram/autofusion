@@ -1,41 +1,182 @@
 # Architecture
 
-autofusion separates orchestration from callable helpers.
+autofusion separates the active agent, adaptive orchestration, callable transports, evidence, and run accounting.
+
+~~~mermaid
+flowchart TD
+    A[Claude Code skill or external CLI] --> B[Policy and adaptive router]
+    B --> C[Context compiler and immutable snapshot]
+    C --> D[Scaffold plan]
+    D --> E[Callable model providers]
+    E --> F[Structured panel analyzer]
+    F --> G[Grounding sandbox]
+    G --> H[Finding and disposition ledger]
+    H --> I[Receipt and final state]
+~~~
 
 ## Layers
 
-1. Claude Code plugin skills define the operator workflow.
-2. The fusion engine coordinates review, panel, and future architect editor topologies.
-3. The provider layer exposes one uniform completion interface for callable models.
-4. The grounding layer runs only approved project verification commands.
-5. The judge layer reconciles structured findings with evidence.
-6. The receipt layer records every run, including degraded runs.
+1. Claude Code skills define the operator-facing workflow.
+2. The policy layer applies model allowlists, provider restrictions, privacy rules, budgets, and hard risk gates.
+3. The adaptive router selects an approved preset and topology.
+4. The context compiler freezes the artifact and builds one hash-addressed packet.
+5. The scaffold planner assigns bounded roles and records the plan before model dispatch.
+6. The provider layer exposes one completion interface for callable profiles.
+7. The panel analyzer preserves agreement, disagreement, coverage, unique insight, and blind spots.
+8. The grounding sandbox runs only approved verification IDs.
+9. The finding ledger records claims, evidence, provenance, dispositions, and unresolved conflicts.
+10. The receipt layer records requested and effective execution, including failed and degraded runs.
 
-## The `self` boundary
+## The self boundary
 
-The active Claude Code session is not a transport. It is the agent running the workflow. That means `self` can draft, reconcile, and decide what to do next, but a Python process cannot call it as a model endpoint.
+The active Claude Code session is not a transport. It is the agent running the workflow.
 
-This boundary creates two execution modes.
+self may draft, reconcile, and make the final operator-facing recommendation. A Python process cannot invoke the active session as a model endpoint.
 
-1. Claude Code driven review mode. The active session is the drafter. Helpers call external reviewers and write evidence.
-2. Fully external panel mode. All participants are callable through transports, so a CLI can run the whole loop without a live Claude Code session.
+This boundary produces two execution models:
 
-## Initial transports
+1. Claude Code driven mode. self is the drafter and reconciler. Helpers call external reviewers and evidence services.
+2. Fully external mode. Every participant is callable, so the engine can run without an active Claude Code session.
 
-The first target transport is `codex-exec`. It should call Codex non interactively with read only sandboxing, structured output where available, and no persistent session requirement.
+A fully external panel containing self is invalid at configuration time.
 
-Later transports may include Anthropic API, OpenAI compatible endpoints, OpenRouter, local gateways, and organization specific model routers.
+## Provider profile contract
 
-## Topologies
+Each callable profile declares:
 
-### Review
+1. Handle and effective model.
+2. Vendor and model family.
+3. Transport.
+4. Reasoning or execution mode.
+5. Context access mode.
+6. Structured output capability.
+7. Read-only capability.
+8. Compound or single-model status.
+9. Worker visibility.
+10. Cost and latency metadata when available.
 
-The default topology is cross model review. A drafter produces a plan, answer, or diff. A reviewer returns structured findings. Checkable findings are grounded through approved commands. The drafter reconciles. Unresolved blocker and major deadlocks escalate to the operator.
+The first implementation targets codex-exec and claude-exec. OpenAI-compatible and Anthropic API transports follow after the review vertical slice.
 
-### Panel
+## Compound execution
 
-The panel topology asks multiple callable models to propose or review independently. An aggregator synthesizes the result. This mode costs more and is intended for batch, CI, or unusually consequential decisions.
+gpt-sol-ultra, OpenRouter Fusion, and Sakana Fugu may coordinate hidden workers. The provider contract represents each compound system as one participant unless it returns verifiable worker provenance.
 
-### Architect editor
+A receipt distinguishes:
 
-The architect editor topology is reserved for later work. An architect produces reasoning and constraints. An editor turns that into diffs. This is not part of the first vertical slice.
+1. Single model execution.
+2. Same-family replication.
+3. Cross-model review.
+4. Opaque compound execution.
+5. Successful fusion.
+
+Compound execution is not automatically cross-model fusion.
+
+## Adaptive orchestration
+
+The initial router is deterministic.
+
+It evaluates:
+
+1. Artifact kind.
+2. Reversibility.
+3. Verification strength.
+4. Sensitive file patterns.
+5. Cross-module scope.
+6. Transport availability.
+7. Context quorum.
+8. Latency and cost budgets.
+
+The router outputs:
+
+1. Minimum allowed preset.
+2. Selected preset.
+3. Topology.
+4. Roles.
+5. Required model independence.
+6. Budget.
+7. Hard gates and reasons.
+8. Fallback policy.
+
+A future learned router may recommend a scaffold, but policy validation remains deterministic. Learned routing starts in shadow mode and cannot affect production outcomes until calibrated against receipts.
+
+## Context compiler
+
+Reviewers must evaluate the same frozen artifact.
+
+The packet includes:
+
+1. Task.
+2. Operator constraints.
+3. Artifact.
+4. Repository snapshot identity.
+5. Relevant files and tests.
+6. Applicable repository instructions.
+7. Verification registry.
+8. Focus role.
+9. Packet and content hashes.
+
+Repository access is implemented against an immutable snapshot rather than the live working tree. API-only models receive a packet derived from the same snapshot.
+
+Context limits are evaluated across all required participants. If the complete mandatory packet does not fit every member, the run fails context quorum or selects a policy-approved smaller scaffold.
+
+## Structured panel analyzer
+
+The analyzer receives independent outputs after all required first-pass calls complete.
+
+It does not erase provenance and does not assume agreement is truth. It produces the fusion analysis schema with:
+
+1. Consensus.
+2. Contradictions.
+3. Partial coverage.
+4. Unique insights.
+5. Blind spots.
+6. Grounding candidates.
+7. Decision impact.
+8. Findings.
+
+For panel ranking, model identities are replaced by random proposal IDs. Pairwise comparisons run in both orders. Order-sensitive outcomes abstain.
+
+## Grounding
+
+A reviewer may name a verification ID. It may not provide executable command text.
+
+The grounding runner resolves the ID from trusted policy, executes its argv array without a shell, captures bounded output, and classifies the result:
+
+1. confirmed
+2. not_reproduced
+3. inconclusive
+4. environment_error
+5. timeout
+6. policy_blocked
+
+A passing test is weak negative evidence. A failing relevant assertion may strongly confirm a finding. Environment errors do not confirm the claim.
+
+## State machine
+
+A run moves through explicit states:
+
+1. prepared
+2. routed
+3. frozen
+4. dispatched
+5. analyzed
+6. grounded
+7. reconciled
+8. signed_off
+9. escalated
+10. degraded
+11. failed
+12. cancelled
+
+Terminal product verdicts are ship, revise, blocked, degraded, failed, cancelled, and not-run.
+
+## Configuration precedence
+
+Configuration merges in this order:
+
+1. Built-in safe defaults.
+2. Global user policy.
+3. Repository configuration approved by the operator.
+4. Explicit CLI or skill arguments.
+
+A more local layer may select among permitted models and presets. It may not weaken global deny rules, privacy constraints, maximum depth, or execution limits.
