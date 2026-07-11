@@ -38,6 +38,7 @@ REQUIRED_MODELS = {
 REQUIRED_PRESETS = {
     "fast",
     "balanced",
+    "high",
     "quality",
     "budget",
     "adaptive",
@@ -418,6 +419,123 @@ def validate_config_graph(
     )
 
 
+def validate_extended_orchestration(config: dict[str, Any]) -> None:
+    orchestration = as_object(
+        config.get("orchestration"),
+        "orchestration must be an object",
+    )
+    require(
+        orchestration.get("max_workflow_steps") == 5,
+        "max_workflow_steps must remain bounded at five",
+    )
+    require(
+        orchestration.get("per_step_routing") is True,
+        "per-step routing contract must remain enabled",
+    )
+    require(
+        orchestration.get("communication_graph") == "explicit-access-list",
+        "agent communication must use explicit access lists",
+    )
+    require(
+        orchestration.get("intra_workflow_tool_trace_isolation") is True,
+        "agent tool traces must remain isolated within a workflow",
+    )
+    require(
+        orchestration.get("inter_workflow_memory")
+        == "hash-addressed-approved-only",
+        "shared memory must be hash-addressed and approved",
+    )
+    require(
+        orchestration.get("function_call_owner_required") is True,
+        "every function call must retain its agent owner",
+    )
+    require(
+        orchestration.get("marginal_value_stop") == "shadow",
+        "marginal-value stopping must remain shadow-only in alpha",
+    )
+
+    provider = as_object(
+        config.get("provider_routing"),
+        "provider_routing must be an object",
+    )
+    require(
+        provider.get("allow_fallbacks") is True
+        and provider.get("fallback_scope") == "same-model-endpoint",
+        "fallbacks must remain limited to same-model endpoints by default",
+    )
+    require(
+        provider.get("model_fallback_requires_explicit_policy") is True,
+        "model fallback must require explicit policy",
+    )
+    require(
+        set(
+            as_string_list(
+                provider.get("fallback_on"),
+                "provider fallback_on must be a string array",
+            )
+        )
+        == {"rate-limit", "provider-unavailable", "timeout"},
+        "provider fallback triggers changed unexpectedly",
+    )
+    require(
+        set(
+            as_string_list(
+                provider.get("never_fallback_on"),
+                "provider never_fallback_on must be a string array",
+            )
+        )
+        == {"policy-blocked", "moderation-blocked", "identity-unverified"},
+        "provider fallback deny reasons changed unexpectedly",
+    )
+    require(
+        provider.get("require_parameters") is True,
+        "provider routing must require requested parameters",
+    )
+    require(
+        provider.get("effective_identity_recheck") is True
+        and provider.get("quorum_recheck_after_fallback") is True,
+        "fallback must recheck effective identity and quorum",
+    )
+    require(
+        provider.get("data_collection") == "deny"
+        and provider.get("zdr") == "policy-required",
+        "provider routing must preserve data policy",
+    )
+    thresholds = as_object(
+        provider.get("performance_thresholds"),
+        "provider performance_thresholds must be an object",
+    )
+    require(
+        thresholds.get("latency_percentile") == "p90"
+        and thresholds.get("throughput_percentile") == "p90",
+        "provider performance thresholds must use p90 evidence",
+    )
+    stickiness = as_object(
+        provider.get("session_stickiness"),
+        "provider session_stickiness must be an object",
+    )
+    require(
+        stickiness.get("within_run") is True
+        and stickiness.get("across_runs") is False,
+        "session stickiness must not create cross-run correlation",
+    )
+
+    repair = as_object(
+        config.get("output_repair"),
+        "output_repair must be an object",
+    )
+    require(
+        repair.get("max_attempts") == 1
+        and repair.get("syntax_only") is True,
+        "output repair must be bounded and syntax-only",
+    )
+    require(
+        repair.get("record_original_hash") is True
+        and repair.get("record_repaired_hash") is True
+        and repair.get("fail_on_semantic_delta") is True,
+        "output repair must preserve hashes and fail on semantic delta",
+    )
+
 def validate_config() -> None:
     config = load_json(ROOT / ".fusion.example.json")
     models = as_object(config.get("models"), "models must be an object")
@@ -496,6 +614,7 @@ def validate_config() -> None:
     )
 
     validate_config_graph(config, models, presets, panels)
+    validate_extended_orchestration(config)
 
     analysis = as_object(config.get("analysis"), "analysis must be an object")
     required_sections = as_string_list(
