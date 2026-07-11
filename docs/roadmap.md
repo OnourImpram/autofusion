@@ -81,13 +81,13 @@ Exit criteria: cross-model review demonstrates positive verified outcome value b
 1. Add a calibrated, correlation-aware adaptive router.
 2. Add marginal-value stopping after a successful shadow evaluation.
 3. Add disposable strong-isolation executors.
-3. Add capability-brokered credentials.
-4. Add signed policy bundles and release provenance.
-5. Add SBOM and dependency review.
-6. Add GitHub pull request checks and annotations.
-7. Add drift monitoring for models, prompts, judges, and provider capabilities.
-8. Add architect-editor only after a separate mutation-safety proof.
-9. Add external replication for the main product claim.
+4. Add capability-brokered credentials.
+5. Add signed policy bundles and release provenance.
+6. Add SBOM and dependency review.
+7. Add GitHub pull request checks and annotations.
+8. Add drift monitoring for models, prompts, judges, and provider capabilities.
+9. Add architect-editor only after a separate mutation-safety proof.
+10. Add external replication for the main product claim.
 
 Exit criteria: the engine, plugin, schemas, security controls, and evaluation evidence support a stable release without relying on hidden or unverifiable behavior.
 
