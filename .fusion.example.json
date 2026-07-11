@@ -136,7 +136,14 @@
       "signoff": "conditional",
       "latency_class": "balanced"
     },
+    "high": {
+      "panel": "quality",
+      "max_rounds": 2,
+      "signoff": "required",
+      "latency_class": "quality-first"
+    },
     "quality": {
+      "alias_for": "high",
       "panel": "quality",
       "max_rounds": 2,
       "signoff": "required",
@@ -229,6 +236,50 @@
       },
       "count_hidden_workers_as_independent": false
     }
+  },
+  "orchestration": {
+    "max_workflow_steps": 5,
+    "per_step_routing": true,
+    "communication_graph": "explicit-access-list",
+    "intra_workflow_tool_trace_isolation": true,
+    "inter_workflow_memory": "hash-addressed-approved-only",
+    "function_call_owner_required": true,
+    "marginal_value_stop": "shadow"
+  },
+  "provider_routing": {
+    "allow_fallbacks": true,
+    "fallback_scope": "same-model-endpoint",
+    "model_fallback_requires_explicit_policy": true,
+    "fallback_on": [
+      "rate-limit",
+      "provider-unavailable",
+      "timeout"
+    ],
+    "never_fallback_on": [
+      "policy-blocked",
+      "moderation-blocked",
+      "identity-unverified"
+    ],
+    "require_parameters": true,
+    "effective_identity_recheck": true,
+    "quorum_recheck_after_fallback": true,
+    "data_collection": "deny",
+    "zdr": "policy-required",
+    "performance_thresholds": {
+      "latency_percentile": "p90",
+      "throughput_percentile": "p90"
+    },
+    "session_stickiness": {
+      "within_run": true,
+      "across_runs": false
+    }
+  },
+  "output_repair": {
+    "max_attempts": 1,
+    "syntax_only": true,
+    "record_original_hash": true,
+    "record_repaired_hash": true,
+    "fail_on_semantic_delta": true
   },
   "analysis": {
     "schema": "schemas/fusion-analysis.schema.json",
