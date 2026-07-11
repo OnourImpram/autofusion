@@ -265,6 +265,7 @@
     "quorum_recheck_after_fallback": true,
     "data_collection": "deny",
     "zdr": "policy-required",
+    "region": "policy-required",
     "performance_thresholds": {
       "latency_percentile": "p90",
       "throughput_percentile": "p90"
@@ -279,7 +280,15 @@
     "syntax_only": true,
     "record_original_hash": true,
     "record_repaired_hash": true,
-    "fail_on_semantic_delta": true
+    "fail_on_semantic_delta": true,
+    "protected_fields": [
+      "agreement_strength",
+      "decision_impact",
+      "finding_status",
+      "severity",
+      "source_ids",
+      "verification_id"
+    ]
   },
   "analysis": {
     "schema": "schemas/fusion-analysis.schema.json",

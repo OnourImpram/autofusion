@@ -499,8 +499,9 @@ def validate_extended_orchestration(config: dict[str, Any]) -> None:
     )
     require(
         provider.get("data_collection") == "deny"
-        and provider.get("zdr") == "policy-required",
-        "provider routing must preserve data policy",
+        and provider.get("zdr") == "policy-required"
+        and provider.get("region") == "policy-required",
+        "provider routing must preserve data and region policy",
     )
     thresholds = as_object(
         provider.get("performance_thresholds"),
@@ -535,6 +536,23 @@ def validate_extended_orchestration(config: dict[str, Any]) -> None:
         and repair.get("record_repaired_hash") is True
         and repair.get("fail_on_semantic_delta") is True,
         "output repair must preserve hashes and fail on semantic delta",
+    )
+    require(
+        set(
+            as_string_list(
+                repair.get("protected_fields"),
+                "output_repair.protected_fields must be a string array",
+            )
+        )
+        == {
+            "agreement_strength",
+            "decision_impact",
+            "finding_status",
+            "severity",
+            "source_ids",
+            "verification_id",
+        },
+        "output repair protected fields changed unexpectedly",
     )
 
 def validate_config() -> None:

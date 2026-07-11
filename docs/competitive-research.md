@@ -19,6 +19,9 @@ Sources:
 2. [Sakana Fugu technical report](https://arxiv.org/abs/2606.21228)
 3. [TRINITY: An Evolved LLM Coordinator](https://arxiv.org/abs/2512.04695)
 4. [Learning to Orchestrate Agents in Natural Language with the Conductor](https://arxiv.org/abs/2512.04388)
+5. [SakanaAI/fugu public repository](https://github.com/SakanaAI/fugu)
+
+At the 11 July 2026 audit, GitHub metadata for the public SakanaAI/fugu repository reported no declared license. No repository code, prompts, or distinctive text are copied. Only public architectural concepts are independently reimplemented. The technical paper has its own publication license and is used as a cited research source.
 
 ### Ideas adopted
 
