@@ -324,10 +324,10 @@ def validate_receipt_semantics(
         )
         if call.get("status") == "completed":
             completed_handles.add(handle)
-            require(
-                effective_model is not None,
-                f"completed call {handle} lacks effective model identity",
-            )
+            if effective_model is None:
+                raise ContractError(
+                    f"completed call {handle} lacks effective model identity"
+                )
             resolved_models.add(effective_model)
 
     require(
