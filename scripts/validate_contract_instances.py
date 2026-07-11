@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
@@ -107,16 +108,31 @@ def validate_schema_instance(
         )
 
 
-def canonicalize_model_identity(
+def allowed_model_identities(model: dict[str, Any]) -> set[str]:
+    identities: set[str] = set()
+    for key in ("model", "canonical_model"):
+        value = model.get(key)
+        if isinstance(value, str) and value:
+            identities.add(value)
+    aliases_raw = model.get("effective_model_aliases")
+    if aliases_raw is not None:
+        identities.update(
+            as_string_list(
+                aliases_raw,
+                "effective_model_aliases must be a string array",
+            )
+        )
+    return identities
+
+
+def canonicalize_handle_identity(
     identity: str,
-    models: dict[str, Any],
+    model: dict[str, Any],
 ) -> str:
-    for raw_model in models.values():
-        model = as_object(raw_model, "each model must be an object")
-        alias = model.get("model")
-        canonical = model.get("canonical_model")
-        if identity == alias and isinstance(canonical, str) and canonical:
-            return canonical
+    alias = model.get("model")
+    canonical = model.get("canonical_model")
+    if identity == alias and isinstance(canonical, str) and canonical:
+        return canonical
     return identity
 
 
@@ -130,6 +146,10 @@ def validate_call_registry(
     require(handle in participants, f"call handle {handle} was not requested")
     require(handle in models, f"call handle {handle} is absent from the registry")
     model = as_object(models[handle], f"model {handle} must be an object")
+    require(
+        model.get("callable") is True,
+        f"call handle {handle} is not callable",
+    )
 
     requested_model = as_string(
         call.get("requested_model"),
@@ -169,23 +189,24 @@ def validate_call_registry(
     )
 
     raw_effective_model = call.get("effective_model")
-    effective_model = (
-        None
-        if raw_effective_model is None
-        else canonicalize_model_identity(
-            as_string(
-                raw_effective_model,
-                f"call {handle} effective_model must be a string or null",
-            ),
-            models,
-        )
+    if raw_effective_model is None:
+        return handle, None
+
+    effective_model = as_string(
+        raw_effective_model,
+        f"call {handle} effective_model must be a string or null",
     )
-    return handle, effective_model
+    allowed_identities = allowed_model_identities(model)
+    require(
+        effective_model in allowed_identities,
+        f"call {handle} effective_model is not allowed by the registry",
+    )
+    return handle, canonicalize_handle_identity(effective_model, model)
 
 def validate_budget_semantics(
     receipt: dict[str, Any],
     config: dict[str, Any],
-    call_count: int,
+    calls: list[Any],
 ) -> None:
     budgets = as_object(receipt.get("budgets"), "budgets must be an object")
     max_calls = as_positive_int(
@@ -205,28 +226,84 @@ def validate_budget_semantics(
         "wallclock_s must be a nonnegative number",
     )
 
-    require(used_calls == call_count, "used_calls must equal the call record count")
+    require(
+        used_calls == len(calls),
+        "used_calls must equal the call record count",
+    )
     require(used_calls <= max_calls, "used_calls exceeds max_calls")
     require(wallclock <= max_wallclock, "wallclock_s exceeds max_wallclock_s")
 
-    max_cost_raw = budgets.get("max_cost_usd")
-    cost_raw = budgets.get("cost_usd")
-    if max_cost_raw is not None:
-        max_cost = as_nonnegative_number(
-            max_cost_raw,
-            "max_cost_usd must be null or a nonnegative number",
-        )
-        if cost_raw is not None:
-            cost = as_nonnegative_number(
-                cost_raw,
-                "cost_usd must be null or a nonnegative number",
+    call_costs: list[Decimal] = []
+    has_unknown_cost = not calls
+    for raw_call in calls:
+        call = as_object(raw_call, "each call must be an object")
+        raw_call_cost = call.get("cost_usd")
+        if raw_call_cost is None:
+            has_unknown_cost = True
+            continue
+        call_costs.append(
+            Decimal(
+                str(
+                    as_nonnegative_number(
+                        raw_call_cost,
+                        "call cost_usd must be null or nonnegative",
+                    )
+                )
             )
-            require(cost <= max_cost, "cost_usd exceeds max_cost_usd")
-    elif cost_raw is not None:
-        as_nonnegative_number(
-            cost_raw,
-            "cost_usd must be null or a nonnegative number",
         )
+
+    max_cost_raw = budgets.get("max_cost_usd")
+    aggregate_cost_raw = budgets.get("cost_usd")
+    cost_verified = budgets.get("cost_verified")
+    require(
+        isinstance(cost_verified, bool),
+        "cost_verified must be a boolean",
+    )
+
+    if has_unknown_cost:
+        require(
+            aggregate_cost_raw is None,
+            "aggregate cost must be null when any call cost is unknown",
+        )
+        require(
+            cost_verified is False,
+            "cost_verified must be false when any call cost is unknown",
+        )
+        require(
+            max_cost_raw is None,
+            "a hard monetary budget cannot be verified with unknown call cost",
+        )
+    else:
+        aggregate_cost = Decimal(
+            str(
+                as_nonnegative_number(
+                    aggregate_cost_raw,
+                    "aggregate cost_usd must be known when call costs are known",
+                )
+            )
+        )
+        expected_cost = sum(call_costs, start=Decimal("0"))
+        require(
+            aggregate_cost == expected_cost,
+            "aggregate cost_usd must equal the sum of call costs",
+        )
+        require(
+            cost_verified is True,
+            "cost_verified must be true when all call costs are known",
+        )
+        if max_cost_raw is not None:
+            max_cost = Decimal(
+                str(
+                    as_nonnegative_number(
+                        max_cost_raw,
+                        "max_cost_usd must be null or nonnegative",
+                    )
+                )
+            )
+            require(
+                aggregate_cost <= max_cost,
+                "cost_usd exceeds max_cost_usd",
+            )
 
     guardrails = as_object(
         config.get("guardrails"),
@@ -248,7 +325,6 @@ def validate_budget_semantics(
         max_wallclock <= configured_max_wallclock,
         "receipt max_wallclock_s exceeds the configured global guardrail",
     )
-
 
 def validate_receipt_semantics(
     receipt: dict[str, Any],
@@ -280,18 +356,47 @@ def validate_receipt_semantics(
 
     resolved_models: set[str] = set()
     if "self" in participants:
-        self_model = canonicalize_model_identity(
-            as_string(
-                receipt.get("self_model"),
-                "self_model must identify the active session model",
-            ),
-            models,
+        self_registry = as_object(
+            models.get("self"),
+            "self model registry entry must be an object",
+        )
+        self_model = as_string(
+            receipt.get("self_model"),
+            "self_model must identify the active session model",
+        )
+        allowed_self_models = set(
+            as_string_list(
+                self_registry.get("allowed_models"),
+                "self.allowed_models must be a string array",
+            )
+        )
+        require(
+            self_model in allowed_self_models,
+            "self_model is not allowed by the trusted registry",
+        )
+        require(
+            receipt.get("self_identity_source")
+            == self_registry.get("identity_source")
+            == "runtime-attested",
+            "self identity must be runtime-attested",
+        )
+        as_string(
+            receipt.get("self_identity_hash"),
+            "self identity attestation hash must be present",
         )
         resolved_models.add(self_model)
     else:
         require(
             receipt.get("self_model") is None,
             "self_model must be null when self is not a participant",
+        )
+        require(
+            receipt.get("self_identity_source") is None,
+            "self_identity_source must be null when self is absent",
+        )
+        require(
+            receipt.get("self_identity_hash") is None,
+            "self_identity_hash must be null when self is absent",
         )
 
     contains_compound = False
@@ -349,7 +454,7 @@ def validate_receipt_semantics(
         "cross_model does not match resolved model identities",
     )
 
-    validate_budget_semantics(receipt, config, len(calls))
+    validate_budget_semantics(receipt, config, calls)
 
 def validate_receipt(
     receipt: dict[str, Any],
@@ -410,6 +515,18 @@ def exercise_negative_cases(
     assert_rejected("completed call without effective model", candidate, schema, config)
 
     candidate = clone(valid)
+    first_call(candidate)["effective_model"] = "claude-fable-5"
+    assert_rejected("external model identity mismatch", candidate, schema, config)
+
+    candidate = clone(valid)
+    candidate["self_model"] = "fabricated-model"
+    assert_rejected("fabricated self model identity", candidate, schema, config)
+
+    candidate = clone(valid)
+    candidate["self_identity_hash"] = None
+    assert_rejected("missing self runtime attestation", candidate, schema, config)
+
+    candidate = clone(valid)
     budgets = receipt_budgets(candidate)
     budgets["used_calls"] = 2
     assert_rejected("call budget exceeded", candidate, schema, config)
@@ -420,10 +537,25 @@ def exercise_negative_cases(
     assert_rejected("wallclock budget exceeded", candidate, schema, config)
 
     candidate = clone(valid)
+    first_call(candidate)["cost_usd"] = 100.0
+    budgets = receipt_budgets(candidate)
+    budgets["max_cost_usd"] = 1.0
+    budgets["cost_usd"] = 0.0
+    budgets["cost_verified"] = True
+    assert_rejected("aggregate call cost underreported", candidate, schema, config)
+
+    candidate = clone(valid)
+    first_call(candidate)["cost_usd"] = 2.0
     budgets = receipt_budgets(candidate)
     budgets["max_cost_usd"] = 1.0
     budgets["cost_usd"] = 2.0
+    budgets["cost_verified"] = True
     assert_rejected("cost budget exceeded", candidate, schema, config)
+
+    candidate = clone(valid)
+    budgets = receipt_budgets(candidate)
+    budgets["max_cost_usd"] = 1.0
+    assert_rejected("unknown cost with hard budget", candidate, schema, config)
 
     candidate = clone(valid)
     candidate["requested_participants"] = [
