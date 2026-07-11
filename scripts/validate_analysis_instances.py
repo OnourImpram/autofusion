@@ -643,7 +643,23 @@ def validate_grounding(
             "grounding result matched_expected_failure must be a boolean",
         )
         confirming_failure_classes = {"assertion", "static-diagnostic"}
+        runner_trust = as_string(
+            result.get("runner_trust"),
+            "grounding result runner_trust must be a string",
+        )
+        as_string(
+            result.get("invocation_hash"),
+            "grounding result invocation_hash must be present",
+        )
+        as_string(
+            result.get("runner_attestation_hash"),
+            "grounding result runner_attestation_hash must be present",
+        )
         if verdict == "confirmed":
+            require(
+                runner_trust == "trusted-runner",
+                "confirmed grounding result requires trusted runner attestation",
+            )
             require(
                 execution_status == "completed",
                 "confirmed grounding result must complete execution",
@@ -884,6 +900,11 @@ def exercise_negative_cases(
     result["failure_class"] = "environment"
     result["exit_code"] = 127
     assert_rejected("runner error cannot confirm grounding", candidate, schema, config)
+
+    candidate = clone(valid)
+    result = first_grounding_result(candidate)
+    result["runner_trust"] = "unknown"
+    assert_rejected("untrusted runner cannot confirm grounding", candidate, schema, config)
 
     candidate = clone(valid)
     candidate["grounding_results"] = []

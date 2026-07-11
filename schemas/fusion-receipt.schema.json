@@ -606,6 +606,8 @@
         "output_tokens",
         "cost_usd",
         "cost_verified",
+        "cost_source",
+        "provider_usage_hash",
         "output_hash"
       ],
       "properties": {
@@ -692,6 +694,20 @@
           "type": "boolean"
         },
         "output_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "cost_source": {
+          "enum": [
+            "provider-usage",
+            "subscription-entitlement",
+            "unknown"
+          ]
+        },
+        "provider_usage_hash": {
           "type": [
             "string",
             "null"

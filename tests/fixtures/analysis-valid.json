@@ -75,7 +75,10 @@
       "output_hash": "1111111111111111111111111111111111111111111111111111111111111111",
       "execution_status": "completed",
       "failure_class": "assertion",
-      "matched_expected_failure": true
+      "matched_expected_failure": true,
+      "invocation_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+      "runner_attestation_hash": "5555555555555555555555555555555555555555555555555555555555555555",
+      "runner_trust": "trusted-runner"
     }
   ],
   "decision_impact": {

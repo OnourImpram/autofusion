@@ -115,6 +115,64 @@ def validate_linked_run(
             )
 
 
+
+def validate_receipt_analysis_summary(
+    receipt: dict[str, Any],
+    analysis: dict[str, Any],
+) -> None:
+    findings = as_list(analysis.get("findings"), "analysis findings must be an array")
+    severity_counts = {"blocker": 0, "major": 0, "minor": 0}
+    deadlocks = 0
+    for raw_finding in findings:
+        finding = as_object(raw_finding, "finding must be an object")
+        severity = as_string(finding.get("severity"), "finding severity must be a string")
+        require(severity in severity_counts, "finding severity is unsupported")
+        severity_counts[severity] += 1
+        if finding.get("status") == "deadlock":
+            deadlocks += 1
+
+    grounding_results = as_list(
+        analysis.get("grounding_results"),
+        "analysis grounding_results must be an array",
+    )
+    confirmed_by_exec = sum(
+        1
+        for raw_result in grounding_results
+        if as_object(raw_result, "grounding result must be an object").get("verdict")
+        == "confirmed"
+    )
+    receipt_findings = as_object(receipt.get("findings"), "receipt findings must be an object")
+    for severity, count in severity_counts.items():
+        require(
+            receipt_findings.get(severity) == count,
+            f"receipt {severity} count does not match analysis",
+        )
+    require(
+        receipt_findings.get("confirmed_by_exec") == confirmed_by_exec,
+        "receipt confirmed_by_exec does not match analysis",
+    )
+    require(
+        receipt_findings.get("deadlocks") == deadlocks,
+        "receipt deadlocks does not match analysis",
+    )
+    decision = as_object(
+        analysis.get("decision_impact"),
+        "analysis decision_impact must be an object",
+    )
+    verdict = as_string(receipt.get("verdict"), "receipt verdict must be a string")
+    require(
+        not (
+            verdict == "ship"
+            and (severity_counts["blocker"] > 0 or severity_counts["major"] > 0)
+        ),
+        "ship verdict cannot coexist with linked blocker or major findings",
+    )
+    require(
+        not (verdict == "ship" and decision.get("effect") in {"blocked", "human-required"}),
+        "ship verdict cannot coexist with blocking decision impact",
+    )
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     receipt_schema = receipt_contract.load_object(
@@ -131,6 +189,7 @@ def main() -> int:
         receipt_contract.validate_receipt(receipt, receipt_schema, config)
         analysis_contract.validate_analysis(analysis, analysis_schema, config)
         validate_linked_run(receipt, analysis, analysis_path)
+        validate_receipt_analysis_summary(receipt, analysis)
     except (
         LinkedRunError,
         receipt_contract.ContractError,

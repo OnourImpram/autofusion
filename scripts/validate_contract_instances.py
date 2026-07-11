@@ -369,17 +369,44 @@ def validate_budget_semantics(
             isinstance(call_cost_verified, bool),
             "call cost_verified must be a boolean",
         )
+        cost_source = as_string(
+            call.get("cost_source"),
+            "call cost_source must be a string",
+        )
+        provider_usage_hash = call.get("provider_usage_hash")
         if raw_call_cost is None:
             require(
                 call_cost_verified is False,
                 "unknown call cost cannot be marked verified",
             )
+            require(
+                cost_source == "unknown",
+                "unknown call cost must use unknown cost_source",
+            )
+            require(
+                provider_usage_hash is None,
+                "unknown call cost cannot carry provider usage attestation",
+            )
             has_unknown_cost = True
             continue
-        require(
-            call_cost_verified is True,
-            "known call cost must be marked verified",
-        )
+        if call_cost_verified is True:
+            require(
+                cost_source in {"provider-usage", "subscription-entitlement"},
+                "verified cost requires a trusted cost source",
+            )
+            as_string(
+                provider_usage_hash,
+                "verified cost requires provider_usage_hash",
+            )
+        else:
+            require(
+                cost_source == "unknown",
+                "unverified known cost must use unknown cost_source",
+            )
+            require(
+                provider_usage_hash is None,
+                "unverified known cost cannot carry provider usage attestation",
+            )
         call_costs.append(
             as_nonnegative_decimal(
                 raw_call_cost,
@@ -702,6 +729,16 @@ def exercise_negative_cases(
     budgets["cost_usd"] = 1.0
     budgets["cost_verified"] = True
     assert_rejected("unverified call cost marked as aggregate verified", candidate, schema, config)
+
+    candidate = clone(valid)
+    first_call(candidate)["cost_usd"] = 0.0
+    first_call(candidate)["cost_verified"] = True
+    first_call(candidate)["cost_source"] = "unknown"
+    first_call(candidate)["provider_usage_hash"] = None
+    budgets = receipt_budgets(candidate)
+    budgets["cost_usd"] = 0.0
+    budgets["cost_verified"] = True
+    assert_rejected("verified zero cost without provider attestation", candidate, schema, config)
 
     candidate = clone(valid)
     candidate["panel"] = "quality"

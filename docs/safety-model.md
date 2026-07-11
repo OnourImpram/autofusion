@@ -177,3 +177,7 @@ A grounding result is confirmed only when an approved verifier completes, return
 ## Linked Provenance Boundary
 
 The alpha contract links receipt and analysis artifacts by run id, packet hash, panel, topology, participant call ids, output hashes, and the analysis artifact hash. This is structural provenance validation. Runtime authenticity still depends on the future engine hashing trusted runtime evidence from Claude Code and external calls.
+
+## Receipt Verdict Reconciliation
+
+A receipt is not allowed to summarize a different reality than the linked analysis artifact. The linked validator derives blocker, major, minor, confirmed execution, and deadlock counts from the analysis artifact and rejects mismatched receipt summaries. `ship` is invalid when the linked analysis still contains blocker or major findings.

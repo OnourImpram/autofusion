@@ -404,7 +404,10 @@
         "output_hash",
         "execution_status",
         "failure_class",
-        "matched_expected_failure"
+        "matched_expected_failure",
+        "invocation_hash",
+        "runner_attestation_hash",
+        "runner_trust"
       ],
       "properties": {
         "finding_id": {
@@ -457,6 +460,19 @@
         },
         "matched_expected_failure": {
           "type": "boolean"
+        },
+        "invocation_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "runner_attestation_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "runner_trust": {
+          "enum": [
+            "trusted-runner",
+            "external-runner",
+            "unknown"
+          ]
         }
       }
     },

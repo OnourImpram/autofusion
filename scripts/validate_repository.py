@@ -789,6 +789,31 @@ def validate_schemas() -> None:
         "call schema must require per-call cost verification",
     )
     require(
+        {"cost_source", "provider_usage_hash"} <= call_required,
+        "call schema must require cost provenance fields",
+    )
+
+    analysis = load_json(ROOT / "schemas" / "fusion-analysis.schema.json")
+    analysis_defs = as_object(
+        analysis.get("$defs"),
+        "analysis schema must define reusable types",
+    )
+    grounding = as_object(
+        analysis_defs.get("groundingResult"),
+        "analysis schema must define groundingResult",
+    )
+    grounding_required = set(
+        as_string_list(
+            grounding.get("required"),
+            "grounding schema required must be a string array",
+        )
+    )
+    require(
+        {"invocation_hash", "runner_attestation_hash", "runner_trust"}
+        <= grounding_required,
+        "grounding schema must require runner attestation fields",
+    )
+    require(
         isinstance(receipt.get("allOf"), list),
         "receipt schema must enforce state-dependent fusion invariants",
     )

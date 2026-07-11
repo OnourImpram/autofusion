@@ -39,10 +39,12 @@
       "output_tokens": null,
       "cost_usd": null,
       "output_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-      "cost_verified": false
+      "cost_verified": false,
+      "cost_source": "unknown",
+      "provider_usage_hash": null
     }
   ],
-  "analysis_hash": "31765e370744616e9277e94bd8556298b176d69ca8105b8c313e6bc3411a5cfb",
+  "analysis_hash": "a280b77d5bd8c5bd208df16b48f957ea2ccdbb3a9af2021d9c80eebc26590da8",
   "budgets": {
     "max_calls": 1,
     "used_calls": 1,

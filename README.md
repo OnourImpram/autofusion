@@ -135,3 +135,6 @@ Not yet implemented:
 7. A/B evaluation harness.
 
 The first engine milestone remains a real diff fusion run with Claude Code as drafter, Codex as reviewer, approved verification commands as grounding, and an honest receipt that proves what changed.
+## Alpha Provenance Boundary
+
+The validators now reconcile receipts against the linked analysis artifact. A `ship` receipt is valid only when the linked analysis has no blocker or major findings. Grounding and cost records require structural attestation hashes, but the alpha repository still does not claim live cryptographic runtime authenticity until the engine writes those records from trusted runner and provider evidence.

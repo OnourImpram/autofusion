@@ -196,3 +196,7 @@ A more local layer may select among permitted models and presets. It may not wea
 ## Runtime Policy and Linked Artifacts
 
 Receipts must resolve their preset to a concrete panel and must match that panel's topology and participant set exactly. Analysis artifacts declare the same panel and are validated against the configured panel graph. Receipt and analysis artifacts are linked through run id, packet hash, analysis hash, participant call ids, output hashes, and self identity evidence hashes. This prevents a successful static schema check from masquerading as a valid fused run when the runtime policy or analysis artifact does not match the recorded receipt.
+
+## Cost and Runner Attestation
+
+Per-call cost verification records a cost source and provider usage hash. Confirmed grounding records an invocation hash, runner attestation hash, and runner trust class. These fields are structural contract inputs in the alpha repository. The future engine must bind them to captured runner logs and provider usage records before public claims can move from structural validation to runtime authenticity.
