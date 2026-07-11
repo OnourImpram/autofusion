@@ -21,7 +21,8 @@
     "requested_participants",
     "calls",
     "budgets",
-    "degradation_reasons"
+    "degradation_reasons",
+    "privacy"
   ],
   "properties": {
     "schema_version": {
@@ -147,6 +148,44 @@
       "enum": ["metadata-only", "redacted", "local-full"]
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "topology": {
+            "const": "advisor"
+          }
+        }
+      },
+      "then": {
+        "required": ["consulted"],
+        "properties": {
+          "consulted": {
+            "const": true
+          },
+          "fused": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": ["degraded", "failed", "cancelled"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "fused": {
+            "const": false
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "hash": {
       "type": "string",
@@ -182,8 +221,15 @@
           "minLength": 1
         },
         "effective_model": {
-          "type": "string",
-          "minLength": 1
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "vendor": {
           "type": "string",
