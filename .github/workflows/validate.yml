@@ -28,24 +28,32 @@ jobs:
       - name: Install validation dependencies
         run: python -m pip install --disable-pip-version-check -r requirements-validation.txt
 
-      - name: Lint validator
-        run: ruff check scripts/validate_repository.py
+      - name: Lint validators
+        run: ruff check scripts
 
-      - name: Type-check validator
-        run: mypy --strict scripts/validate_repository.py
+      - name: Type-check validators
+        run: mypy --strict scripts
 
       - name: Validate repository contracts
         run: python scripts/validate_repository.py
+
+      - name: Validate contract instances
+        run: python scripts/validate_contract_instances.py
 
       - name: Validate JSON Schema documents
         run: |
           python - <<'PY'
           import json
+          import logging
           from pathlib import Path
+
           from jsonschema import Draft202012Validator
+
+          logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+          logger = logging.getLogger("autofusion.schemas")
 
           for path in sorted(Path("schemas").glob("*.schema.json")):
               schema = json.loads(path.read_text(encoding="utf-8"))
               Draft202012Validator.check_schema(schema)
-              print(f"{path}: valid")
+              logger.info("%s: valid", path)
           PY
