@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import re
@@ -650,6 +651,76 @@ def validate_config() -> None:
     )
 
 
+def validate_config_candidate(config: dict[str, Any]) -> None:
+    models = as_object(config.get("models"), "models must be an object")
+    presets = as_object(config.get("presets"), "presets must be an object")
+    panels = as_object(config.get("panels"), "panels must be an object")
+    validate_config_graph(config, models, presets, panels)
+    validate_extended_orchestration(config)
+
+
+def require_config_rejected(
+    label: str,
+    candidate: dict[str, Any],
+) -> None:
+    try:
+        validate_config_candidate(candidate)
+    except ValidationError:
+        LOGGER.info("negative config rejected: %s", label)
+        return
+    raise ValidationError(f"negative config was accepted: {label}")
+
+
+def validate_negative_config_guards() -> None:
+    valid = load_json(ROOT / ".fusion.example.json")
+
+    candidate = copy.deepcopy(valid)
+    panels = as_object(candidate.get("panels"), "panels must be an object")
+    council = as_object(
+        panels.get("external-council"),
+        "external-council panel must be an object",
+    )
+    proposers = as_list(
+        council.get("proposers"),
+        "external-council proposers must be an array",
+    )
+    proposers[0] = "self"
+    require_config_rejected("self used as external proposer", candidate)
+
+    candidate = copy.deepcopy(valid)
+    panels = as_object(candidate.get("panels"), "panels must be an object")
+    council = as_object(
+        panels.get("external-council"),
+        "external-council panel must be an object",
+    )
+    proposers = as_list(
+        council.get("proposers"),
+        "external-council proposers must be an array",
+    )
+    proposers[0] = "gpt-sol-ultra"
+    council["judge"] = "gpt-sol"
+    require_config_rejected("compound model used as proposer", candidate)
+
+    candidate = copy.deepcopy(valid)
+    provider = as_object(
+        candidate.get("provider_routing"),
+        "provider_routing must be an object",
+    )
+    provider["fallback_scope"] = "any-model"
+    require_config_rejected("unbounded model fallback", candidate)
+
+    candidate = copy.deepcopy(valid)
+    repair = as_object(
+        candidate.get("output_repair"),
+        "output_repair must be an object",
+    )
+    protected = as_list(
+        repair.get("protected_fields"),
+        "output repair protected_fields must be an array",
+    )
+    protected.remove("severity")
+    require_config_rejected("unprotected severity repair", candidate)
+
 def validate_schemas() -> None:
     for name in ("fusion-analysis.schema.json", "fusion-receipt.schema.json"):
         schema = load_json(ROOT / "schemas" / name)
@@ -834,6 +905,7 @@ def main() -> int:
         validate_paths,
         validate_versions,
         validate_config,
+        validate_negative_config_guards,
         validate_schemas,
         validate_skills,
         validate_claim_boundaries,
