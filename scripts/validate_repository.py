@@ -124,7 +124,7 @@ def as_string_list(value: Any, message: str) -> list[str]:
 def as_positive_int(value: Any, message: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValidationError(message)
-    return value
+    return cast(int, value)
 
 
 def require(condition: bool, message: str) -> None:
@@ -324,7 +324,7 @@ def validate_config_graph(
             f"compound allowlist handle {handle} is not marked compound",
         )
         require(
-            handle in allowed_roles and allowed_roles[handle],
+            handle in allowed_roles and bool(allowed_roles[handle]),
             f"compound allowlist handle {handle} has no permitted roles",
         )
 
