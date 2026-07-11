@@ -98,6 +98,15 @@ def require(condition: bool, message: str) -> None:
         raise ContractError(message)
 
 
+def load_trusted_attestations() -> dict[str, Any]:
+    return load_object(ROOT / "tests" / "fixtures" / "trusted-attestations.json")
+
+
+def trusted_section(name: str) -> dict[str, Any]:
+    attestations = load_trusted_attestations()
+    return as_object(attestations.get(name), f"trusted {name} attestations must exist")
+
+
 def validate_schema_instance(
     receipt: dict[str, Any],
     schema: dict[str, Any],
@@ -395,9 +404,19 @@ def validate_budget_semantics(
                 cost_source in {"provider-usage", "subscription-entitlement"},
                 "verified cost requires a trusted cost source",
             )
-            as_string(
+            cost_hash = as_string(
                 provider_usage_hash,
                 "verified cost requires provider_usage_hash",
+            )
+            cost_attestation = as_object(
+                trusted_section("cost").get(cost_hash),
+                "provider usage hash must resolve to trusted cost evidence",
+            )
+            require(
+                cost_attestation.get("source") == cost_source
+                and cost_attestation.get("handle") == call.get("handle")
+                and Decimal(str(cost_attestation.get("cost_usd"))) == Decimal(str(raw_call_cost)),
+                "cost attestation must match the call cost",
             )
         else:
             all_known_costs_verified = False
@@ -537,9 +556,19 @@ def validate_receipt_semantics(
             == "runtime-attested",
             "self identity must be runtime-attested",
         )
-        as_string(
+        self_identity_hash = as_string(
             receipt.get("self_identity_hash"),
             "self identity attestation hash must be present",
+        )
+        self_attestations = trusted_section("self_identity")
+        self_attestation = as_object(
+            self_attestations.get(self_identity_hash),
+            "self identity hash must resolve to trusted runtime evidence",
+        )
+        require(
+            self_attestation.get("model") == self_model
+            and self_attestation.get("source") == "runtime-attested",
+            "self identity attestation must match the active model",
         )
         resolved_models.add(self_model)
     else:
@@ -583,6 +612,25 @@ def validate_receipt_semantics(
             call,
             models,
             participants,
+        )
+        routing_hash = as_string(
+            call.get("routing_attestation_hash"),
+            f"call {handle} routing_attestation_hash must be present",
+        )
+        routing_attestation = as_object(
+            trusted_section("routing").get(routing_hash),
+            f"call {handle} routing attestation must be trusted",
+        )
+        require(
+            routing_attestation.get("handle") == handle
+            and routing_attestation.get("vendor") == call.get("vendor")
+            and routing_attestation.get("effective_model") == call.get("effective_model")
+            and routing_attestation.get("fallback_scope") == "same-model-endpoint"
+            and routing_attestation.get("zdr") == "policy-required"
+            and routing_attestation.get("region") == "policy-required"
+            and routing_attestation.get("effective_identity_recheck") is True
+            and routing_attestation.get("quorum_recheck_after_fallback") is True,
+            f"call {handle} routing attestation does not match policy",
         )
         if call.get("status") == "completed":
             completed_handles.add(handle)
@@ -741,6 +789,20 @@ def exercise_negative_cases(
     budgets["cost_usd"] = 0.0
     budgets["cost_verified"] = True
     assert_rejected("verified zero cost without provider attestation", candidate, schema, config)
+
+    candidate = clone(valid)
+    first_call(candidate)["cost_usd"] = 0.0
+    first_call(candidate)["cost_verified"] = True
+    first_call(candidate)["cost_source"] = "subscription-entitlement"
+    first_call(candidate)["provider_usage_hash"] = "9" * 64
+    budgets = receipt_budgets(candidate)
+    budgets["cost_usd"] = 0.0
+    budgets["cost_verified"] = True
+    assert_rejected("forged provider usage attestation", candidate, schema, config)
+
+    candidate = clone(valid)
+    first_call(candidate)["routing_attestation_hash"] = "9" * 64
+    assert_rejected("forged routing attestation", candidate, schema, config)
 
     candidate = clone(valid)
     candidate["panel"] = "quality"

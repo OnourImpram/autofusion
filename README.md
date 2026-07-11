@@ -138,3 +138,5 @@ The first engine milestone remains a real diff fusion run with Claude Code as dr
 ## Alpha Provenance Boundary
 
 The validators now reconcile receipts against the linked analysis artifact. A `ship` receipt is valid only when the linked analysis has no blocker or major findings. Grounding and cost records require structural attestation hashes, but the alpha repository still does not claim live cryptographic runtime authenticity until the engine writes those records from trusted runner and provider evidence.
+
+The alpha validators do not trust self-declared hash fields by themselves. Runner, routing, cost, and self identity hashes must resolve to `tests/fixtures/trusted-attestations.json` in the current contract fixtures. A production engine should replace that fixture with captured trusted runtime evidence.

@@ -67,6 +67,15 @@ def require(condition: bool, message: str) -> None:
         raise AnalysisError(message)
 
 
+def load_trusted_attestations() -> dict[str, Any]:
+    return load_object(ROOT / "tests" / "fixtures" / "trusted-attestations.json")
+
+
+def trusted_section(name: str) -> dict[str, Any]:
+    attestations = load_trusted_attestations()
+    return as_object(attestations.get(name), f"trusted {name} attestations must exist")
+
+
 def validate_schema_instance(
     analysis: dict[str, Any],
     schema: dict[str, Any],
@@ -656,6 +665,24 @@ def validate_grounding(
             "grounding result runner_attestation_hash must be present",
         )
         if verdict == "confirmed":
+            runner_attestation = as_object(
+                trusted_section("runner").get(result.get("runner_attestation_hash")),
+                "confirmed grounding requires trusted runner evidence",
+            )
+            require(
+                runner_attestation.get("runner_trust") == runner_trust
+                and runner_attestation.get("verification_id") == verification_id
+                and runner_attestation.get("finding_id") == finding_id
+                and runner_attestation.get("invocation_hash")
+                == result.get("invocation_hash")
+                and runner_attestation.get("output_hash") == result.get("output_hash")
+                and runner_attestation.get("execution_status") == execution_status
+                and runner_attestation.get("failure_class") == failure_class
+                and runner_attestation.get("matched_expected_failure")
+                == matched_expected_failure
+                and runner_attestation.get("exit_code") == exit_code,
+                "runner attestation must match the grounding result",
+            )
             require(
                 runner_trust == "trusted-runner",
                 "confirmed grounding result requires trusted runner attestation",
@@ -905,6 +932,11 @@ def exercise_negative_cases(
     result = first_grounding_result(candidate)
     result["runner_trust"] = "unknown"
     assert_rejected("untrusted runner cannot confirm grounding", candidate, schema, config)
+
+    candidate = clone(valid)
+    result = first_grounding_result(candidate)
+    result["runner_attestation_hash"] = "9" * 64
+    assert_rejected("forged runner attestation", candidate, schema, config)
 
     candidate = clone(valid)
     candidate["grounding_results"] = []

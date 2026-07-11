@@ -41,7 +41,8 @@
       "output_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       "cost_verified": false,
       "cost_source": "unknown",
-      "provider_usage_hash": null
+      "provider_usage_hash": null,
+      "routing_attestation_hash": "8888888888888888888888888888888888888888888888888888888888888888"
     }
   ],
   "analysis_hash": "a280b77d5bd8c5bd208df16b48f957ea2ccdbb3a9af2021d9c80eebc26590da8",

@@ -200,3 +200,5 @@ Receipts must resolve their preset to a concrete panel and must match that panel
 ## Cost and Runner Attestation
 
 Per-call cost verification records a cost source and provider usage hash. Confirmed grounding records an invocation hash, runner attestation hash, and runner trust class. These fields are structural contract inputs in the alpha repository. The future engine must bind them to captured runner logs and provider usage records before public claims can move from structural validation to runtime authenticity.
+
+The current alpha uses `tests/fixtures/trusted-attestations.json` as a stand-in trust root for validator fixtures. It is not a production signing system, but it prevents a fixture from passing merely by inventing plausible 64-character hashes.

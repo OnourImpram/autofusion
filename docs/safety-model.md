@@ -181,3 +181,7 @@ The alpha contract links receipt and analysis artifacts by run id, packet hash, 
 ## Receipt Verdict Reconciliation
 
 A receipt is not allowed to summarize a different reality than the linked analysis artifact. The linked validator derives blocker, major, minor, confirmed execution, and deadlock counts from the analysis artifact and rejects mismatched receipt summaries. `ship` is invalid when the linked analysis still contains blocker or major findings.
+
+## Trusted Attestation Registry
+
+Self-declared hashes are insufficient. Alpha contract fixtures now require runner, routing, cost, and self identity references to resolve through `tests/fixtures/trusted-attestations.json`. In production this registry must be replaced by trusted runtime evidence captured from Claude Code, verifier execution, provider routing metadata, and provider or entitlement usage records.

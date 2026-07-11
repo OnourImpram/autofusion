@@ -25,6 +25,7 @@ REQUIRED_PATHS = (
     ROOT / "scripts" / "validate_linked_run.py",
     ROOT / "tests" / "fixtures" / "receipt-valid.json",
     ROOT / "tests" / "fixtures" / "analysis-valid.json",
+    ROOT / "tests" / "fixtures" / "trusted-attestations.json",
     ROOT / "docs" / "competitive-research.md",
     ROOT / "docs" / "product-differentiators.md",
     ROOT / "docs" / "fusion-topologies.md",
@@ -789,8 +790,8 @@ def validate_schemas() -> None:
         "call schema must require per-call cost verification",
     )
     require(
-        {"cost_source", "provider_usage_hash"} <= call_required,
-        "call schema must require cost provenance fields",
+        {"cost_source", "provider_usage_hash", "routing_attestation_hash"} <= call_required,
+        "call schema must require cost and routing provenance fields",
     )
 
     analysis = load_json(ROOT / "schemas" / "fusion-analysis.schema.json")
@@ -880,6 +881,18 @@ def validate_skills() -> None:
             f"{path.relative_to(ROOT)} requires a substantive description",
         )
 
+def validate_trusted_attestations() -> None:
+    attestations = load_json(ROOT / "tests" / "fixtures" / "trusted-attestations.json")
+    require(
+        attestations.get("schema_version") == "0.1",
+        "trusted attestation fixture version mismatch",
+    )
+    for section in ("self_identity", "runner", "cost", "routing"):
+        as_object(
+            attestations.get(section),
+            f"trusted attestation section {section} must exist",
+        )
+
 
 def validate_workflow_security() -> None:
     workflow = (
@@ -961,6 +974,7 @@ def main() -> int:
         validate_negative_config_guards,
         validate_schemas,
         validate_skills,
+        validate_trusted_attestations,
         validate_workflow_security,
         validate_claim_boundaries,
         validate_repository_hygiene,

@@ -608,6 +608,7 @@
         "cost_verified",
         "cost_source",
         "provider_usage_hash",
+        "routing_attestation_hash",
         "output_hash"
       ],
       "properties": {
@@ -713,6 +714,9 @@
             "null"
           ],
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "routing_attestation_hash": {
+          "$ref": "#/$defs/hash"
         }
       },
       "allOf": [
