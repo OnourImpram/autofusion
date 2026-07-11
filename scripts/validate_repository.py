@@ -12,11 +12,15 @@ LOGGER = logging.getLogger("autofusion.validate")
 REQUIRED_PATHS = (
     ROOT / ".claude-plugin" / "marketplace.json",
     ROOT / ".fusion.example.json",
+    ROOT / ".github" / "workflows" / "validate.yml",
     ROOT / "plugins" / "autofusion" / ".claude-plugin" / "plugin.json",
     ROOT / "plugins" / "autofusion" / "skills" / "fusion" / "SKILL.md",
     ROOT / "plugins" / "autofusion" / "skills" / "fusion-parallel" / "SKILL.md",
+    ROOT / "requirements-validation.txt",
     ROOT / "schemas" / "fusion-analysis.schema.json",
     ROOT / "schemas" / "fusion-receipt.schema.json",
+    ROOT / "scripts" / "validate_contract_instances.py",
+    ROOT / "tests" / "fixtures" / "receipt-valid.json",
     ROOT / "docs" / "competitive-research.md",
     ROOT / "docs" / "fusion-topologies.md",
 )
@@ -47,6 +51,21 @@ REQUIRED_ANALYSIS_SECTIONS = {
     "decision_impact",
 }
 
+SUPPORTED_TOPOLOGIES = {
+    "review",
+    "adversarial-review",
+    "dual-review",
+    "panel-rank",
+    "advisor",
+}
+
+PANEL_ROLE_FIELDS = {
+    "drafter": "drafter",
+    "reviewers": "reviewer",
+    "proposers": "proposer",
+    "judge": "judge",
+}
+
 SECRET_PATTERN = re.compile(
     r"(?:sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|"
     r"github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16})"
@@ -61,11 +80,17 @@ def load_json(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ValidationError(f"invalid JSON at {path.relative_to(ROOT)}: {exc}") from exc
+        raise ValidationError(
+            f"invalid JSON at {path.relative_to(ROOT)}: {exc}"
+        ) from exc
     if not isinstance(value, dict):
-        raise ValidationError(f"expected JSON object at {path.relative_to(ROOT)}")
+        raise ValidationError(
+            f"expected JSON object at {path.relative_to(ROOT)}"
+        )
     if not all(isinstance(key, str) for key in value):
-        raise ValidationError(f"expected string keys at {path.relative_to(ROOT)}")
+        raise ValidationError(
+            f"expected string keys at {path.relative_to(ROOT)}"
+        )
     return cast(dict[str, Any], value)
 
 
@@ -83,11 +108,23 @@ def as_list(value: Any, message: str) -> list[Any]:
     return value
 
 
+def as_string(value: Any, message: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValidationError(message)
+    return value
+
+
 def as_string_list(value: Any, message: str) -> list[str]:
     items = as_list(value, message)
-    if not all(isinstance(item, str) for item in items):
+    if not all(isinstance(item, str) and item for item in items):
         raise ValidationError(message)
     return cast(list[str], items)
+
+
+def as_positive_int(value: Any, message: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValidationError(message)
+    return value
 
 
 def require(condition: bool, message: str) -> None:
@@ -96,7 +133,11 @@ def require(condition: bool, message: str) -> None:
 
 
 def validate_paths() -> None:
-    missing = [str(path.relative_to(ROOT)) for path in REQUIRED_PATHS if not path.is_file()]
+    missing = [
+        str(path.relative_to(ROOT))
+        for path in REQUIRED_PATHS
+        if not path.is_file()
+    ]
     require(not missing, f"missing required paths: {', '.join(missing)}")
 
 
@@ -124,14 +165,258 @@ def validate_versions() -> None:
     }
     require(len(versions) == 1, "marketplace and plugin versions must match")
 
+    descriptions = (
+        marketplace.get("description"),
+        entry.get("description"),
+        plugin.get("description"),
+    )
+    require(
+        all(
+            isinstance(description, str)
+            and "skill-only" in description.lower()
+            for description in descriptions
+        ),
+        "marketplace and plugin descriptions must state the skill-only boundary",
+    )
+
+
+def panel_assignments(
+    panel_name: str,
+    panel: dict[str, Any],
+) -> list[tuple[str, str]]:
+    assignments: list[tuple[str, str]] = []
+    for field, role in PANEL_ROLE_FIELDS.items():
+        if field not in panel:
+            continue
+        value = panel[field]
+        if field in {"reviewers", "proposers"}:
+            handles = as_string_list(
+                value,
+                f"panel {panel_name}.{field} must be a string array",
+            )
+            assignments.extend((handle, role) for handle in handles)
+        else:
+            assignments.append(
+                (
+                    as_string(
+                        value,
+                        f"panel {panel_name}.{field} must be a model handle",
+                    ),
+                    role,
+                )
+            )
+    return assignments
+
+
+def validate_panel_shape(
+    panel_name: str,
+    panel: dict[str, Any],
+) -> str:
+    topology = as_string(
+        panel.get("topology"),
+        f"panel {panel_name} must define topology",
+    )
+    require(
+        topology in SUPPORTED_TOPOLOGIES,
+        f"panel {panel_name} uses unsupported topology {topology}",
+    )
+    if topology in {"review", "adversarial-review", "dual-review"}:
+        require(
+            "drafter" in panel and "reviewers" in panel,
+            f"panel {panel_name} must define drafter and reviewers",
+        )
+    if topology == "panel-rank":
+        require(
+            "proposers" in panel and "judge" in panel,
+            f"panel {panel_name} must define proposers and judge",
+        )
+    return topology
+
+
+def validate_config_graph(
+    config: dict[str, Any],
+    models: dict[str, Any],
+    presets: dict[str, Any],
+    panels: dict[str, Any],
+) -> None:
+    for preset_name, raw_preset in presets.items():
+        preset = as_object(
+            raw_preset,
+            f"preset {preset_name} must be an object",
+        )
+        if "panel" in preset:
+            panel_name = as_string(
+                preset["panel"],
+                f"preset {preset_name}.panel must be a string",
+            )
+            require(
+                panel_name in panels,
+                f"preset {preset_name} references unknown panel {panel_name}",
+            )
+        if "allowed_presets" in preset:
+            allowed_presets = as_string_list(
+                preset["allowed_presets"],
+                f"preset {preset_name}.allowed_presets must be a string array",
+            )
+            require(
+                preset_name not in allowed_presets,
+                f"preset {preset_name} cannot route to itself",
+            )
+            unknown = set(allowed_presets) - set(presets)
+            require(
+                not unknown,
+                f"preset {preset_name} references unknown presets: "
+                f"{', '.join(sorted(unknown))}",
+            )
+
+    routing = as_object(config.get("routing"), "routing must be an object")
+    compound = as_object(
+        routing.get("compound"),
+        "routing.compound must be an object",
+    )
+    require(
+        compound.get("max_depth") == 1,
+        "compound max_depth must remain one",
+    )
+    require(
+        compound.get("default_allow_as_panel_member") is False,
+        "compound panel membership must default to deny",
+    )
+    require(
+        compound.get("count_hidden_workers_as_independent") is False,
+        "hidden compound workers must not count as independent",
+    )
+
+    allowed_handles = as_string_list(
+        compound.get("allowed_handles"),
+        "routing.compound.allowed_handles must be a string array",
+    )
+    allowed_roles_raw = as_object(
+        compound.get("allowed_roles"),
+        "routing.compound.allowed_roles must be an object",
+    )
+    require(
+        set(allowed_roles_raw) <= set(allowed_handles),
+        "compound role policy references a handle outside allowed_handles",
+    )
+    allowed_roles: dict[str, set[str]] = {}
+    for handle, raw_roles in allowed_roles_raw.items():
+        roles = set(
+            as_string_list(
+                raw_roles,
+                f"compound roles for {handle} must be a string array",
+            )
+        )
+        require(
+            roles <= set(PANEL_ROLE_FIELDS.values()),
+            f"compound handle {handle} has unsupported roles",
+        )
+        allowed_roles[handle] = roles
+
+    for handle in allowed_handles:
+        require(handle in models, f"compound allowlist has unknown handle {handle}")
+        model = as_object(
+            models[handle],
+            f"model {handle} must be an object",
+        )
+        require(
+            model.get("compound") is True,
+            f"compound allowlist handle {handle} is not marked compound",
+        )
+        require(
+            handle in allowed_roles and allowed_roles[handle],
+            f"compound allowlist handle {handle} has no permitted roles",
+        )
+
+    guardrails = as_object(
+        config.get("guardrails"),
+        "guardrails must be an object",
+    )
+    model_allowlist = set(
+        as_string_list(
+            guardrails.get("model_allowlist"),
+            "guardrails.model_allowlist must be a string array",
+        )
+    )
+    max_panel_size = as_positive_int(
+        guardrails.get("max_panel_size"),
+        "guardrails.max_panel_size must be a positive integer",
+    )
+
+    for panel_name, raw_panel in panels.items():
+        panel = as_object(
+            raw_panel,
+            f"panel {panel_name} must be an object",
+        )
+        validate_panel_shape(panel_name, panel)
+        assignments = panel_assignments(panel_name, panel)
+        handles = [handle for handle, _role in assignments]
+        require(
+            bool(handles),
+            f"panel {panel_name} must contain at least one participant",
+        )
+        require(
+            len(handles) == len(set(handles)),
+            f"panel {panel_name} repeats a participant across roles",
+        )
+        require(
+            len(handles) <= max_panel_size,
+            f"panel {panel_name} exceeds max_panel_size",
+        )
+
+        for handle, role in assignments:
+            require(
+                handle in models,
+                f"panel {panel_name} references unknown model {handle}",
+            )
+            model = as_object(
+                models[handle],
+                f"model {handle} must be an object",
+            )
+            if handle != "self":
+                require(
+                    handle in model_allowlist,
+                    f"panel {panel_name} uses non-allowlisted model {handle}",
+                )
+            if model.get("compound") is True:
+                require(
+                    handle in allowed_handles,
+                    f"panel {panel_name} uses compound model {handle} "
+                    "without an explicit handle allowlist",
+                )
+                require(
+                    role in allowed_roles.get(handle, set()),
+                    f"panel {panel_name} uses compound model {handle} "
+                    f"in disallowed role {role}",
+                )
+
+    hard_gates = as_object(
+        routing.get("hard_gates"),
+        "routing.hard_gates must be an object",
+    )
+    minimum_preset = as_string(
+        hard_gates.get("minimum_preset"),
+        "routing.hard_gates.minimum_preset must be a string",
+    )
+    require(
+        minimum_preset in presets and minimum_preset != "adaptive",
+        "hard gate minimum preset must resolve to a concrete preset",
+    )
+
 
 def validate_config() -> None:
     config = load_json(ROOT / ".fusion.example.json")
     models = as_object(config.get("models"), "models must be an object")
     presets = as_object(config.get("presets"), "presets must be an object")
-    as_object(config.get("panels"), "panels must be an object")
-    require(REQUIRED_MODELS <= set(models), "required built-in model handles are missing")
-    require(REQUIRED_PRESETS <= set(presets), "required presets are missing")
+    panels = as_object(config.get("panels"), "panels must be an object")
+    require(
+        REQUIRED_MODELS <= set(models),
+        "required built-in model handles are missing",
+    )
+    require(
+        REQUIRED_PRESETS <= set(presets),
+        "required presets are missing",
+    )
 
     self_model = as_object(models.get("self"), "self model must be an object")
     gpt_sol = as_object(models.get("gpt-sol"), "gpt-sol must be an object")
@@ -151,39 +436,34 @@ def validate_config() -> None:
     require(self_model.get("callable") is False, "self must be non-callable")
     require(
         gpt_sol.get("model") == "gpt-5.6-sol"
-        and gpt_sol.get("effort") == "xhigh",
-        "gpt-sol must map to gpt-5.6-sol xhigh",
+        and gpt_sol.get("effort") == "xhigh"
+        and gpt_sol.get("compound") is False,
+        "gpt-sol must map to non-compound gpt-5.6-sol xhigh",
     )
     require(
         gpt_ultra.get("model") == "gpt-5.6-sol"
-        and gpt_ultra.get("effort") == "ultra",
-        "gpt-sol-ultra must map to gpt-5.6-sol ultra",
+        and gpt_ultra.get("effort") == "ultra"
+        and gpt_ultra.get("compound") is True
+        and gpt_ultra.get("worker_visibility") == "opaque",
+        "gpt-sol-ultra must map to opaque compound gpt-5.6-sol ultra",
     )
     require(
-        claude_opus.get("canonical_model") == "claude-opus-4-8",
-        "claude-opus canonical model mismatch",
+        claude_opus.get("model") == "opus"
+        and claude_opus.get("canonical_model") == "claude-opus-4-8",
+        "claude-opus mapping mismatch",
     )
     require(
-        claude_fable.get("canonical_model") == "claude-fable-5",
-        "claude-fable canonical model mismatch",
+        claude_fable.get("model") == "fable"
+        and claude_fable.get("canonical_model") == "claude-fable-5",
+        "claude-fable mapping mismatch",
     )
     require("gpt-5.5" not in models, "obsolete gpt-5.5 handle must not return")
-    require("opus-4.7" not in models, "obsolete opus-4.7 handle must not return")
+    require(
+        "opus-4.7" not in models,
+        "obsolete opus-4.7 handle must not return",
+    )
 
-    routing = as_object(config.get("routing"), "routing must be an object")
-    compound = as_object(
-        routing.get("compound"),
-        "routing.compound must be an object",
-    )
-    require(compound.get("max_depth") == 1, "compound max_depth must remain one")
-    require(
-        compound.get("allow_as_panel_member") is False,
-        "opaque compound providers must be excluded from default panels",
-    )
-    require(
-        compound.get("count_hidden_workers_as_independent") is False,
-        "hidden compound workers must not count as independent",
-    )
+    validate_config_graph(config, models, presets, panels)
 
     analysis = as_object(config.get("analysis"), "analysis must be an object")
     required_sections = as_string_list(
@@ -204,7 +484,8 @@ def validate_schemas() -> None:
     for name in ("fusion-analysis.schema.json", "fusion-receipt.schema.json"):
         schema = load_json(ROOT / "schemas" / name)
         require(
-            schema.get("$schema") == "https://json-schema.org/draft/2020-12/schema",
+            schema.get("$schema")
+            == "https://json-schema.org/draft/2020-12/schema",
             f"{name} must use JSON Schema draft 2020-12",
         )
         require(
@@ -212,13 +493,25 @@ def validate_schemas() -> None:
             f"{name} root must reject unknown properties",
         )
 
-
     receipt = load_json(ROOT / "schemas" / "fusion-receipt.schema.json")
-    receipt_required = as_string_list(
-        receipt.get("required"),
-        "receipt schema required must be a string array",
+    receipt_required = set(
+        as_string_list(
+            receipt.get("required"),
+            "receipt schema required must be a string array",
+        )
     )
-    require("privacy" in receipt_required, "receipt schema must require privacy mode")
+    required_receipt_fields = {
+        "finished_at",
+        "consulted",
+        "packet_hash",
+        "analysis_hash",
+        "findings",
+        "privacy",
+    }
+    require(
+        required_receipt_fields <= receipt_required,
+        "receipt schema is missing required evidence fields",
+    )
     receipt_defs = as_object(
         receipt.get("$defs"),
         "receipt schema must define reusable types",
@@ -245,43 +538,100 @@ def validate_schemas() -> None:
     )
 
 
+def parse_frontmatter(path: Path) -> dict[str, str]:
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    require(
+        len(lines) >= 3 and lines[0] == "---",
+        f"{path.relative_to(ROOT)} lacks frontmatter",
+    )
+    try:
+        end = lines.index("---", 1)
+    except ValueError as exc:
+        raise ValidationError(
+            f"{path.relative_to(ROOT)} has unterminated frontmatter"
+        ) from exc
+
+    metadata: dict[str, str] = {}
+    for line in lines[1:end]:
+        require(
+            ":" in line,
+            f"{path.relative_to(ROOT)} has malformed frontmatter",
+        )
+        key, raw_value = line.split(":", 1)
+        key = key.strip()
+        value = raw_value.strip()
+        require(
+            bool(key) and bool(value) and key not in metadata,
+            f"{path.relative_to(ROOT)} has invalid frontmatter fields",
+        )
+        metadata[key] = value
+    return metadata
+
+
 def validate_skills() -> None:
     expected = {
-        "fusion": ROOT
-        / "plugins"
-        / "autofusion"
-        / "skills"
-        / "fusion"
-        / "SKILL.md",
-        "fusion-parallel": ROOT
-        / "plugins"
-        / "autofusion"
-        / "skills"
-        / "fusion-parallel"
-        / "SKILL.md",
+        "fusion": (
+            ROOT
+            / "plugins"
+            / "autofusion"
+            / "skills"
+            / "fusion"
+            / "SKILL.md"
+        ),
+        "fusion-parallel": (
+            ROOT
+            / "plugins"
+            / "autofusion"
+            / "skills"
+            / "fusion-parallel"
+            / "SKILL.md"
+        ),
     }
     for name, path in expected.items():
-        text = path.read_text(encoding="utf-8")
-        require(text.startswith("---\n"), f"{path.relative_to(ROOT)} lacks frontmatter")
-        require(f"name: {name}\n" in text, f"{path.relative_to(ROOT)} name mismatch")
+        metadata = parse_frontmatter(path)
+        require(
+            metadata.get("name") == name,
+            f"{path.relative_to(ROOT)} name mismatch",
+        )
+        require(
+            len(metadata.get("description", "")) >= 20,
+            f"{path.relative_to(ROOT)} requires a substantive description",
+        )
 
 
 def validate_claim_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    require("pre-engine alpha" in readme, "README must state the implementation boundary")
+    readme_lower = readme.lower()
     require(
-        "does not claim those components exist" in readme,
+        "pre-engine alpha" in readme_lower,
+        "README must state the implementation boundary",
+    )
+    require(
+        "does not claim those components exist" in readme_lower,
         "README must preserve the truthful capability boundary",
     )
-    research = (ROOT / "docs" / "competitive-research.md").read_text(
-        encoding="utf-8"
+    require(
+        "override a preset only inside immutable global policy" in readme_lower,
+        "README must keep explicit options inside immutable policy",
     )
+    require(
+        "always override a preset" not in readme_lower,
+        "README must not let explicit settings bypass global policy",
+    )
+
+    research = (
+        ROOT / "docs" / "competitive-research.md"
+    ).read_text(encoding="utf-8")
     for source in (
         "https://sakana.ai/fugu-release/",
         "https://arxiv.org/abs/2606.21228",
         "https://openrouter.ai/docs/guides/features/plugins/fusion",
     ):
-        require(source in research, f"competitive research is missing source {source}")
+        require(
+            source in research,
+            f"competitive research is missing source {source}",
+        )
 
 
 def validate_repository_hygiene() -> None:
@@ -294,7 +644,10 @@ def validate_repository_hygiene() -> None:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        require(not SECRET_PATTERN.search(text), f"possible credential in {path.relative_to(ROOT)}")
+        require(
+            not SECRET_PATTERN.search(text),
+            f"possible credential in {path.relative_to(ROOT)}",
+        )
         for marker in ("TO" + "DO", "FIX" + "ME"):
             require(
                 marker not in text,
