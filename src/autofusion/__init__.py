@@ -1,0 +1,1 @@
+"""autofusion v0.2 - Claude Code first cross fontier model review."""
