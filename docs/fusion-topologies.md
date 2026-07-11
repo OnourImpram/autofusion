@@ -175,7 +175,7 @@ The context compiler prioritizes:
 5. Relevant repository instructions.
 6. Optional supporting documentation.
 
-If required context is truncated, the receipt records context_incomplete and the run cannot silently claim a complete review.
+If required context is truncated, the receipt records context_complete false and the run cannot silently claim a complete review.
 
 ## Compound providers
 
@@ -185,8 +185,9 @@ A compound provider may hide multiple internal workers.
 2. Hidden workers do not become independent votes.
 3. Worker provenance is opaque unless the provider returns verifiable identities.
 4. Compound depth defaults to one.
-5. Compound providers are excluded from default panels.
-6. They may be enabled for evaluation, comparison, or explicitly approved workflows.
+5. Compound providers are excluded from panels unless global policy explicitly allowlists the handle and role.
+6. gpt-sol-ultra may be allowlisted as reviewer or judge, but its hidden workers still count as one participant.
+7. Third-party compound providers remain disabled by default and may be enabled for evaluation, comparison, or explicitly approved workflows.
 
 ## Stop rules
 
