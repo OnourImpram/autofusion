@@ -11,6 +11,7 @@
   "consulted": false,
   "cross_model": true,
   "compound": false,
+  "self_model": "claude-opus-4-8",
   "task_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "packet_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
