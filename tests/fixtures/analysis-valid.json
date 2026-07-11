@@ -60,6 +60,15 @@
       "relevance": "The approved test profile can reproduce the finding."
     }
   ],
+  "grounding_results": [
+    {
+      "finding_id": "f01",
+      "verification_id": "python.pytest",
+      "verdict": "confirmed",
+      "exit_code": 1,
+      "output_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
   "decision_impact": {
     "changed": true,
     "effect": "revised",
