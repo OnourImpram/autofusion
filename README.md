@@ -2,7 +2,7 @@
 
 autofusion is a Claude Code first escalation system for serious engineering work. It combines an active Claude Code session with independent model reviewers, evidence grounding, explicit disagreement, and auditable receipts.
 
-The repository is currently a pre-engine alpha. The Claude Code skills and design contracts are usable as a manual workflow. The Python engine, transports, grounding runner, and receipt writer are still roadmap items. The project does not claim those components exist before they are implemented and verified.
+The repository is currently a pre-engine alpha. The Claude Code skills provide a skill-only manual protocol, and the design contracts describe the future engine. The Python engine, transports, grounding runner, and receipt writer are still roadmap items. The project does not claim those components exist before they are implemented and verified.
 
 ## Why autofusion
 
@@ -58,7 +58,7 @@ Unresolved blocker or major findings may receive one challenge and one rebuttal.
 4. budget minimizes additional paid API usage but never promises universal zero cost.
 5. adaptive chooses only among operator-approved presets and may escalate upward. It cannot silently downgrade a hard safety gate.
 
-Explicit topology, reviewer, and policy settings always override a preset.
+Explicit topology and reviewer settings override a preset only inside immutable global policy, privacy, model, recursion, and budget limits.
 
 ## Structured panel analysis
 
@@ -108,14 +108,14 @@ If the helper CLI is unavailable, the skills must say that the run is manual and
 
 Start from [.fusion.example.json](.fusion.example.json). Reviewer-supplied command text is never executed. Grounding may invoke only trusted verification IDs whose argv arrays were approved before review.
 
-Compound orchestrators such as OpenRouter Fusion or Sakana Fugu can be configured later as optional comparison providers. They are disabled in the example, cannot nest by default, and do not expose enough worker provenance to satisfy a cross-model quorum on their own.
+Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu can be configured later as optional comparison providers. They are disabled in the example, cannot nest by default, and do not expose enough worker provenance to satisfy a cross-model quorum on their own.
 
 ## Current status
 
 Implemented now:
 
 1. Claude Code marketplace and plugin skeleton.
-2. Manual fusion and fully external workflow skills.
+2. Skill-only manual protocols for Claude-driven and fully external workflow design.
 3. Model, preset, topology, analysis, safety, and receipt contracts.
 4. JSON schemas for panel analysis and receipts.
 5. Repository validation workflow.
