@@ -1,50 +1,70 @@
 ---
 name: fusion-parallel
-description: Use for fully external multi model panels where every participant is callable through configured transports.
+description: Use for fully external adaptive panels where every proposer, reviewer, and judge is callable through configured transports.
 ---
 
 # autofusion parallel
 
-Use this skill when a task should be sent to a fully external panel rather than driven by the active Claude Code session as `self`.
+Use this skill when the active Claude Code session should not act as self or when a deterministic external panel is required for batch, CI, comparison, or evaluation.
 
 ## Current repository status
 
-This public repository is currently a design and plugin skeleton. If the `autofusion` CLI is unavailable, do not claim that a parallel panel has run.
+The repository is a pre-engine alpha. If the autofusion CLI is unavailable, do not claim a parallel panel ran.
 
 ## Invocation
 
-Expected form:
+Expected forms:
 
-```text
-/autofusion:fusion-parallel --panel default
-```
+~~~text
+/autofusion:fusion-parallel --panel external-council
+/autofusion:fusion-parallel --preset balanced --topology dual-review
+/autofusion:fusion-parallel --preset quality --artifact plan.json
+~~~
 
 ## Operating contract
 
-1. This mode does not use `self` as a callable drafter.
-2. Every proposer, reviewer, or aggregator must be available through a configured transport.
-3. If any required model transport is missing, degrade honestly and report which handle failed.
-4. Prefer structured outputs and receipts.
-5. For CI or batch use, require deterministic inputs and saved artifacts.
+1. self is invalid in a fully external panel.
+2. Every required participant must be callable before dispatch.
+3. Freeze one artifact and one context packet.
+4. Enforce context quorum across all required participants.
+5. Run independent first passes without peer visibility.
+6. Use bounded concurrency, calls, time, output, and cost.
+7. Apply model and provider allowlists.
+8. Treat compound systems as one opaque participant.
+9. Prevent nested fusion beyond policy depth.
+10. Do not silently replace a missing model.
+11. Do not naive-merge proposals.
+12. Preserve contradictions and unique findings.
+13. Require a receipt for a successful fully external run.
 
 ## Workflow
 
-1. Load `.fusion.json` and global config if available.
-2. Resolve the requested panel.
-3. Verify that every model handle is callable.
-4. Dispatch the task to the configured participants.
-5. Aggregate findings or proposals with explicit evidence and uncertainty.
-6. Write a receipt if helper tooling is available.
-7. Return a verdict and the model handles that materially changed the result.
+1. Load global and repository configuration.
+2. Resolve explicit settings over presets.
+3. Validate panel membership, capability, independence, and policy.
+4. Freeze the artifact and compile the packet.
+5. Verify context quorum.
+6. Record the scaffold plan.
+7. Dispatch independent participants.
+8. Produce the fusion analysis schema.
+9. For panel-rank, blind proposal identities and compare in both orders.
+10. Abstain when ordering changes the winner.
+11. Ground eligible findings through trusted verification IDs.
+12. Persist the receipt.
+13. Return the final state.
 
 ## Output shape
 
 Return:
 
-1. Panel name.
-2. Model handles requested.
-3. Model handles actually used.
-4. Findings or proposal synthesis.
-5. Missing transports.
-6. Receipt path if available.
-7. Final verdict: ship, revise, blocked, or not-run.
+1. Panel and preset.
+2. Topology and role assignment.
+3. Requested and effective participants.
+4. Model-family and compound status.
+5. Context quorum.
+6. Consensus, contradictions, coverage, unique insights, and blind spots.
+7. Findings and grounding.
+8. Budget usage.
+9. Missing or failed transports.
+10. Receipt path.
+11. Final verdict: ship, revise, blocked, degraded, failed, cancelled, or not-run.
