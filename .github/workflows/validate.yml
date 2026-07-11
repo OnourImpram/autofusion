@@ -37,8 +37,11 @@ jobs:
       - name: Validate repository contracts
         run: python scripts/validate_repository.py
 
-      - name: Validate contract instances
+      - name: Validate receipt contract instances
         run: python scripts/validate_contract_instances.py
+
+      - name: Validate analysis contract instances
+        run: python scripts/validate_analysis_instances.py
 
       - name: Validate JSON Schema documents
         run: |
