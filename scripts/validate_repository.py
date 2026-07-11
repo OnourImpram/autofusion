@@ -170,6 +170,29 @@ def validate_schemas() -> None:
         )
 
 
+    receipt = load_json(ROOT / "schemas" / "fusion-receipt.schema.json")
+    receipt_required = receipt.get("required")
+    require(
+        isinstance(receipt_required, list) and "privacy" in receipt_required,
+        "receipt schema must require privacy mode",
+    )
+    receipt_defs = receipt.get("$defs")
+    require(isinstance(receipt_defs, dict), "receipt schema must define reusable types")
+    call_schema = receipt_defs.get("call")
+    require(isinstance(call_schema, dict), "receipt schema must define call")
+    call_properties = call_schema.get("properties")
+    require(isinstance(call_properties, dict), "call schema properties are missing")
+    effective_model = call_properties.get("effective_model")
+    require(
+        isinstance(effective_model, dict) and "anyOf" in effective_model,
+        "effective_model must permit honest unresolved calls",
+    )
+    require(
+        isinstance(receipt.get("allOf"), list),
+        "receipt schema must enforce state-dependent fusion invariants",
+    )
+
+
 def validate_skills() -> None:
     expected = {
         "fusion": ROOT
