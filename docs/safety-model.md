@@ -170,3 +170,10 @@ Unresolved blocker and major findings escalate to the operator when:
 3. Reviewers preserve conflicting evidence.
 4. Required context is incomplete.
 5. A safety or policy gate is disputed.
+## Grounding Failure Classification
+
+A grounding result is confirmed only when an approved verifier completes, returns a nonzero result, classifies the failure as an assertion or static diagnostic, and matches the expected failure for the finding. Import errors, environment errors, timeouts, policy blocks, runner crashes, and unrelated failures are inconclusive. A passing verifier is only not-reproduced, never proof that the finding was false.
+
+## Linked Provenance Boundary
+
+The alpha contract links receipt and analysis artifacts by run id, packet hash, panel, topology, participant call ids, output hashes, and the analysis artifact hash. This is structural provenance validation. Runtime authenticity still depends on the future engine hashing trusted runtime evidence from Claude Code and external calls.

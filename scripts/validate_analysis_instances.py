@@ -103,6 +103,81 @@ def allowed_model_identities(model: dict[str, Any]) -> set[str]:
     return identities
 
 
+def resolve_preset_panel(
+    config: dict[str, Any],
+    preset_name: str,
+) -> tuple[str, dict[str, Any]]:
+    presets = as_object(config.get("presets"), "presets must be an object")
+    panels = as_object(config.get("panels"), "panels must be an object")
+    seen: set[str] = set()
+    current = preset_name
+    while True:
+        require(current not in seen, "preset aliases must not cycle")
+        seen.add(current)
+        require(current in presets, f"unknown preset {current}")
+        preset = as_object(presets[current], f"preset {current} must be an object")
+        alias = preset.get("alias_for")
+        if isinstance(alias, str) and alias:
+            current = alias
+            continue
+        require("panel" in preset, f"preset {preset_name} must resolve to a panel")
+        panel_name = as_string(preset.get("panel"), f"preset {current}.panel must be a string")
+        require(panel_name in panels, f"preset {current} references unknown panel")
+        return panel_name, as_object(panels[panel_name], f"panel {panel_name} must be an object")
+
+
+def expected_panel_participants(panel: dict[str, Any]) -> set[str]:
+    participants: set[str] = set()
+    for field in ("drafter", "judge"):
+        value = panel.get(field)
+        if isinstance(value, str) and value:
+            participants.add(value)
+    for field in ("reviewers", "proposers"):
+        value = panel.get(field)
+        if value is None:
+            continue
+        participants.update(as_string_list(value, f"panel {field} must be a string array"))
+    return participants
+
+
+def validate_analysis_policy_binding(
+    analysis: dict[str, Any],
+    config: dict[str, Any],
+    models: dict[str, Any],
+    participants: set[str],
+) -> None:
+    panel_name = as_string(analysis.get("panel"), "analysis panel must be a string")
+    panels = as_object(config.get("panels"), "panels must be an object")
+    require(panel_name in panels, "analysis panel must exist in the registry")
+    panel = as_object(panels[panel_name], f"panel {panel_name} must be an object")
+    require(
+        analysis.get("topology") == panel.get("topology"),
+        "analysis topology must match the declared panel",
+    )
+    require(
+        participants == expected_panel_participants(panel),
+        "analysis participants must exactly match the declared panel",
+    )
+    guardrails = as_object(config.get("guardrails"), "guardrails must be an object")
+    allowlist = set(
+        as_string_list(
+            guardrails.get("model_allowlist"),
+            "guardrails.model_allowlist must be a string array",
+        )
+    )
+    denylist = set(
+        as_string_list(
+            guardrails.get("provider_denylist"),
+            "guardrails.provider_denylist must be a string array",
+        )
+    )
+    for handle in participants - {"self"}:
+        require(handle in allowlist, f"participant {handle} is not model-allowlisted")
+        model = as_object(models.get(handle), f"model {handle} must be an object")
+        vendor = as_string(model.get("vendor"), f"model {handle} vendor must be a string")
+        require(vendor not in denylist, f"participant {handle} vendor is denied")
+
+
 def trusted_verification_ids(config: dict[str, Any]) -> set[str]:
     verification = as_object(
         config.get("verification"),
@@ -179,6 +254,7 @@ def validate_participants(
     families: dict[str, str] = {}
     eligible: set[str] = set()
     statuses: list[str] = []
+    participant_ids: set[str] = set()
 
     for raw_participant in participants:
         participant = as_object(
@@ -193,14 +269,26 @@ def validate_participants(
             source_id not in families,
             f"duplicate participant source_id {source_id}",
         )
+        participant_ids.add(source_id)
         effective_model = as_string(
             participant.get("effective_model"),
             f"participant {source_id} effective_model must be a string",
         )
 
+        call_id = participant.get("call_id")
+        output_hash = participant.get("output_hash")
+        as_string(
+            participant.get("identity_hash"),
+            f"participant {source_id} identity_hash must be present",
+        )
         if source_id == "self":
+            require(call_id is None, "self participant must not have a call_id")
+            require(output_hash is not None, "self participant must hash its output artifact")
+            as_string(output_hash, "self participant output_hash must be a hash")
             model = resolve_self_profile(models, effective_model)
         else:
+            as_string(call_id, f"participant {source_id} call_id must be a string")
+            as_string(output_hash, f"participant {source_id} output_hash must be a hash")
             require(
                 source_id in models,
                 f"participant {source_id} is absent from the model registry",
@@ -247,6 +335,8 @@ def validate_participants(
         families[source_id] = family
         if status == "completed":
             eligible.add(source_id)
+
+    validate_analysis_policy_binding(analysis, config, models, participant_ids)
 
     expected_context_complete = all(
         status == "completed" for status in statuses
@@ -335,9 +425,11 @@ def validate_consensus(
         )
 
         supporter_families = {families[source] for source in supporters}
-        if len(supporters) == 1:
-            expected_agreement = "single-source"
-        elif len(supporter_families) == 1:
+        require(
+            len(supporters) >= 2,
+            f"consensus {item_id} requires at least two supporters",
+        )
+        if len(supporter_families) == 1:
             expected_agreement = "same-family"
         else:
             expected_agreement = "cross-family"
@@ -540,15 +632,59 @@ def validate_grounding(
             isinstance(exit_code, int) and not isinstance(exit_code, bool),
             "executed grounding result must include integer exit_code",
         )
+        execution_status = as_string(
+            result.get("execution_status"),
+            "grounding result execution_status must be a string",
+        )
+        failure_class = result.get("failure_class")
+        matched_expected_failure = result.get("matched_expected_failure")
+        require(
+            isinstance(matched_expected_failure, bool),
+            "grounding result matched_expected_failure must be a boolean",
+        )
+        confirming_failure_classes = {"assertion", "static-diagnostic"}
         if verdict == "confirmed":
+            require(
+                execution_status == "completed",
+                "confirmed grounding result must complete execution",
+            )
+            require(
+                failure_class in confirming_failure_classes,
+                "confirmed grounding result requires an assertion or static diagnostic",
+            )
+            require(
+                matched_expected_failure is True,
+                "confirmed grounding result must match the expected failure",
+            )
             require(
                 exit_code != 0,
                 "confirmed grounding result must have nonzero exit_code",
             )
         if verdict == "not-reproduced":
             require(
+                execution_status == "completed",
+                "not-reproduced grounding result must complete execution",
+            )
+            require(
                 exit_code == 0,
                 "not-reproduced grounding result must have zero exit_code",
+            )
+            require(
+                failure_class is None,
+                "not-reproduced grounding result must not carry a failure class",
+            )
+            require(
+                matched_expected_failure is False,
+                "not-reproduced grounding result cannot match the expected failure",
+            )
+        if verdict == "inconclusive":
+            require(
+                not (
+                    execution_status == "completed"
+                    and failure_class in confirming_failure_classes
+                    and matched_expected_failure is True
+                ),
+                "inconclusive grounding result cannot carry confirming evidence",
             )
         results[pair] = verdict
 
@@ -680,6 +816,15 @@ def first_candidate(analysis: dict[str, Any]) -> dict[str, Any]:
     return as_object(candidates[0], "grounding candidate must be an object")
 
 
+def first_grounding_result(analysis: dict[str, Any]) -> dict[str, Any]:
+    results = as_list(
+        analysis.get("grounding_results"),
+        "grounding_results must be an array",
+    )
+    require(bool(results), "fixture must contain a grounding result")
+    return as_object(results[0], "grounding result must be an object")
+
+
 def assert_rejected(
     label: str,
     candidate: dict[str, Any],
@@ -719,12 +864,26 @@ def exercise_negative_cases(
     assert_rejected("fabricated agreement strength", candidate, schema, config)
 
     candidate = clone(valid)
+    consensus = first_consensus(candidate)
+    consensus["supporters"] = ["self"]
+    evidence = as_object(consensus.get("evidence"), "consensus evidence must be an object")
+    evidence["sources"] = ["self"]
+    assert_rejected("single-source consensus item", candidate, schema, config)
+
+    candidate = clone(valid)
     second_participant(candidate)["effective_model"] = "claude-fable-5"
     assert_rejected("participant model identity mismatch", candidate, schema, config)
 
     candidate = clone(valid)
     first_finding(candidate)["verification_id"] = "python.untrusted"
     assert_rejected("untrusted finding verification", candidate, schema, config)
+
+    candidate = clone(valid)
+    result = first_grounding_result(candidate)
+    result["execution_status"] = "runner-error"
+    result["failure_class"] = "environment"
+    result["exit_code"] = 127
+    assert_rejected("runner error cannot confirm grounding", candidate, schema, config)
 
     candidate = clone(valid)
     candidate["grounding_results"] = []
@@ -737,6 +896,17 @@ def exercise_negative_cases(
     candidate = clone(valid)
     first_participant(candidate)["status"] = "failed"
     assert_rejected("complete context with failed participant", candidate, schema, config)
+
+    candidate = clone(valid)
+    candidate["topology"] = "panel-rank"
+    candidate["panel"] = "external-council"
+    assert_rejected("self cannot appear in panel-rank analysis", candidate, schema, config)
+
+    candidate = clone(valid)
+    denied_config = clone(config)
+    guardrails = as_object(denied_config.get("guardrails"), "guardrails must be an object")
+    guardrails["provider_denylist"] = ["openai"]
+    assert_rejected("denied provider in analysis", candidate, schema, denied_config)
 
 
 def main() -> int:

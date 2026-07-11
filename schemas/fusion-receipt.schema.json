@@ -12,6 +12,7 @@
     "state",
     "verdict",
     "topology",
+    "panel",
     "preset",
     "fused",
     "consulted",
@@ -45,7 +46,10 @@
       "format": "date-time"
     },
     "finished_at": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time"
     },
     "state": {
@@ -102,16 +106,25 @@
     },
     "self_model": {
       "description": "Canonical effective model ID for the active self session, or null when self is absent.",
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "minLength": 1
     },
     "self_identity_source": {
       "description": "Trusted origin of the active self model identity.",
-      "enum": ["runtime-attested", null]
+      "enum": [
+        "runtime-attested",
+        null
+      ]
     },
     "self_identity_hash": {
       "description": "Hash of immutable runtime evidence for the active self model identity.",
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[a-f0-9]{64}$"
     },
     "task_hash": {
@@ -121,7 +134,10 @@
       "$ref": "#/$defs/hash"
     },
     "packet_hash": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[a-f0-9]{64}$"
     },
     "context_complete": {
@@ -143,7 +159,10 @@
       }
     },
     "analysis_hash": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[a-f0-9]{64}$"
     },
     "budgets": {
@@ -190,7 +209,15 @@
       }
     },
     "privacy": {
-      "enum": ["metadata-only", "redacted", "local-full"]
+      "enum": [
+        "metadata-only",
+        "redacted",
+        "local-full"
+      ]
+    },
+    "panel": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "allOf": [
@@ -203,7 +230,9 @@
             }
           }
         },
-        "required": ["requested_participants"]
+        "required": [
+          "requested_participants"
+        ]
       },
       "then": {
         "properties": {
@@ -240,7 +269,9 @@
             "const": "advisor"
           }
         },
-        "required": ["topology"]
+        "required": [
+          "topology"
+        ]
       },
       "then": {
         "properties": {
@@ -260,7 +291,10 @@
             "const": "signed_off"
           }
         },
-        "required": ["topology", "state"]
+        "required": [
+          "topology",
+          "state"
+        ]
       },
       "then": {
         "properties": {
@@ -284,7 +318,9 @@
                   "const": "completed"
                 }
               },
-              "required": ["status"]
+              "required": [
+                "status"
+              ]
             },
             "minContains": 1
           }
@@ -298,7 +334,9 @@
             "const": true
           }
         },
-        "required": ["consulted"]
+        "required": [
+          "consulted"
+        ]
       },
       "then": {
         "properties": {
@@ -315,10 +353,16 @@
       "if": {
         "properties": {
           "state": {
-            "enum": ["degraded", "failed", "cancelled"]
+            "enum": [
+              "degraded",
+              "failed",
+              "cancelled"
+            ]
           }
         },
-        "required": ["state"]
+        "required": [
+          "state"
+        ]
       },
       "then": {
         "properties": {
@@ -338,7 +382,9 @@
             "const": "degraded"
           }
         },
-        "required": ["state"]
+        "required": [
+          "state"
+        ]
       },
       "then": {
         "properties": {
@@ -355,7 +401,9 @@
             "const": "failed"
           }
         },
-        "required": ["state"]
+        "required": [
+          "state"
+        ]
       },
       "then": {
         "properties": {
@@ -372,7 +420,9 @@
             "const": "cancelled"
           }
         },
-        "required": ["state"]
+        "required": [
+          "state"
+        ]
       },
       "then": {
         "properties": {
@@ -389,7 +439,9 @@
             "const": "escalated"
           }
         },
-        "required": ["state"]
+        "required": [
+          "state"
+        ]
       },
       "then": {
         "properties": {
@@ -406,7 +458,9 @@
             "const": true
           }
         },
-        "required": ["fused"]
+        "required": [
+          "fused"
+        ]
       },
       "then": {
         "properties": {
@@ -430,10 +484,17 @@
             "$ref": "#/$defs/hash"
           },
           "state": {
-            "enum": ["signed_off", "escalated"]
+            "enum": [
+              "signed_off",
+              "escalated"
+            ]
           },
           "verdict": {
-            "enum": ["ship", "revise", "blocked"]
+            "enum": [
+              "ship",
+              "revise",
+              "blocked"
+            ]
           },
           "requested_participants": {
             "minItems": 2
@@ -451,7 +512,9 @@
                       "const": "completed"
                     }
                   },
-                  "required": ["status"]
+                  "required": [
+                    "status"
+                  ]
                 }
               ]
             }
@@ -466,10 +529,15 @@
       "if": {
         "properties": {
           "verdict": {
-            "enum": ["ship", "revise"]
+            "enum": [
+              "ship",
+              "revise"
+            ]
           }
         },
-        "required": ["verdict"]
+        "required": [
+          "verdict"
+        ]
       },
       "then": {
         "properties": {
@@ -492,7 +560,9 @@
             "const": false
           }
         },
-        "required": ["context_complete"]
+        "required": [
+          "context_complete"
+        ]
       },
       "then": {
         "properties": {
@@ -535,6 +605,7 @@
         "input_tokens",
         "output_tokens",
         "cost_usd",
+        "cost_verified",
         "output_hash"
       ],
       "properties": {
@@ -577,7 +648,11 @@
           "type": "boolean"
         },
         "worker_visibility": {
-          "enum": ["transparent", "opaque", "not-applicable"]
+          "enum": [
+            "transparent",
+            "opaque",
+            "not-applicable"
+          ]
         },
         "status": {
           "enum": [
@@ -593,22 +668,34 @@
           "minimum": 0
         },
         "input_tokens": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "output_tokens": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0
         },
         "cost_usd": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0
         },
         "cost_verified": {
           "type": "boolean"
         },
         "output_hash": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "pattern": "^[a-f0-9]{64}$"
         }
       },
@@ -620,7 +707,9 @@
                 "const": "completed"
               }
             },
-            "required": ["status"]
+            "required": [
+              "status"
+            ]
           },
           "then": {
             "properties": {
@@ -666,11 +755,17 @@
           "minimum": 0
         },
         "max_cost_usd": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0
         },
         "cost_usd": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0
         },
         "cost_verified": {

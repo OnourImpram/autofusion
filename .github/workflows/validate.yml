@@ -16,10 +16,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
           cache: pip
@@ -42,6 +42,9 @@ jobs:
 
       - name: Validate analysis contract instances
         run: python scripts/validate_analysis_instances.py
+
+      - name: Validate linked run provenance
+        run: python scripts/validate_linked_run.py
 
       - name: Validate JSON Schema documents
         run: |

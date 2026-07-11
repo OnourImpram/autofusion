@@ -22,6 +22,7 @@ REQUIRED_PATHS = (
     ROOT / "schemas" / "fusion-receipt.schema.json",
     ROOT / "scripts" / "validate_contract_instances.py",
     ROOT / "scripts" / "validate_analysis_instances.py",
+    ROOT / "scripts" / "validate_linked_run.py",
     ROOT / "tests" / "fixtures" / "receipt-valid.json",
     ROOT / "tests" / "fixtures" / "analysis-valid.json",
     ROOT / "docs" / "competitive-research.md",
@@ -749,6 +750,7 @@ def validate_schemas() -> None:
         "self_identity_hash",
         "packet_hash",
         "analysis_hash",
+        "panel",
         "findings",
         "privacy",
     }
@@ -775,6 +777,16 @@ def validate_schemas() -> None:
     require(
         "anyOf" in effective_model,
         "effective_model must permit honest unresolved calls",
+    )
+    call_required = set(
+        as_string_list(
+            call_schema.get("required"),
+            "call schema required must be a string array",
+        )
+    )
+    require(
+        "cost_verified" in call_required,
+        "call schema must require per-call cost verification",
     )
     require(
         isinstance(receipt.get("allOf"), list),

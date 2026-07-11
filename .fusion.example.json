@@ -72,7 +72,11 @@
       "params": {
         "permission_mode": "plan",
         "no_session_persistence": true,
-        "allowed_tools": ["Read", "Glob", "Grep"]
+        "allowed_tools": [
+          "Read",
+          "Glob",
+          "Grep"
+        ]
       }
     },
     "claude-fable": {
@@ -93,7 +97,11 @@
       "params": {
         "permission_mode": "plan",
         "no_session_persistence": true,
-        "allowed_tools": ["Read", "Glob", "Grep"]
+        "allowed_tools": [
+          "Read",
+          "Glob",
+          "Grep"
+        ]
       }
     },
     "openrouter-fusion-reference": {
@@ -157,7 +165,11 @@
     },
     "adaptive": {
       "router": "risk-rules-v1",
-      "allowed_presets": ["fast", "balanced", "quality"],
+      "allowed_presets": [
+        "fast",
+        "balanced",
+        "quality"
+      ],
       "direction": "escalate-only"
     }
   },
@@ -165,33 +177,48 @@
     "default": {
       "topology": "review",
       "drafter": "self",
-      "reviewers": ["gpt-sol"],
+      "reviewers": [
+        "gpt-sol"
+      ],
       "arbiter": "escalate-human"
     },
     "dual-opus": {
       "topology": "dual-review",
       "drafter": "self",
-      "reviewers": ["gpt-sol", "claude-opus"],
+      "reviewers": [
+        "gpt-sol",
+        "claude-opus"
+      ],
       "blind": true,
       "arbiter": "escalate-human"
     },
     "dual-fable": {
       "topology": "dual-review",
       "drafter": "self",
-      "reviewers": ["gpt-sol", "claude-fable"],
+      "reviewers": [
+        "gpt-sol",
+        "claude-fable"
+      ],
       "blind": true,
       "arbiter": "escalate-human"
     },
     "quality": {
       "topology": "adversarial-review",
       "drafter": "self",
-      "reviewers": ["gpt-sol-ultra", "claude-fable"],
+      "reviewers": [
+        "gpt-sol-ultra",
+        "claude-fable"
+      ],
       "blind": true,
       "arbiter": "escalate-human"
     },
     "external-council": {
       "topology": "panel-rank",
-      "proposers": ["gpt-sol", "claude-opus", "claude-fable"],
+      "proposers": [
+        "gpt-sol",
+        "claude-opus",
+        "claude-fable"
+      ],
       "judge": "gpt-sol-ultra",
       "blind": true,
       "pairwise_order_check": true,
@@ -230,9 +257,14 @@
     "compound": {
       "max_depth": 1,
       "default_allow_as_panel_member": false,
-      "allowed_handles": ["gpt-sol-ultra"],
+      "allowed_handles": [
+        "gpt-sol-ultra"
+      ],
       "allowed_roles": {
-        "gpt-sol-ultra": ["reviewer", "judge"]
+        "gpt-sol-ultra": [
+          "reviewer",
+          "judge"
+        ]
       },
       "count_hidden_workers_as_independent": false
     }
@@ -311,17 +343,29 @@
       "python": {
         "commands": {
           "ruff": {
-            "argv": ["ruff", "check", "."],
+            "argv": [
+              "ruff",
+              "check",
+              "."
+            ],
             "timeout_s": 120,
             "kind": "static"
           },
           "mypy": {
-            "argv": ["mypy", "--strict", "src", "tests"],
+            "argv": [
+              "mypy",
+              "--strict",
+              "src",
+              "tests"
+            ],
             "timeout_s": 180,
             "kind": "static"
           },
           "pytest": {
-            "argv": ["pytest", "-q"],
+            "argv": [
+              "pytest",
+              "-q"
+            ],
             "timeout_s": 600,
             "kind": "dynamic"
           }
@@ -333,7 +377,12 @@
     "network": "deny"
   },
   "guardrails": {
-    "model_allowlist": ["gpt-sol", "gpt-sol-ultra", "claude-opus", "claude-fable"],
+    "model_allowlist": [
+      "gpt-sol",
+      "gpt-sol-ultra",
+      "claude-opus",
+      "claude-fable"
+    ],
     "provider_denylist": [],
     "max_panel_size": 4,
     "max_calls_per_run": 8,

@@ -193,3 +193,6 @@ Configuration merges in this order:
 4. Explicit CLI or skill arguments.
 
 A more local layer may select among permitted models and presets. It may not weaken global deny rules, privacy constraints, maximum depth, or execution limits.
+## Runtime Policy and Linked Artifacts
+
+Receipts must resolve their preset to a concrete panel and must match that panel's topology and participant set exactly. Analysis artifacts declare the same panel and are validated against the configured panel graph. Receipt and analysis artifacts are linked through run id, packet hash, analysis hash, participant call ids, output hashes, and self identity evidence hashes. This prevents a successful static schema check from masquerading as a valid fused run when the runtime policy or analysis artifact does not match the recorded receipt.

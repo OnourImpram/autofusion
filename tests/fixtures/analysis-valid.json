@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2",
-  "packet_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "packet_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "topology": "review",
   "context_complete": true,
   "participants": [
@@ -10,7 +10,10 @@
       "family": "claude-opus",
       "compound": false,
       "worker_visibility": "not-applicable",
-      "status": "completed"
+      "status": "completed",
+      "call_id": null,
+      "output_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "identity_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
     },
     {
       "source_id": "gpt-sol",
@@ -18,7 +21,10 @@
       "family": "gpt-5.6",
       "compound": false,
       "worker_visibility": "not-applicable",
-      "status": "completed"
+      "status": "completed",
+      "call_id": "call-1",
+      "output_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "identity_hash": "3333333333333333333333333333333333333333333333333333333333333333"
     }
   ],
   "consensus": [
@@ -66,7 +72,10 @@
       "verification_id": "python.pytest",
       "verdict": "confirmed",
       "exit_code": 1,
-      "output_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+      "output_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "execution_status": "completed",
+      "failure_class": "assertion",
+      "matched_expected_failure": true
     }
   ],
   "decision_impact": {
@@ -95,5 +104,7 @@
       "verification_id": "python.pytest",
       "status": "grounded"
     }
-  ]
+  ],
+  "run_id": "run-contract-valid",
+  "panel": "default"
 }

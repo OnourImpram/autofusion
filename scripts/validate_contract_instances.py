@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -144,6 +145,123 @@ def canonicalize_handle_identity(
     return identity
 
 
+def parse_datetime(value: Any, message: str) -> datetime:
+    if not isinstance(value, str) or not value:
+        raise ContractError(message)
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise ContractError(message) from exc
+
+
+def resolve_preset_panel(
+    config: dict[str, Any],
+    preset_name: str,
+) -> tuple[str, dict[str, Any]]:
+    presets = as_object(config.get("presets"), "presets must be an object")
+    panels = as_object(config.get("panels"), "panels must be an object")
+    seen: set[str] = set()
+    current = preset_name
+    while True:
+        require(current not in seen, "preset aliases must not cycle")
+        seen.add(current)
+        require(current in presets, f"unknown runtime preset {current}")
+        preset = as_object(presets[current], f"preset {current} must be an object")
+        alias = preset.get("alias_for")
+        if isinstance(alias, str) and alias:
+            current = alias
+            continue
+        require(
+            "panel" in preset,
+            f"runtime preset {preset_name} must resolve to a concrete panel",
+        )
+        panel_name = as_string(
+            preset.get("panel"),
+            f"preset {current}.panel must be a string",
+        )
+        require(panel_name in panels, f"preset {current} references unknown panel")
+        return panel_name, as_object(
+            panels[panel_name],
+            f"panel {panel_name} must be an object",
+        )
+
+
+def expected_panel_participants(panel: dict[str, Any]) -> set[str]:
+    participants: set[str] = set()
+    for field in ("drafter", "judge"):
+        value = panel.get(field)
+        if isinstance(value, str) and value:
+            participants.add(value)
+    for field in ("reviewers", "proposers"):
+        value = panel.get(field)
+        if value is None:
+            continue
+        participants.update(as_string_list(value, f"panel {field} must be a string array"))
+    return participants
+
+
+def validate_runtime_policy_binding(
+    receipt: dict[str, Any],
+    config: dict[str, Any],
+    models: dict[str, Any],
+    participants: set[str],
+) -> None:
+    preset_name = as_string(receipt.get("preset"), "preset must be a string")
+    panel_name, panel = resolve_preset_panel(config, preset_name)
+    declared_panel = as_string(receipt.get("panel"), "panel must be a string")
+    require(
+        declared_panel == panel_name,
+        "receipt panel must match the resolved preset panel",
+    )
+    require(
+        receipt.get("topology") == panel.get("topology"),
+        "receipt topology must match the resolved panel topology",
+    )
+    require(
+        participants == expected_panel_participants(panel),
+        "requested participants must exactly match the resolved panel",
+    )
+
+    guardrails = as_object(config.get("guardrails"), "guardrails must be an object")
+    allowlist = set(
+        as_string_list(
+            guardrails.get("model_allowlist"),
+            "guardrails.model_allowlist must be a string array",
+        )
+    )
+    denylist = set(
+        as_string_list(
+            guardrails.get("provider_denylist"),
+            "guardrails.provider_denylist must be a string array",
+        )
+    )
+    for handle in participants - {"self"}:
+        require(handle in allowlist, f"participant {handle} is not model-allowlisted")
+        model = as_object(models.get(handle), f"model {handle} must be an object")
+        vendor = as_string(model.get("vendor"), f"model {handle} vendor must be a string")
+        require(vendor not in denylist, f"participant {handle} vendor is denied")
+
+
+def validate_timestamps(receipt: dict[str, Any]) -> None:
+    finished_raw = receipt.get("finished_at")
+    if finished_raw is None:
+        return
+    started = parse_datetime(receipt.get("started_at"), "started_at must be a date-time")
+    finished = parse_datetime(finished_raw, "finished_at must be a date-time")
+    require(finished >= started, "finished_at must not precede started_at")
+    budgets = as_object(receipt.get("budgets"), "budgets must be an object")
+    wallclock = as_nonnegative_number(
+        budgets.get("wallclock_s"),
+        "wallclock_s must be a nonnegative number",
+    )
+    elapsed = (finished - started).total_seconds()
+    require(
+        abs(elapsed - wallclock) <= 0.001,
+        "wallclock_s must match started_at and finished_at",
+    )
+
+
 def validate_call_registry(
     call: dict[str, Any],
     models: dict[str, Any],
@@ -246,9 +364,22 @@ def validate_budget_semantics(
     for raw_call in calls:
         call = as_object(raw_call, "each call must be an object")
         raw_call_cost = call.get("cost_usd")
+        call_cost_verified = call.get("cost_verified")
+        require(
+            isinstance(call_cost_verified, bool),
+            "call cost_verified must be a boolean",
+        )
         if raw_call_cost is None:
+            require(
+                call_cost_verified is False,
+                "unknown call cost cannot be marked verified",
+            )
             has_unknown_cost = True
             continue
+        require(
+            call_cost_verified is True,
+            "known call cost must be marked verified",
+        )
         call_costs.append(
             as_nonnegative_decimal(
                 raw_call_cost,
@@ -349,6 +480,7 @@ def validate_receipt_semantics(
         len(participants) <= max_panel_size,
         "requested participants exceed max_panel_size",
     )
+    validate_runtime_policy_binding(receipt, config, models, participants)
 
     resolved_models: set[str] = set()
     if "self" in participants:
@@ -451,6 +583,7 @@ def validate_receipt_semantics(
     )
 
     validate_budget_semantics(receipt, config, calls)
+    validate_timestamps(receipt)
 
 def validate_receipt(
     receipt: dict[str, Any],
@@ -533,6 +666,15 @@ def exercise_negative_cases(
     assert_rejected("wallclock budget exceeded", candidate, schema, config)
 
     candidate = clone(valid)
+    candidate["finished_at"] = "2026-07-10T23:59:59Z"
+    assert_rejected("finished before started", candidate, schema, config)
+
+    candidate = clone(valid)
+    budgets = receipt_budgets(candidate)
+    budgets["wallclock_s"] = 11
+    assert_rejected("wallclock timestamp mismatch", candidate, schema, config)
+
+    candidate = clone(valid)
     first_call(candidate)["cost_usd"] = 100.0
     budgets = receipt_budgets(candidate)
     budgets["max_cost_usd"] = 1.0
@@ -552,6 +694,28 @@ def exercise_negative_cases(
     budgets = receipt_budgets(candidate)
     budgets["max_cost_usd"] = 1.0
     assert_rejected("unknown cost with hard budget", candidate, schema, config)
+
+    candidate = clone(valid)
+    first_call(candidate)["cost_usd"] = 1.0
+    first_call(candidate)["cost_verified"] = False
+    budgets = receipt_budgets(candidate)
+    budgets["cost_usd"] = 1.0
+    budgets["cost_verified"] = True
+    assert_rejected("unverified call cost marked as aggregate verified", candidate, schema, config)
+
+    candidate = clone(valid)
+    candidate["panel"] = "quality"
+    assert_rejected("preset panel mismatch", candidate, schema, config)
+
+    candidate = clone(valid)
+    candidate["requested_participants"] = ["self", "gpt-sol", "claude-opus"]
+    assert_rejected("participants outside resolved panel", candidate, schema, config)
+
+    candidate = clone(valid)
+    denied_config = clone(config)
+    guardrails = as_object(denied_config.get("guardrails"), "guardrails must be an object")
+    guardrails["provider_denylist"] = ["openai"]
+    assert_rejected("denied provider participant", candidate, schema, denied_config)
 
     candidate = clone(valid)
     candidate["requested_participants"] = [
