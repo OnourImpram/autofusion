@@ -57,7 +57,7 @@ Each callable profile declares:
 11. Privacy, parameter, region, and fallback constraints.
 12. Cost, latency, and throughput metadata when available.
 
-The first implementation targets codex-exec and claude-exec. OpenAI-compatible and Anthropic API transports follow after the review vertical slice.
+The alpha implementation includes codex-exec, claude-exec, OpenAI-compatible HTTP, Anthropic HTTP, and deterministic fake transports. Live use still depends on provider availability, credentials, effective-model attestation, and the configured policy.
 
 Provider fallback is safe only when the concrete effective model remains allowed and the resulting panel still satisfies context and independence quorum. Same-model endpoint fallback is the default. Different-model substitution requires explicit policy and cannot bypass a moderation or policy block.
 

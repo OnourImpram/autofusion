@@ -9,7 +9,7 @@ Use this skill when the active Claude Code session should not act as self or whe
 
 ## Current repository status
 
-The repository is a pre-engine alpha. This plugin is a skill-only protocol and does not provide batch execution, model transports, grounding, or receipt persistence by itself. If the autofusion CLI or another verified callable route is unavailable, do not claim a parallel panel ran.
+The repository contains an alpha helper runtime, but this plugin remains skill-first. A fully external panel may run through the helper CLI only when every configured participant is callable and the helper passes its runtime checks. If the autofusion CLI or another verified callable route is unavailable, do not claim a parallel panel ran.
 
 ## Invocation
 

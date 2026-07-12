@@ -2,7 +2,9 @@
 
 autofusion is a Claude Code first escalation system for serious engineering work. It combines an active Claude Code session with independent model reviewers, evidence grounding, explicit disagreement, and auditable receipts.
 
-The repository is currently a pre-engine alpha. The Claude Code skills provide a skill-only manual protocol, and the design contracts describe the future engine. The Python engine, transports, grounding runner, and receipt writer are still roadmap items. The project does not claim those components exist before they are implemented and verified.
+The repository is currently an alpha runtime. It includes a typed Python package, deterministic routing, immutable snapshots, packet compilation, provider adapters, grounding, reconciliation, metadata-only receipts, replay and evaluation helpers, and a Claude Code plugin skeleton.
+
+The plugin remains skill-first. Installing the plugin does not magically grant model credentials or a live callable route. Successful fusion requires the helper CLI and the configured provider transports to pass runtime checks. If a model, sandbox, DLP gate, budget, or receipt write fails, autofusion records degraded state instead of claiming fused success.
 
 ## Why autofusion
 
@@ -106,6 +108,14 @@ Example invocations:
 
 If the helper CLI is unavailable, the skills must say that the run is manual and must not claim unavailable transports, grounding, or receipts were executed.
 
+Install the helper package from a checkout or release artifact:
+
+~~~text
+python -m pip install autofusion
+autofusion doctor
+autofusion config-validate --config .fusion.example.json
+~~~
+
 ## Configuration
 
 Start from [.fusion.example.json](.fusion.example.json). Reviewer-supplied command text is never executed. Grounding may invoke only trusted verification IDs whose argv arrays were approved before review.
@@ -114,29 +124,29 @@ Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu can 
 
 ## Current status
 
-Implemented now:
+Implemented in the alpha runtime:
 
-1. Claude Code marketplace and plugin skeleton.
-2. Skill-only manual protocols for Claude-driven and fully external workflow design.
-3. Model, preset, topology, analysis, safety, and receipt contracts.
-4. JSON schemas for panel analysis and receipts.
-5. Repository validation workflow.
-6. Research-backed competitive design notes.
-7. Strict receipt and analysis provenance validators with adversarial fixtures.
+1. Typed Python package and CLI entry point.
+2. Non-callable `self` boundary.
+3. Built-in profiles for GPT 5.6 SOL, GPT 5.6 SOL Ultra, Claude Opus, and Claude Fable.
+4. Deterministic adaptive routing, hard gates, context quorum, and budget accounting.
+5. Review, adversarial review, dual review, advisor, and panel-rank topologies.
+6. Codex CLI, Claude CLI, OpenAI-compatible HTTP, Anthropic HTTP, and deterministic fake providers.
+7. Immutable repository snapshots and DLP preflight.
+8. Trusted verification IDs, argv-only grounding, and network-denied runner detection.
+9. Finding reconciliation, deadlock handling, metadata-only receipts, replay, policy signing, drift snapshots, telemetry stubs, and GitHub annotations.
+10. Contract validators, strict mypy, ruff, and coverage-gated tests.
 
-Not yet implemented:
+Still gated before public 1.0 claims:
 
-1. Python engine and CLI.
-2. Codex and Claude CLI transports.
-3. Immutable repository snapshot builder.
-4. Grounding sandbox.
-5. Receipt persistence.
-6. Live adaptive routing.
-7. A/B evaluation harness.
+1. Real smoke evidence for every advertised live profile in the supported environment.
+2. External replication showing cross-model gain beyond same-model self-review.
+3. Production signing for provider routing, cost, and runner attestations.
+4. Stronger disposable isolation beyond WSL or Linux `unshare`.
+5. Published release artifact and installation docs based on an immutable tag.
 
-The first engine milestone remains a real diff fusion run with Claude Code as drafter, Codex as reviewer, approved verification commands as grounding, and an honest receipt that proves what changed.
 ## Alpha Provenance Boundary
 
-The validators now reconcile receipts against the linked analysis artifact. A `ship` receipt is valid only when the linked analysis has no blocker or major findings. Grounding and cost records require structural attestation hashes, but the alpha repository still does not claim live cryptographic runtime authenticity until the engine writes those records from trusted runner and provider evidence.
+Receipts reconcile against the linked analysis artifact. A `ship` receipt is valid only when the linked analysis has no blocker or major findings. The runtime writes structural hashes for packets, snapshots, calls, grounding, and receipts, and the validators reject mismatched summaries.
 
-The alpha validators do not trust self-declared hash fields by themselves. Runner, routing, cost, and self identity hashes must resolve to `tests/fixtures/trusted-attestations.json` in the current contract fixtures. A production engine should replace that fixture with captured trusted runtime evidence.
+This is still an alpha provenance system. It proves internal consistency and fail-closed behavior. It does not yet claim cryptographic authenticity of external model usage, subscription entitlements, or provider bills. Those require captured trusted runtime evidence and release signing.

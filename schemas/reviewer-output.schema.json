@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://autofusion.dev/schemas/reviewer-output.schema.json",
+  "title": "Autofusion reviewer output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "coverage", "blind_spots", "recommendation", "findings"],
+  "properties": {
+    "summary": {"type": "string"},
+    "coverage": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "blind_spots": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "recommendation": {
+      "enum": ["ship", "revise", "block", "abstain"]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "severity",
+          "category",
+          "claim",
+          "evidence",
+          "suggested_fix",
+          "checkable",
+          "verification_id",
+          "stance_key",
+          "stance"
+        ],
+        "properties": {
+          "severity": {"enum": ["blocker", "major", "minor"]},
+          "category": {"type": "string"},
+          "claim": {"type": "string"},
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["summary", "strength"],
+            "properties": {
+              "summary": {"type": "string"},
+              "strength": {"enum": ["artifact-cited", "unverified"]}
+            }
+          },
+          "suggested_fix": {"type": "string"},
+          "checkable": {"type": "boolean"},
+          "verification_id": {"type": ["string", "null"]},
+          "stance_key": {"type": "string"},
+          "stance": {"enum": ["supports", "opposes", "uncertain"]}
+        }
+      }
+    }
+  }
+}

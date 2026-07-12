@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://autofusion.dev/schemas/proposal-output.schema.json",
+  "title": "Autofusion independent proposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "proposal", "assumptions", "risks", "verification"],
+  "properties": {
+    "summary": {"type": "string"},
+    "proposal": {"type": "string"},
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "risks": {"type": "array", "items": {"type": "string"}},
+    "verification": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -11,7 +11,7 @@ This is an escalation workflow. It is not an autopilot.
 
 ## Current repository status
 
-The repository is a pre-engine alpha. This plugin is a skill-only manual protocol and exposes no model transport, grounding runner, DLP scanner, or receipt writer by itself. If the autofusion helper CLI or another verified callable route is unavailable, state that limitation and do not claim the unavailable operation ran.
+The repository contains an alpha helper runtime, but this Claude Code plugin remains skill-first. The skill can orchestrate the self-driven workflow and may call the helper CLI when it is installed and verified. If the helper CLI or another verified callable route is unavailable, state that limitation and do not claim the unavailable operation ran.
 
 ## Invocation
 
@@ -77,7 +77,7 @@ Adaptive routing may escalate upward. It must not silently route below a hard ga
 9. Reconcile each finding as accepted, rejected, deadlock, resolved, or waived.
 10. Run one challenge and one rebuttal only for unresolved blocker or major claims.
 11. Request operator judgment when evidence remains insufficient.
-12. Write a receipt only when verified helper tooling exists.
+12. Write a receipt only when verified helper tooling exists and the helper reports a persisted receipt path.
 
 ## Preset intent
 

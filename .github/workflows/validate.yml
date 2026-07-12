@@ -26,13 +26,16 @@ jobs:
           cache-dependency-path: requirements-validation.txt
 
       - name: Install validation dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements-validation.txt
+        run: python -m pip install --disable-pip-version-check ".[dev]"
 
-      - name: Lint validators
-        run: ruff check scripts
+      - name: Lint Python
+        run: ruff check src tests scripts
 
-      - name: Type-check validators
-        run: mypy --strict scripts
+      - name: Type-check Python
+        run: mypy --strict src scripts tests
+
+      - name: Run tests with coverage
+        run: pytest -q --cov=autofusion --cov-branch --cov-report=term-missing
 
       - name: Validate repository contracts
         run: python scripts/validate_repository.py
@@ -63,3 +66,26 @@ jobs:
               Draft202012Validator.check_schema(schema)
               logger.info("%s: valid", path)
           PY
+
+      - name: Validate packaged schema parity
+        run: |
+          python - <<'PY'
+          import filecmp
+          from pathlib import Path
+
+          root = Path("schemas")
+          packaged = Path("src/autofusion/schemas")
+          missing = []
+          different = []
+          for schema in sorted(root.glob("*.schema.json")):
+              candidate = packaged / schema.name
+              if not candidate.exists():
+                  missing.append(schema.name)
+              elif not filecmp.cmp(schema, candidate, shallow=False):
+                  different.append(schema.name)
+          if missing or different:
+              raise SystemExit(f"schema parity failed, missing={missing}, different={different}")
+          PY
+
+      - name: Build package
+        run: python -m build

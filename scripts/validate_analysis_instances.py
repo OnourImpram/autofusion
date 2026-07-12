@@ -438,10 +438,9 @@ def validate_consensus(
             len(supporters) >= 2,
             f"consensus {item_id} requires at least two supporters",
         )
-        if len(supporter_families) == 1:
-            expected_agreement = "same-family"
-        else:
-            expected_agreement = "cross-family"
+        expected_agreement = (
+            "same-family" if len(supporter_families) == 1 else "cross-family"
+        )
         require(
             item.get("agreement_strength") == expected_agreement,
             f"consensus {item_id} agreement_strength is inconsistent",

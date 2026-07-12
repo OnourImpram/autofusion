@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://autofusion.dev/schemas/pairwise-judge.schema.json",
+  "title": "Autofusion blind pairwise judgment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["winner", "rationale", "confidence"],
+  "properties": {
+    "winner": {"enum": ["left", "right", "abstain"]},
+    "rationale": {"type": "string"},
+    "confidence": {"enum": ["low", "medium", "high"]}
+  }
+}
