@@ -67,7 +67,7 @@ def as_string_list(value: Any, message: str) -> list[str]:
 def as_nonnegative_int(value: Any, message: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ContractError(message)
-    return cast(int, value)
+    return value
 
 
 def as_positive_int(value: Any, message: str) -> int:
@@ -78,7 +78,7 @@ def as_positive_int(value: Any, message: str) -> int:
 
 
 def as_nonnegative_number(value: Any, message: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise ContractError(message)
     if value < 0:
         raise ContractError(message)
@@ -86,7 +86,7 @@ def as_nonnegative_number(value: Any, message: str) -> float:
 
 
 def as_nonnegative_decimal(value: Any, message: str) -> Decimal:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise ContractError(message)
     if value < 0:
         raise ContractError(message)

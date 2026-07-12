@@ -165,6 +165,22 @@
       ],
       "pattern": "^[a-f0-9]{64}$"
     },
+    "previous_receipt_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "receipt_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "policy_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "signoff_attestation_hash": {
+      "$ref": "#/$defs/hash"
+    },
     "budgets": {
       "$ref": "#/$defs/budgets"
     },

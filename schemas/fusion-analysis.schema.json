@@ -99,6 +99,30 @@
         "$ref": "#/$defs/finding"
       }
     },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["winner_id", "abstained", "order_sensitive", "comparisons"],
+      "properties": {
+        "winner_id": {"type": ["string", "null"]},
+        "abstained": {"type": "boolean"},
+        "order_sensitive": {"type": "boolean"},
+        "comparisons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["left_id", "right_id", "winner", "order_sensitive"],
+            "properties": {
+              "left_id": {"type": "string"},
+              "right_id": {"type": "string"},
+              "winner": {"type": ["string", "null"]},
+              "order_sensitive": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
     "run_id": {
       "type": "string",
       "minLength": 1
@@ -133,8 +157,10 @@
           "minLength": 1
         },
         "effective_model": {
-          "type": "string",
-          "minLength": 1
+          "anyOf": [
+            {"type": "string", "minLength": 1},
+            {"type": "null"}
+          ]
         },
         "family": {
           "type": "string",
@@ -568,6 +594,15 @@
             "deadlock",
             "resolved",
             "waived"
+          ]
+        },
+        "disposition_rationale": {
+          "type": "string"
+        },
+        "grounded_by": {
+          "type": [
+            "string",
+            "null"
           ]
         }
       }

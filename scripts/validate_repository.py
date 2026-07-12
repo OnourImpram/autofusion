@@ -46,6 +46,7 @@ REQUIRED_PRESETS = {
     "quality",
     "budget",
     "adaptive",
+    "parallel",
 }
 
 REQUIRED_ANALYSIS_SECTIONS = {
@@ -132,7 +133,7 @@ def as_string_list(value: Any, message: str) -> list[str]:
 def as_positive_int(value: Any, message: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         raise ValidationError(message)
-    return cast(int, value)
+    return value
 
 
 def require(condition: bool, message: str) -> None:
@@ -564,11 +565,11 @@ def validate_config() -> None:
     presets = as_object(config.get("presets"), "presets must be an object")
     panels = as_object(config.get("panels"), "panels must be an object")
     require(
-        REQUIRED_MODELS <= set(models),
+        set(models) >= REQUIRED_MODELS,
         "required built-in model handles are missing",
     )
     require(
-        REQUIRED_PRESETS <= set(presets),
+        set(presets) >= REQUIRED_PRESETS,
         "required presets are missing",
     )
 
@@ -644,7 +645,7 @@ def validate_config() -> None:
         "analysis sections must be a string array",
     )
     require(
-        REQUIRED_ANALYSIS_SECTIONS == set(required_sections),
+        set(required_sections) == REQUIRED_ANALYSIS_SECTIONS,
         "analysis section contract changed unexpectedly",
     )
     require(
@@ -914,12 +915,16 @@ def validate_claim_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_lower = readme.lower()
     require(
-        "pre-engine alpha" in readme_lower,
+        "alpha runtime" in readme_lower,
         "README must state the implementation boundary",
     )
     require(
-        "does not claim those components exist" in readme_lower,
+        "installing the plugin does not magically grant model credentials" in readme_lower,
         "README must preserve the truthful capability boundary",
+    )
+    require(
+        "does not yet claim cryptographic authenticity" in readme_lower,
+        "README must preserve the alpha provenance boundary",
     )
     require(
         "override a preset only inside immutable global policy" in readme_lower,

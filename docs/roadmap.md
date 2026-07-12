@@ -16,6 +16,8 @@ Exit criteria: the plugin and documentation expose a coherent, truthful target c
 
 ## 0.2 engine: trustworthy review vertical slice
 
+Status: implemented as alpha runtime, except the live Claude Code plus GPT Sol proof remains a release gate.
+
 1. Add the Python package and typed provider protocol.
 2. Implement self as a non-callable sentinel.
 3. Implement codex-exec for gpt-sol and gpt-sol-ultra.
@@ -39,6 +41,8 @@ Exit criteria:
 6. A real finding is confirmed by approved execution evidence.
 
 ## 0.3: adaptive and comparative orchestration
+
+Status: core orchestration primitives are implemented as alpha. Live calibration and provider-performance evidence remain pending.
 
 1. Add panel-rank with blind identities and answer-order reversal.
 2. Add the advisor consultation mode.
@@ -65,6 +69,8 @@ Exit criteria:
 5. The router decision is reproducible from receipt inputs.
 
 ## 0.4: evaluation program
+
+Status: replay, evaluation summaries, drift snapshots, and policy signing primitives are implemented. The public benchmark corpus and external replication are pending.
 
 1. Build frozen real-world engineering tasks with hidden outcome graders.
 2. Compare solo, same-model review, cross-model review, adversarial review, and compound-provider references.
