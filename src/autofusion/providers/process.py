@@ -131,7 +131,7 @@ class CommandRunner:
             "shell": False,
         }
         if os.name == "nt":
-            kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            kwargs["creationflags"] = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
         else:
             kwargs["start_new_session"] = True
         started = self._clock()
