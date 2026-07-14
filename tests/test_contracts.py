@@ -54,6 +54,7 @@ def test_ship_with_major_finding_is_rejected() -> None:
         "major": 1,
         "minor": 0,
         "confirmed_by_exec": 0,
+        "confirmed_by_proof": 0,
         "deadlocks": 0,
     }
     with pytest.raises(ReceiptError, match="ship has blocking"):

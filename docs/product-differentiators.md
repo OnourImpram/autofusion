@@ -51,7 +51,7 @@ Fallback is permitted only when:
 This prevents a resilient transport layer from creating a false fusion claim.
 
 **Priority:** P0  
-**Current state:** contract and CI validation exist. Runtime attestation is an engine milestone.
+**Current state:** contract and CI validation exist. Proof capsules have local HMAC signer authentication. Provider identity, usage, and external runner attestation remain production milestones.
 
 ## 4. Context integrity ledger
 
@@ -221,14 +221,44 @@ No general superiority claim is published from one benchmark or one judge.
 **Priority:** P2  
 **Current state:** evaluation principles exist. Registry implementation is planned.
 
+## 14. Mutation-gated proof capsules
+
+Review findings can be converted into typed regression, repair, feature, or counterexample experiments. Independent test authorship, candidate-fix blindness, immutable revision hashes, approved overlay paths, strong isolation, a mutant revision, and a valid local HMAC attestation are required before a capsule can confirm a finding.
+
+This separates executable falsification from another model opinion. A capsule that does not reproduce the relation remains weak or inconclusive evidence.
+
+**Priority:** P0  
+**Current state:** supplied intents, overlays, mutation gates, and local HMAC capsule authentication are implemented. Automatic model-driven test authoring, managed key custody, and externally verifiable production runner signing remain gated.
+
+## 15. Durable idempotent run journal
+
+Every material lifecycle event enters a hash chain with a deterministic idempotency key. A restart can inspect pending reconciliation state without reconstructing it from chat history, and a conflicting replay is rejected.
+
+**Priority:** P0  
+**Current state:** journaling and status are implemented for prepared through reconciliation and terminal state. Crash-safe provider-dispatch resume remains planned.
+
+## 16. Precedent with downstream falsification
+
+Past findings become useful only when later outcomes can confirm or refute them. The precedent ledger stores metadata and hashes, enforces repository scope and expiry, and enters only after blind review. It never becomes automatic authority.
+
+**Priority:** P1  
+**Current state:** metadata-only records, outcome updates, expiry, and post-blind query controls are implemented. Calibrated routing use remains planned.
+
+## 17. Domain packs and human-gated delivery
+
+Declarative packs turn general fusion into repeatable migration, security, release, incident, API contract, dependency, and research-evidence workflows. A bounded GitHub report renderer exposes conclusions and requested actions without owning credentials or merge authority.
+
+**Priority:** P1  
+**Current state:** pack routing and report rendering are implemented. Authenticated GitHub posting remains a separate least-privilege integration milestone.
+
 ## Build order
 
-1. Finish the review vertical slice with attested identity, immutable packets, trusted grounding, and honest receipts.
-2. Add provider fallback invariants and exact usage accounting.
+1. Validate Proof Fusion and durable journals under adversarial fault injection.
+2. Complete attested identity, provider fallback invariants, and exact usage accounting.
 3. Add explicit communication graphs and tool-trace ownership.
-4. Add record, replay, and the outcome capability ledger.
+4. Add record, replay, and calibrated use of the outcome capability ledger.
 5. Run marginal-value and learned routing in shadow mode.
-6. Add disagreement packets, chaos testing, and the public claim registry.
+6. Add disagreement packets, broader chaos testing, and the public claim registry.
 7. Promote adaptive routing only after calibration against blind human adjudication.
 
 ## Product test

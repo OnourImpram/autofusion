@@ -141,6 +141,16 @@ def validate_receipt_analysis_summary(
         if as_object(raw_result, "grounding result must be an object").get("verdict")
         == "confirmed"
     )
+    proof_results = as_list(
+        analysis.get("proof_results"),
+        "analysis proof_results must be an array",
+    )
+    confirmed_by_proof = sum(
+        1
+        for raw_result in proof_results
+        if as_object(raw_result, "proof result must be an object").get("verdict")
+        == "confirmed"
+    )
     receipt_findings = as_object(receipt.get("findings"), "receipt findings must be an object")
     for severity, count in severity_counts.items():
         require(
@@ -150,6 +160,10 @@ def validate_receipt_analysis_summary(
     require(
         receipt_findings.get("confirmed_by_exec") == confirmed_by_exec,
         "receipt confirmed_by_exec does not match analysis",
+    )
+    require(
+        receipt_findings.get("confirmed_by_proof") == confirmed_by_proof,
+        "receipt confirmed_by_proof does not match analysis",
     )
     require(
         receipt_findings.get("deadlocks") == deadlocks,

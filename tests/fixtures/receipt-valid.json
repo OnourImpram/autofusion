@@ -45,7 +45,7 @@
       "routing_attestation_hash": "8888888888888888888888888888888888888888888888888888888888888888"
     }
   ],
-  "analysis_hash": "a280b77d5bd8c5bd208df16b48f957ea2ccdbb3a9af2021d9c80eebc26590da8",
+  "analysis_hash": "148d2335608acc23673cd1f4d439a35b93d255bb3c8c1f2882af55ed92419824",
   "budgets": {
     "max_calls": 1,
     "used_calls": 1,
@@ -60,6 +60,7 @@
     "major": 0,
     "minor": 1,
     "confirmed_by_exec": 1,
+    "confirmed_by_proof": 0,
     "deadlocks": 0
   },
   "degradation_reasons": [],

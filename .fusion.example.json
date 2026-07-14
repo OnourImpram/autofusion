@@ -243,6 +243,57 @@
     "adversary": "Construct counterexamples and expose structural failure modes.",
     "judge": "Analyze agreement, contradiction, coverage, unique insight, and blind spots without naive merging."
   },
+  "packs": {
+    "migration": {
+      "artifact_kinds": ["migration", "diff", "plan"],
+      "minimum_preset": "high",
+      "allowed_topologies": ["adversarial-review", "dual-review"],
+      "roles": ["data-integrity", "rollback", "compatibility"],
+      "proof_policy": "required-for-blocker-major"
+    },
+    "security": {
+      "artifact_kinds": ["diff", "plan", "incident"],
+      "minimum_preset": "high",
+      "allowed_topologies": ["adversarial-review", "dual-review"],
+      "roles": ["threat-model", "exploitability", "mitigation"],
+      "proof_policy": "required-for-blocker-major"
+    },
+    "release": {
+      "artifact_kinds": ["release", "diff"],
+      "minimum_preset": "balanced",
+      "allowed_topologies": ["review", "dual-review"],
+      "roles": ["regression", "observability", "rollback"],
+      "proof_policy": "preferred"
+    },
+    "incident": {
+      "artifact_kinds": ["incident"],
+      "minimum_preset": "high",
+      "allowed_topologies": ["adversarial-review", "dual-review"],
+      "roles": ["timeline", "competing-hypotheses", "containment"],
+      "proof_policy": "preferred"
+    },
+    "api-contract": {
+      "artifact_kinds": ["api-contract", "diff", "plan"],
+      "minimum_preset": "balanced",
+      "allowed_topologies": ["review", "dual-review"],
+      "roles": ["compatibility", "consumer-impact", "versioning"],
+      "proof_policy": "required-for-blocker-major"
+    },
+    "dependency": {
+      "artifact_kinds": ["dependency", "diff"],
+      "minimum_preset": "balanced",
+      "allowed_topologies": ["review", "adversarial-review", "dual-review"],
+      "roles": ["license", "vulnerability", "supply-chain"],
+      "proof_policy": "preferred"
+    },
+    "research-evidence": {
+      "artifact_kinds": ["research-synthesis", "answer", "plan"],
+      "minimum_preset": "balanced",
+      "allowed_topologies": ["review", "dual-review", "panel-rank"],
+      "roles": ["source-quality", "claim-traceability", "contradiction"],
+      "proof_policy": "not-applicable"
+    }
+  },
   "routing": {
     "require_explicit_fusion_invocation": true,
     "signals": [
@@ -346,6 +397,7 @@
       "blind_spots",
       "grounding_candidates",
       "grounding_results",
+      "proof_results",
       "decision_impact"
     ]
   },
@@ -386,6 +438,38 @@
     "reviewer_commands_are_advisory": true,
     "shell_strings_allowed": false,
     "network": "deny"
+  },
+  "proof": {
+    "enabled": true,
+    "docker_image": null,
+    "approved_overlay_patterns": [
+      "tests/autofusion_proof/**",
+      "test/autofusion_proof/**",
+      "spec/autofusion_proof/**"
+    ],
+    "max_overlay_files": 16,
+    "max_overlay_bytes": 262144,
+    "max_output_chars": 32000,
+    "require_mutation": true,
+    "require_independent_test_author": true,
+    "candidate_fix_visible": false,
+    "require_signed_capsules": true,
+    "attestation_key_env": "AUTOFUSION_PROOF_ATTESTATION_KEY",
+    "attestation_key_id": "local-proof-v1",
+    "network": "deny",
+    "isolation": "disposable-docker",
+    "memory_mb": 1024,
+    "cpus": 1.0,
+    "pids_limit": 128
+  },
+  "precedent": {
+    "enabled": true,
+    "directory": ".fusion/precedents/evidence.jsonl",
+    "privacy": "metadata-only",
+    "retrieval_phase": "post-blind-review",
+    "default_ttl_days": 180,
+    "automatic_authority": false,
+    "automatic_first_pass_injection": false
   },
   "guardrails": {
     "model_allowlist": [

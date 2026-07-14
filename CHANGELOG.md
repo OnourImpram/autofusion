@@ -2,6 +2,40 @@
 
 All notable changes to autofusion are recorded here.
 
+## 0.5.0-alpha.1
+
+### Added
+
+1. Mutation-gated proof intents and proof capsules for independently authored tests.
+2. Disposable Docker proof runner with denied network, dropped capabilities, read-only
+   container root, and explicit resource ceilings.
+3. Hash-chained, idempotent run journal plus durable run status inspection.
+4. Metadata-only precedent and downstream outcome ledger restricted to post-blind review.
+5. Declarative migration, security, release, incident, API contract, dependency, and
+   research evidence fusion packs.
+6. Human-gated GitHub Checks report renderer.
+7. Environment-backed local HMAC attestations for persisted proof capsules.
+8. Python 3.11 through 3.14 compatibility coverage in GitHub Actions.
+
+### Changed
+
+1. High-effort adversarial panels now dispatch every declared blind reviewer.
+2. Findings confirmed by a valid proof capsule receive the same rejection protection as
+   trusted execution-grounded findings.
+3. Artifact kinds now include incident, release, API contract, dependency, research
+   synthesis, and architecture decision records.
+
+### Security
+
+1. The weaker host and WSL grounding runners cannot execute generated proof overlays.
+2. Proof confirmation requires independent test and patch authors, hidden candidate fixes,
+   immutable revision hashes, and a killed mutant.
+3. Precedent stores no raw claim or rationale and cannot enter the blind first pass or
+   become automatic authority.
+4. Proof reconciliation rejects unsigned, modified, wrong-key, and inactive-key capsules.
+5. The proof signing secret never enters Docker, model context, or persisted artifacts.
+6. Proof runners reject mutable image tags and execute the immutable image ID inspected before use.
+
 ## 0.4.0-alpha.1
 
 ### Added

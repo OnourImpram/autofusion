@@ -18,6 +18,9 @@ This prevents a combinatorial collection of nearly identical workflows.
 5. incident
 6. architecture decision record
 7. research synthesis
+8. release
+9. API contract
+10. dependency change
 
 Diffs permit execution grounding. Plans and architecture decisions permit repository-fact and constraint grounding, but they cannot claim executable validation before implementation.
 
@@ -127,6 +130,18 @@ The future engine follows this bounded sequence:
 
 The scaffold plan records why each role and model was selected. Model-written routing remains advisory until the deterministic policy validates it.
 
+## Fusion packs
+
+A pack constrains the adaptive scaffold for a recurring artifact class. It declares accepted artifact kinds, the minimum preset, allowed topologies, targeted roles, and the proof policy. Pack selection happens before packet freezing so every reviewer sees the effective role and gate contract.
+
+A pack may escalate a preset. It cannot silently downgrade a hard gate or select a topology outside its allowlist. See [fusion packs](fusion-packs.md).
+
+## Proof stage
+
+Proof execution follows first-pass review and precedes final reconciliation. It is not a topology and does not add a panel vote. A proof intent must be authored independently of the candidate patch, bind immutable revision hashes, remain blind to the candidate fix, use a trusted verification ID, and satisfy a mutation gate under strong disposable isolation.
+
+Only a verified confirmed capsule can force the linked finding to stand. Not-reproduced and inconclusive results remain asymmetric evidence. See [Proof Fusion](proof-fusion.md).
+
 ## Roles
 
 ### Thinker
@@ -164,8 +179,9 @@ The analysis schema includes:
 5. blind_spots
 6. grounding_candidates
 7. grounding_results
-8. decision_impact
-9. findings
+8. proof_results
+9. decision_impact
+10. findings
 
 Consensus records overlap only. Evidence strength is evaluated separately.
 

@@ -2,7 +2,7 @@
 
 autofusion is a Claude Code first escalation system for serious engineering work. It combines an active Claude Code session with independent model reviewers, evidence grounding, explicit disagreement, and auditable receipts.
 
-The repository is currently an alpha runtime. It includes a typed Python package, deterministic routing, immutable snapshots, packet compilation, provider adapters, grounding, reconciliation, metadata-only receipts, replay and evaluation helpers, and a Claude Code plugin skeleton.
+The repository is currently an alpha runtime. It includes a typed Python package, deterministic routing, immutable snapshots, packet compilation, provider adapters, grounding, proof capsules, durable run journals, reconciliation, metadata-only receipts, replay and evaluation helpers, and a Claude Code plugin skeleton.
 
 The plugin remains skill-first. Installing the plugin does not magically grant model credentials or a live callable route. Successful fusion requires the helper CLI and the configured provider transports to pass runtime checks. If a model, sandbox, DLP gate, budget, or receipt write fails, autofusion records degraded state instead of claiming fused success.
 
@@ -51,6 +51,20 @@ There is no silent fallback to GPT 5.5 or another model. If the requested profil
 6. adaptive selects a bounded scaffold from approved topologies using task risk, verifiability, reversibility, model availability, latency, and budget.
 
 Unresolved blocker or major findings may receive one challenge and one rebuttal. Debate is not an unbounded topology.
+
+## Proof Fusion
+
+Proof Fusion is a post-review evidence stage, not another model vote. An independently authored test overlay declares a typed relation across immutable revisions such as base, head, fixed, and mutant. The runtime validates the intent, overlay paths, author separation, revision hashes, trusted verification ID, expected outcomes, and mutation gate before it can emit a confirmed proof capsule.
+
+Generated test code never runs through the ordinary host or WSL grounding runner. It requires a Docker image reference pinned by a SHA-256 digest, denied network, a read-only container root, dropped capabilities, no-new-privileges, bounded processes, bounded memory, bounded CPU, and an attested image identity. The runner executes the immutable inspected image ID rather than resolving the configured name again. Without that runner, proof execution fails closed.
+
+Every persisted proof capsule also requires a local HMAC attestation. The signing secret is read from `AUTOFUSION_PROOF_ATTESTATION_KEY`, must contain at least 32 bytes, and is never passed into Docker or written to the capsule. This authenticates the capsule to the local Autofusion process. It does not replace managed key custody or an externally attested production runner.
+
+The current alpha executes and verifies supplied proof intents and overlays. Automatic model-driven test generation is not yet an advertised capability.
+
+## Fusion packs
+
+The built-in migration, security, release, incident, API contract, dependency, and research evidence packs add artifact-specific roles, minimum presets, allowed topologies, and proof policy. A pack may escalate a route, but it cannot weaken global policy. See [Proof Fusion](docs/proof-fusion.md) and [fusion packs](docs/fusion-packs.md) for the executable contracts and failure boundaries.
 
 ## Presets
 
@@ -103,6 +117,7 @@ Example invocations:
 /autofusion:fusion diff --preset balanced
 /autofusion:fusion plan --topology adversarial-review --reviewers gpt-sol-ultra,claude-fable
 /autofusion:fusion answer --preset adaptive --focus research-evidence
+/autofusion:fusion release --pack release --preset adaptive
 /autofusion:fusion-parallel --panel external-council
 ~~~
 
@@ -114,7 +129,13 @@ Install the helper package from a checkout or release artifact:
 python -m pip install autofusion
 autofusion doctor
 autofusion config-validate --config .fusion.example.json
+autofusion packs
+autofusion proof-hash --root ./snapshot
+autofusion prove --repo . --intent intent.json --overlay proof-overlay --revision base=base-snapshot --revision head=head-snapshot --revision mutant=mutant-snapshot --output proof-capsule.json
+autofusion run-status RUN_ID
 ~~~
+
+Load `AUTOFUSION_PROOF_ATTESTATION_KEY` from operator-controlled secure storage before `autofusion prove`. Do not place the key in `.fusion.json`, shell history, proof overlays, receipts, or repository files.
 
 ## Configuration
 
@@ -135,15 +156,20 @@ Implemented in the alpha runtime:
 7. Immutable repository snapshots and DLP preflight.
 8. Trusted verification IDs, argv-only grounding, and network-denied runner detection.
 9. Finding reconciliation, deadlock handling, metadata-only receipts, replay, policy signing, drift snapshots, telemetry stubs, and GitHub annotations.
-10. Contract validators, strict mypy, ruff, and coverage-gated tests.
+10. Mutation-gated, locally HMAC-attested proof capsules behind disposable Docker isolation.
+11. Hash-chained idempotent run journals and pending reconciliation status.
+12. Metadata-only precedent and downstream outcome records restricted to post-blind review.
+13. Declarative fusion packs and a human-gated GitHub Checks report renderer.
+14. Contract validators, strict mypy, ruff, and coverage-gated tests.
 
 Still gated before public 1.0 claims:
 
 1. Real smoke evidence for every advertised live profile in the supported environment.
 2. External replication showing cross-model gain beyond same-model self-review.
-3. Production signing for provider routing, cost, and runner attestations.
+3. Managed production signing for provider routing, cost, external runner identity, and key rotation.
 4. Stronger disposable isolation beyond WSL or Linux `unshare`.
 5. Published release artifact and installation docs based on an immutable tag.
+6. Automatic proof-test authoring and interrupted provider-dispatch resume.
 
 ## Alpha Provenance Boundary
 

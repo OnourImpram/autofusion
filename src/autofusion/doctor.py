@@ -10,6 +10,7 @@ from pathlib import Path
 
 from autofusion.config import FusionConfig
 from autofusion.grounding import GroundingRunner
+from autofusion.proof import ProofRunner
 from autofusion.util import JsonObject, sha256_json
 
 
@@ -57,6 +58,7 @@ def inspect_environment(
     config: FusionConfig,
     *,
     grounding_runner: GroundingRunner | None,
+    proof_runner: ProofRunner | None = None,
 ) -> JsonObject:
     checks: list[DoctorCheck] = []
     models = config.section("models")
@@ -104,6 +106,32 @@ def inspect_environment(
             type(grounding_runner).__name__ if grounding_runner is not None else "fail-closed",
         )
     )
+    checks.append(
+        DoctorCheck(
+            "proof-disposable-isolation",
+            "available" if proof_runner is not None else "unavailable",
+            (
+                type(proof_runner).__name__
+                if proof_runner is not None
+                else "configure proof.docker_image with a digest-pinned image"
+            ),
+        )
+    )
+    proof_settings = config.section("proof")
+    proof_key_env = str(proof_settings.get("attestation_key_env", ""))
+    proof_key = os.environ.get(proof_key_env)
+    proof_key_available = proof_key is not None and len(proof_key.encode("utf-8")) >= 32
+    checks.append(
+        DoctorCheck(
+            "proof-capsule-signing",
+            "available" if proof_key_available else "credential-missing",
+            (
+                f"credential variable is set: {proof_key_env}"
+                if proof_key_available
+                else f"credential variable is not set or is too short: {proof_key_env}"
+            ),
+        )
+    )
     blocking = [check.name for check in checks if check.status in {"missing", "unsupported"}]
     return {
         "schema_version": 1,
@@ -112,4 +140,3 @@ def inspect_environment(
         "blocking": blocking,
         "healthy": not blocking,
     }
-
