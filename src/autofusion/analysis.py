@@ -94,6 +94,7 @@ def build_analysis(
         "blind_spots": blind_spots,
         "grounding_candidates": candidates,
         "grounding_results": [],
+        "proof_results": [],
         "decision_impact": impact,
         "findings": findings,
     }

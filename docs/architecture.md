@@ -9,9 +9,12 @@ flowchart TD
     C --> D[Scaffold plan]
     D --> E[Callable model providers]
     E --> F[Structured panel analyzer]
-    F --> G[Grounding sandbox]
-    G --> H[Finding and disposition ledger]
-    H --> I[Receipt and final state]
+    F --> G[Trusted grounding]
+    F --> H[Strong-isolation proof runner]
+    G --> I[Finding reconciliation]
+    H --> I
+    I --> J[Hash-chained run journal]
+    J --> K[Receipt and final state]
 ~~~
 
 ## Layers
@@ -23,9 +26,11 @@ flowchart TD
 5. The scaffold planner assigns bounded roles and records the plan before model dispatch.
 6. The provider layer exposes one completion interface for callable profiles.
 7. The panel analyzer preserves agreement, disagreement, coverage, unique insight, and blind spots.
-8. The grounding sandbox runs only approved verification IDs.
-9. The finding ledger records claims, evidence, provenance, dispositions, and unresolved conflicts.
-10. The receipt layer records requested and effective execution, including failed and degraded runs.
+8. The grounding sandbox runs trusted project verification IDs.
+9. The proof runner executes independently authored test overlays only in strong disposable isolation.
+10. The finding ledger records claims, evidence, provenance, dispositions, and unresolved conflicts.
+11. The run journal persists idempotent, hash-chained lifecycle events.
+12. The receipt layer records requested and effective execution, including failed and degraded runs.
 
 ## The self boundary
 
@@ -164,6 +169,14 @@ The grounding runner resolves the ID from trusted policy, executes its argv arra
 
 A passing test is weak negative evidence. A failing relevant assertion may strongly confirm a finding. Environment errors do not confirm the claim. Candidate verification and executed grounding are separate records.
 
+## Proof execution
+
+Proof Fusion is separate from ordinary grounding. A verification intent binds one finding, a typed base/head/fixed/control/mutant relation, revision hashes, an approved verification ID, independent authorship, candidate-fix blindness, and a mutation gate.
+
+The proof overlay is validated before execution. It may run only through a runner that attests denied network and strong disposable isolation. The built-in Docker runner requires a full digest reference, resolves its immutable local image ID, and executes that ID directly with a read-only root, dropped capabilities, no-new-privileges, and bounded resources. Linux and WSL unshare runners do not satisfy this stronger contract.
+
+A valid confirmed proof capsule may ground its linked finding. The capsule is content-hashed, signed with a domain-separated local HMAC, verified again during reconciliation, and bound into the evidence ledger. The environment-backed signing secret is not passed to the container or persisted. See [Proof Fusion](proof-fusion.md).
+
 ## State machine
 
 A run moves through explicit states:
@@ -182,6 +195,22 @@ A run moves through explicit states:
 12. cancelled
 
 Terminal product verdicts are ship, revise, blocked, degraded, failed, cancelled, and not-run.
+
+Every material transition is also appended to an idempotent hash-chained journal. Reusing an idempotency key with a different payload fails. The status surface can recover pending reconciliation metadata and verify the journal chain.
+
+The alpha journal does not automatically resume a provider call interrupted mid-dispatch. Provider dispatch requires a future durable job and call-attempt protocol so a restart cannot duplicate a paid call or misstate its completion.
+
+## Precedent and outcome memory
+
+Precedent storage contains scoped hashes and outcome metadata, not raw claims, prompts, rationales, or source content. Retrieval happens only after blind first-pass review. A precedent can inform reconciliation, but it cannot enter the initial packet or become automatic authority. Expired and cross-repository records are excluded.
+
+## Fusion packs
+
+Packs are declarative policy overlays for migration, security, release, incident, API contract, dependency, and research evidence work. They select roles, minimum presets, allowed topologies, and proof expectations. Configuration merge rules allow a pack to tighten routing but never weaken global policy. See [fusion packs](fusion-packs.md).
+
+## GitHub reporting
+
+The GitHub report renderer converts bounded analysis data into an escaped Checks API payload. It does not authenticate, post a check, approve a review, merge a pull request, or execute a requested action. Prove, escalate, and rerun remain human-gated commands for a separate integration layer.
 
 ## Configuration precedence
 
@@ -202,3 +231,5 @@ Receipts must resolve their preset to a concrete panel and must match that panel
 Per-call cost verification records a cost source and provider usage hash. Confirmed grounding records an invocation hash, runner attestation hash, and runner trust class. These fields are structural contract inputs in the alpha repository. The future engine must bind them to captured runner logs and provider usage records before public claims can move from structural validation to runtime authenticity.
 
 The current alpha uses `tests/fixtures/trusted-attestations.json` as a stand-in trust root for validator fixtures. It is not a production signing system, but it prevents a fixture from passing merely by inventing plausible 64-character hashes.
+
+Proof capsules have an additional runtime gate. `autofusion prove` signs the domain-separated capsule and runner-hash bundle with an operator-controlled local HMAC key. `finalize` requires the configured active key ID and verifies the signature before proof can alter reconciliation. This establishes local signer authenticity only. Managed key rotation, external runner identity, hardware-backed custody, and production execution-log provenance remain 1.0 work.

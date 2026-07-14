@@ -19,6 +19,7 @@ Expected forms:
 /autofusion:fusion-parallel --panel external-council
 /autofusion:fusion-parallel --preset balanced --topology dual-review
 /autofusion:fusion-parallel --preset high --artifact plan.json
+/autofusion:fusion-parallel --pack security --preset adaptive --artifact patch.diff
 ~~~
 
 ## Operating contract
@@ -36,6 +37,9 @@ Expected forms:
 11. Do not naive-merge proposals.
 12. Preserve contradictions and unique findings.
 13. Require a receipt for a successful fully external run.
+14. Enforce the selected pack before dispatch.
+15. Keep proof execution and precedent retrieval post-review and policy-gated.
+16. Accept proof capsules only after local HMAC verification under the configured active key.
 
 ## Workflow
 
@@ -53,6 +57,9 @@ Expected forms:
 12. Ground eligible findings through trusted verification IDs only when a real grounding runner exists.
 13. Persist the receipt only when verified helper tooling exists.
 14. Return the final state.
+15. When proof is required, attach only capsules produced by a verified strong-isolation runner.
+16. Query scoped, unexpired precedent only after blind first passes complete.
+17. Keep `AUTOFUSION_PROOF_ATTESTATION_KEY` outside packets, prompts, overlays, receipts, and proof containers.
 
 ## Output shape
 

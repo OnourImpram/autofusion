@@ -20,6 +20,8 @@ REQUIRED_PATHS = (
     ROOT / "requirements-validation.txt",
     ROOT / "schemas" / "fusion-analysis.schema.json",
     ROOT / "schemas" / "fusion-receipt.schema.json",
+    ROOT / "schemas" / "proof-intent.schema.json",
+    ROOT / "schemas" / "proof-capsule.schema.json",
     ROOT / "scripts" / "validate_contract_instances.py",
     ROOT / "scripts" / "validate_analysis_instances.py",
     ROOT / "scripts" / "validate_linked_run.py",
@@ -29,6 +31,8 @@ REQUIRED_PATHS = (
     ROOT / "docs" / "competitive-research.md",
     ROOT / "docs" / "product-differentiators.md",
     ROOT / "docs" / "fusion-topologies.md",
+    ROOT / "docs" / "proof-fusion.md",
+    ROOT / "docs" / "fusion-packs.md",
 )
 
 REQUIRED_MODELS = {
@@ -57,7 +61,18 @@ REQUIRED_ANALYSIS_SECTIONS = {
     "blind_spots",
     "grounding_candidates",
     "grounding_results",
+    "proof_results",
     "decision_impact",
+}
+
+REQUIRED_PACKS = {
+    "migration",
+    "security",
+    "release",
+    "incident",
+    "api-contract",
+    "dependency",
+    "research-evidence",
 }
 
 SUPPORTED_TOPOLOGIES = {
@@ -559,11 +574,62 @@ def validate_extended_orchestration(config: dict[str, Any]) -> None:
         "output repair protected fields changed unexpectedly",
     )
 
+    proof = as_object(config.get("proof"), "proof must be an object")
+    require(proof.get("enabled") is True, "proof capability must remain explicitly enabled")
+    require(
+        proof.get("network") == "deny"
+        and proof.get("isolation") == "disposable-docker",
+        "proof execution must use denied network and disposable Docker",
+    )
+    docker_image = proof.get("docker_image")
+    require(
+        docker_image is None
+        or (
+            isinstance(docker_image, str)
+            and re.fullmatch(r"(?=.{1,256}\Z)[^\s,]+@sha256:[0-9a-f]{64}\Z", docker_image)
+            is not None
+        ),
+        "proof Docker image must be null or digest pinned",
+    )
+    require(
+        proof.get("require_mutation") is True
+        and proof.get("require_independent_test_author") is True
+        and proof.get("candidate_fix_visible") is False
+        and proof.get("require_signed_capsules") is True,
+        "proof execution must preserve mutation and provenance separation",
+    )
+    require(
+        proof.get("attestation_key_env") == "AUTOFUSION_PROOF_ATTESTATION_KEY"
+        and proof.get("attestation_key_id") == "local-proof-v1",
+        "proof capsule attestation identity changed unexpectedly",
+    )
+    as_positive_int(
+        proof.get("max_overlay_files"),
+        "proof.max_overlay_files must be a positive integer",
+    )
+    as_positive_int(
+        proof.get("max_overlay_bytes"),
+        "proof.max_overlay_bytes must be a positive integer",
+    )
+
+    precedent = as_object(config.get("precedent"), "precedent must be an object")
+    require(
+        precedent.get("privacy") == "metadata-only"
+        and precedent.get("retrieval_phase") == "post-blind-review",
+        "precedent must remain metadata-only and post blind review",
+    )
+    require(
+        precedent.get("automatic_authority") is False
+        and precedent.get("automatic_first_pass_injection") is False,
+        "precedent cannot become authority or enter blind review",
+    )
+
 def validate_config() -> None:
     config = load_json(ROOT / ".fusion.example.json")
     models = as_object(config.get("models"), "models must be an object")
     presets = as_object(config.get("presets"), "presets must be an object")
     panels = as_object(config.get("panels"), "panels must be an object")
+    packs = as_object(config.get("packs"), "packs must be an object")
     require(
         set(models) >= REQUIRED_MODELS,
         "required built-in model handles are missing",
@@ -572,6 +638,7 @@ def validate_config() -> None:
         set(presets) >= REQUIRED_PRESETS,
         "required presets are missing",
     )
+    require(set(packs) == REQUIRED_PACKS, "required fusion packs are missing")
 
     self_model = as_object(models.get("self"), "self model must be an object")
     gpt_sol = as_object(models.get("gpt-sol"), "gpt-sol must be an object")
@@ -725,7 +792,13 @@ def validate_negative_config_guards() -> None:
     require_config_rejected("unprotected severity repair", candidate)
 
 def validate_schemas() -> None:
-    for name in ("fusion-analysis.schema.json", "fusion-receipt.schema.json"):
+    schema_names = (
+        "fusion-analysis.schema.json",
+        "fusion-receipt.schema.json",
+        "proof-intent.schema.json",
+        "proof-capsule.schema.json",
+    )
+    for name in schema_names:
         schema = load_json(ROOT / "schemas" / name)
         require(
             schema.get("$schema")
@@ -735,6 +808,12 @@ def validate_schemas() -> None:
         require(
             schema.get("additionalProperties") is False,
             f"{name} root must reject unknown properties",
+        )
+        packaged = ROOT / "src" / "autofusion" / "schemas" / name
+        require(packaged.is_file(), f"packaged schema is missing: {name}")
+        require(
+            packaged.read_bytes() == (ROOT / "schemas" / name).read_bytes(),
+            f"root and packaged schema differ: {name}",
         )
 
     receipt = load_json(ROOT / "schemas" / "fusion-receipt.schema.json")
@@ -795,6 +874,37 @@ def validate_schemas() -> None:
         "call schema must require cost and routing provenance fields",
     )
 
+    proof_capsule = load_json(ROOT / "schemas" / "proof-capsule.schema.json")
+    proof_capsule_required = set(
+        as_string_list(
+            proof_capsule.get("required"),
+            "proof capsule required must be a string array",
+        )
+    )
+    require(
+        "attestation" in proof_capsule_required,
+        "proof capsule schema must require a local attestation",
+    )
+    proof_capsule_defs = as_object(
+        proof_capsule.get("$defs"),
+        "proof capsule schema must define reusable types",
+    )
+    attestation = as_object(
+        proof_capsule_defs.get("attestation"),
+        "proof capsule schema must define attestation",
+    )
+    attestation_required = set(
+        as_string_list(
+            attestation.get("required"),
+            "proof attestation required must be a string array",
+        )
+    )
+    require(
+        {"algorithm", "key_id", "bundle_hash", "signature"}
+        <= attestation_required,
+        "proof attestation schema is incomplete",
+    )
+
     analysis = load_json(ROOT / "schemas" / "fusion-analysis.schema.json")
     analysis_defs = as_object(
         analysis.get("$defs"),
@@ -814,6 +924,28 @@ def validate_schemas() -> None:
         {"invocation_hash", "runner_attestation_hash", "runner_trust"}
         <= grounding_required,
         "grounding schema must require runner attestation fields",
+    )
+    proof_result = as_object(
+        analysis_defs.get("proofResult"),
+        "analysis schema must define proofResult",
+    )
+    proof_required = set(
+        as_string_list(
+            proof_result.get("required"),
+            "proof result required must be a string array",
+        )
+    )
+    require(
+        {
+            "capsule_hash",
+            "intent_hash",
+            "mutation_gate_passed",
+            "test_author",
+            "patch_author",
+            "runner_attestation_hashes",
+        }
+        <= proof_required,
+        "proof result schema must require provenance and mutation fields",
     )
     require(
         isinstance(receipt.get("allOf"), list),

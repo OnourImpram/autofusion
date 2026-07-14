@@ -22,6 +22,8 @@ Untrusted inputs are:
 6. Web content.
 7. Compound-provider summaries.
 8. Repository-local model, MCP, hook, and plugin configuration.
+9. Proof overlays and verification intents.
+10. Precedent records until scope, expiry, and integrity checks pass.
 
 ## Immutable review input
 
@@ -144,6 +146,26 @@ Grounding verdicts do not carry symmetric weight:
 4. environment_error says nothing about the claim.
 5. policy_blocked records that the requested evidence path was not permitted.
 
+## Generated proof isolation
+
+Generated or externally authored proof tests are a stronger threat class than trusted project verification commands. They cannot run through the ordinary host, Linux unshare, or WSL unshare grounding path.
+
+Proof execution requires denied network, disposable Docker isolation, a read-only container root, dropped capabilities, no-new-privileges, bounded processes, bounded memory, bounded CPU, and a runner attestation hash. The image is operator-selected, unset by default, and accepted only as a full SHA-256 digest reference. The runner executes the inspected immutable image ID, not the mutable configured name. Missing Docker, an unpinned image policy, a weak runner, overlay path escape, symlink, size violation, revision mismatch, or failed mutation gate stops confirmation.
+
+Proof output is bounded and hashed. Persisted capsules must also carry a valid local HMAC attestation from the configured active key. The key is read from `AUTOFUSION_PROOF_ATTESTATION_KEY`, must contain at least 32 bytes, and is never passed into Docker or persisted. Missing, weak, inactive, or incorrect signing material fails closed before a capsule can affect reconciliation.
+
+Local HMAC authenticity does not prove that the external runner identity was trustworthy. It also does not defend against a fully compromised local process. Production runner signing must bind the capsule to trusted runtime evidence, managed key custody, and durable execution logs.
+
+## Precedent safety
+
+Precedent is metadata-only and repository-scoped. It stores hashes, categorical outcomes, timestamps, expiry, and policy-approved dimensions. It does not store raw claims, source excerpts, prompts, or reviewer rationales.
+
+Retrieval is restricted to post-blind-review reconciliation. It cannot bias an independent first pass, automatically settle a finding, or override current executable evidence. Expired records are ignored.
+
+## GitHub authority boundary
+
+The GitHub renderer emits escaped, size-bounded report data. It does not post to GitHub and holds no merge authority. Action labels are requests for a human or separately authorized integration. They are never model-granted capabilities.
+
 ## Honest degradation
 
 fused true requires:
@@ -154,6 +176,7 @@ fused true requires:
 4. Panel analysis completed.
 5. Reconciliation completed.
 6. The receipt was persisted.
+7. The journal terminal event and receipt hash agree when a journal is present.
 
 Partial reviewer output may be shown, but the run remains degraded or failed.
 
@@ -184,4 +207,4 @@ A receipt is not allowed to summarize a different reality than the linked analys
 
 ## Trusted Attestation Registry
 
-Self-declared hashes are insufficient. Alpha contract fixtures now require runner, routing, cost, and self identity references to resolve through `tests/fixtures/trusted-attestations.json`. In production this registry must be replaced by trusted runtime evidence captured from Claude Code, verifier execution, provider routing metadata, and provider or entitlement usage records.
+Self-declared hashes are insufficient. Alpha contract fixtures now require runner, routing, cost, and self identity references to resolve through `tests/fixtures/trusted-attestations.json`. Proof capsules additionally require a verified local HMAC signature. In production these controls must be replaced or extended by trusted runtime evidence captured from Claude Code, verifier execution, provider routing metadata, provider or entitlement usage records, and managed signing infrastructure.

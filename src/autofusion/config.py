@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
@@ -17,6 +18,32 @@ _MAXIMUM_KEYS = {
     "max_wallclock_s",
     "max_output_chars_per_call",
 }
+_PROOF_MAXIMUM_KEYS = {
+    "max_overlay_files",
+    "max_overlay_bytes",
+    "max_output_chars",
+    "memory_mb",
+    "cpus",
+    "pids_limit",
+}
+_ARTIFACT_KINDS = {
+    "plan",
+    "diff",
+    "answer",
+    "migration",
+    "incident",
+    "release",
+    "api-contract",
+    "dependency",
+    "research-synthesis",
+    "architecture-decision",
+}
+_TOPOLOGIES = {"review", "adversarial-review", "dual-review", "panel-rank", "advisor"}
+_ENVIRONMENT_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+_SIGNING_KEY_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
+_DOCKER_DIGEST_REFERENCE = re.compile(
+    r"(?=.{1,256}\Z)[^\s,]+@sha256:[0-9a-f]{64}\Z"
+)
 
 
 def _as_object(value: object, name: str) -> JsonObject:
@@ -81,6 +108,51 @@ def merge_layers(base: JsonObject, overlay: JsonObject) -> JsonObject:
         )
     merged_routing["compound"] = merged_compound
     merged["routing"] = merged_routing
+    base_proof = _as_object(base.get("proof", {}), "proof")
+    overlay_proof = _as_object(overlay.get("proof", {}), "proof")
+    merged_proof = _deep_merge(base_proof, overlay_proof)
+    for key in _PROOF_MAXIMUM_KEYS:
+        left = base_proof.get(key)
+        right = overlay_proof.get(key)
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            merged_proof[key] = min(left, right)
+    base_patterns = base_proof.get("approved_overlay_patterns")
+    overlay_patterns = overlay_proof.get("approved_overlay_patterns")
+    if isinstance(base_patterns, list) and isinstance(overlay_patterns, list):
+        allowed = {item for item in overlay_patterns if isinstance(item, str)}
+        merged_proof["approved_overlay_patterns"] = [
+            item for item in base_patterns if isinstance(item, str) and item in allowed
+        ]
+    if base_proof.get("enabled") is False:
+        merged_proof["enabled"] = False
+    if base_proof.get("require_mutation") is True:
+        merged_proof["require_mutation"] = True
+    if base_proof.get("require_independent_test_author") is True:
+        merged_proof["require_independent_test_author"] = True
+    if base_proof.get("candidate_fix_visible") is False:
+        merged_proof["candidate_fix_visible"] = False
+    if isinstance(base_proof.get("docker_image"), str):
+        merged_proof["docker_image"] = base_proof["docker_image"]
+    if base_proof.get("require_signed_capsules") is True:
+        merged_proof["require_signed_capsules"] = True
+    for key in ("attestation_key_env", "attestation_key_id"):
+        if isinstance(base_proof.get(key), str):
+            merged_proof[key] = base_proof[key]
+    merged_proof["network"] = base_proof.get("network", "deny")
+    merged_proof["isolation"] = base_proof.get("isolation", "disposable-docker")
+    merged["proof"] = merged_proof
+    base_precedent = _as_object(base.get("precedent", {}), "precedent")
+    overlay_precedent = _as_object(overlay.get("precedent", {}), "precedent")
+    merged_precedent = _deep_merge(base_precedent, overlay_precedent)
+    if base_precedent.get("enabled") is False:
+        merged_precedent["enabled"] = False
+    if base_precedent.get("automatic_authority") is False:
+        merged_precedent["automatic_authority"] = False
+    if base_precedent.get("automatic_first_pass_injection") is False:
+        merged_precedent["automatic_first_pass_injection"] = False
+    merged_precedent["retrieval_phase"] = "post-blind-review"
+    merged_precedent["privacy"] = "metadata-only"
+    merged["precedent"] = merged_precedent
     return merged
 
 
@@ -120,6 +192,9 @@ class FusionConfig:
 
     def panel(self, name: str) -> JsonObject:
         return _as_object(self.section("panels").get(name), f"panels.{name}")
+
+    def pack(self, name: str) -> JsonObject:
+        return _as_object(self.section("packs").get(name), f"packs.{name}")
 
     def preset(self, name: str) -> tuple[str, JsonObject]:
         presets = self.section("presets")
@@ -193,6 +268,80 @@ def validate_config(config: FusionConfig) -> None:
         raise ConfigurationError(
             "guardrails.sensitive_data_action must be flag, redact, or block"
         )
+    for pack_name, pack_value in config.section("packs").items():
+        pack = _as_object(pack_value, f"packs.{pack_name}")
+        artifact_kinds = pack.get("artifact_kinds")
+        topologies = pack.get("allowed_topologies")
+        roles = pack.get("roles")
+        minimum = pack.get("minimum_preset")
+        if (
+            not isinstance(artifact_kinds, list)
+            or not artifact_kinds
+            or not all(isinstance(item, str) and item in _ARTIFACT_KINDS for item in artifact_kinds)
+        ):
+            raise ConfigurationError(f"pack {pack_name} has invalid artifact kinds")
+        if (
+            not isinstance(topologies, list)
+            or not topologies
+            or not all(isinstance(item, str) and item in _TOPOLOGIES for item in topologies)
+        ):
+            raise ConfigurationError(f"pack {pack_name} has invalid topologies")
+        if not isinstance(roles, list) or not roles or not all(
+            isinstance(item, str) and item for item in roles
+        ):
+            raise ConfigurationError(f"pack {pack_name} has invalid roles")
+        if not isinstance(minimum, str) or minimum not in presets:
+            raise ConfigurationError(f"pack {pack_name} references an unknown preset")
+        if pack.get("proof_policy") not in {
+            "required-for-blocker-major",
+            "preferred",
+            "not-applicable",
+        }:
+            raise ConfigurationError(f"pack {pack_name} has an invalid proof policy")
+    proof = config.section("proof")
+    patterns = proof.get("approved_overlay_patterns")
+    if not isinstance(patterns, list) or not patterns or not all(
+        isinstance(item, str) and item for item in patterns
+    ):
+        raise ConfigurationError("proof approved overlay patterns are invalid")
+    for name in ("max_overlay_files", "max_overlay_bytes", "max_output_chars"):
+        value = proof.get(name)
+        if not isinstance(value, int) or value < 1:
+            raise ConfigurationError(f"proof.{name} must be a positive integer")
+    if proof.get("network") != "deny" or proof.get("isolation") != "disposable-docker":
+        raise ConfigurationError("proof execution requires denied network and disposable Docker")
+    if proof.get("require_mutation") is not True:
+        raise ConfigurationError("proof execution must require mutation testing")
+    if proof.get("require_signed_capsules") is not True:
+        raise ConfigurationError("proof capsules must require local attestation signatures")
+    docker_image = proof.get("docker_image")
+    if docker_image is not None and (
+        not isinstance(docker_image, str)
+        or not _DOCKER_DIGEST_REFERENCE.fullmatch(docker_image)
+    ):
+        raise ConfigurationError("proof Docker image must be pinned by a SHA-256 digest")
+    key_env = proof.get("attestation_key_env")
+    key_id = proof.get("attestation_key_id")
+    if not isinstance(key_env, str) or not _ENVIRONMENT_KEY.fullmatch(key_env):
+        raise ConfigurationError("proof attestation key environment variable is invalid")
+    if not isinstance(key_id, str) or not _SIGNING_KEY_ID.fullmatch(key_id):
+        raise ConfigurationError("proof attestation key ID is invalid")
+    precedent = config.section("precedent")
+    precedent_path = Path(str(precedent.get("directory", "")))
+    if (
+        not str(precedent_path)
+        or precedent_path.is_absolute()
+        or ".." in precedent_path.parts
+    ):
+        raise ConfigurationError("precedent directory must remain inside the repository")
+    if precedent.get("retrieval_phase") != "post-blind-review":
+        raise ConfigurationError("precedent retrieval must remain post blind review")
+    if precedent.get("privacy") != "metadata-only":
+        raise ConfigurationError("precedent storage must remain metadata only")
+    if precedent.get("automatic_authority") is not False:
+        raise ConfigurationError("precedent cannot become automatic authority")
+    if precedent.get("automatic_first_pass_injection") is not False:
+        raise ConfigurationError("precedent cannot enter the blind first pass")
 
 
 def load_config(

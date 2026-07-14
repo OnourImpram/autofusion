@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import os
 import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass, replace
@@ -25,6 +26,7 @@ from autofusion.grounding import (
     resolve_verification,
     run_grounding,
 )
+from autofusion.journal import RunJournal
 from autofusion.models import (
     CallStatus,
     ModelProfile,
@@ -44,22 +46,29 @@ from autofusion.prompts import (
     proposal_prompt,
     review_prompt,
 )
+from autofusion.proof import (
+    ProofCapsule,
+    capsule_from_json,
+    verify_proof_capsule_attestation,
+)
 from autofusion.receipt import ReceiptStore
 from autofusion.reconcile import (
     FindingDisposition,
     GroundingLink,
     attach_grounding,
+    attach_proof_capsules,
     automatic_external_dispositions,
     reconcile_analysis,
 )
 from autofusion.registry import ProviderRegistry
-from autofusion.router import AdaptiveSignals, resolve_adaptive_route
+from autofusion.router import AdaptiveSignals, is_route_at_least, resolve_adaptive_route
 from autofusion.snapshot import assert_snapshot_fresh, assert_snapshot_intact, build_snapshot
 from autofusion.state import RunStateMachine
 from autofusion.topologies import (
     OrchestrationResult,
     PanelRankResult,
     ProviderDispatcher,
+    run_adversarial_council,
     run_adversarial_review,
     run_advisor,
     run_dual_review,
@@ -93,11 +102,23 @@ class FusionRunRequest:
     focus_role: str | None = None
     constraints: JsonObject | None = None
     run_grounding: bool = True
+    pack: str | None = None
 
     def __post_init__(self) -> None:
         if not self.task.strip():
             raise ValueError("fusion task must not be empty")
-        if self.artifact_kind not in {"plan", "diff", "answer", "migration"}:
+        if self.artifact_kind not in {
+            "plan",
+            "diff",
+            "answer",
+            "migration",
+            "incident",
+            "release",
+            "api-contract",
+            "dependency",
+            "research-synthesis",
+            "architecture-decision",
+        }:
             raise ValueError(f"unsupported artifact kind: {self.artifact_kind}")
 
 
@@ -108,6 +129,7 @@ class PendingRun:
     analysis_path: Path
     pending_path: Path
     evidence_path: Path
+    journal_path: Path
     result_path: Path
     requires_reconciliation: bool
     fused: bool
@@ -148,12 +170,62 @@ class FusionEngine:
             return self.finalize(pending.run_id, dispositions=None, automatic=True)
         return pending
 
+    def _resolve_route(self, request: FusionRunRequest) -> tuple[RouteDecision, JsonObject | None]:
+        pack = self.config.pack(request.pack) if request.pack is not None else None
+        if pack is not None:
+            artifact_kinds = pack.get("artifact_kinds")
+            assert isinstance(artifact_kinds, list)
+            if request.artifact_kind not in artifact_kinds:
+                raise PolicyError(
+                    f"fusion pack {request.pack} does not accept {request.artifact_kind}"
+                )
+        signals = AdaptiveSignals(
+            artifact_paths=request.artifact_paths,
+            cross_module_scope=len(request.artifact_paths) > 3,
+            low_verification_strength=request.artifact_kind != "diff",
+            irreversible=request.artifact_kind == "migration",
+            external_only=request.external_only,
+        )
+        route = resolve_adaptive_route(
+            self.config,
+            signals=signals,
+            requested_preset=request.preset,
+            explicit_panel=request.panel,
+        )
+        if pack is not None:
+            minimum = str(pack["minimum_preset"])
+            if not is_route_at_least(route, minimum):
+                if request.panel is not None:
+                    raise PolicyError(
+                        f"explicit panel cannot satisfy {request.pack} minimum preset {minimum}"
+                    )
+                route = resolve_adaptive_route(
+                    self.config,
+                    signals=signals,
+                    requested_preset=minimum,
+                )
+            allowed_topologies = pack.get("allowed_topologies")
+            assert isinstance(allowed_topologies, list)
+            if route.topology not in allowed_topologies:
+                raise PolicyError(
+                    f"fusion pack {request.pack} does not allow topology {route.topology}"
+                )
+            route = replace(
+                route,
+                reasons=(
+                    f"fusion pack {request.pack} enforced {minimum} or stronger",
+                    *route.reasons,
+                ),
+            )
+        return route, pack
+
     def finalize(
         self,
         run_id: str,
         *,
         dispositions: tuple[FindingDisposition, ...] | None,
         automatic: bool = False,
+        proof_capsules: tuple[ProofCapsule, ...] = (),
     ) -> RunArtifacts:
         """Finalize a pending run after self or external reconciliation."""
 
@@ -163,6 +235,7 @@ class FusionEngine:
             raise ReceiptError(f"pending run does not exist: {run_id}")
         if (run_directory / "finalized.json").exists():
             raise ReceiptError(f"run is already finalized: {run_id}")
+        journal = RunJournal(run_directory / "journal.jsonl", run_id)
         pending = read_json_object(pending_path)
         ledger = EvidenceLedger(run_directory / "evidence.jsonl")
         records = ledger.verify()
@@ -174,6 +247,64 @@ class FusionEngine:
             raise ReceiptError("pending run is not bound to its evidence ledger")
         analysis_path = run_directory / "analysis.json"
         analysis = read_json_object(analysis_path)
+        verified_capsules = tuple(
+            capsule_from_json(capsule.as_json()) for capsule in proof_capsules
+        )
+        if verified_capsules:
+            proof_settings = self.config.section("proof")
+            key_env = str(proof_settings["attestation_key_env"])
+            verification_key = os.environ.get(key_env)
+            if verification_key is None:
+                raise PolicyError(
+                    f"proof attestation key variable is not set: {key_env}"
+                )
+            key_id = str(proof_settings["attestation_key_id"])
+            verified_capsules = tuple(
+                verify_proof_capsule_attestation(
+                    capsule,
+                    key_id=key_id,
+                    verification_key=verification_key.encode("utf-8"),
+                )
+                for capsule in verified_capsules
+            )
+            analysis = attach_proof_capsules(analysis, verified_capsules)
+            for capsule in verified_capsules:
+                proof_payload: JsonObject = {
+                    "proof_id": capsule.intent.proof_id,
+                    "finding_id": capsule.intent.finding_id,
+                    "capsule_hash": capsule.capsule_hash,
+                    "verdict": capsule.verdict.value,
+                    "mutation_gate_passed": capsule.mutation_gate_passed,
+                }
+                prior = [
+                    record
+                    for record in ledger.verify()
+                    if record.kind == "proof-capsule"
+                    and record.payload.get("proof_id") == capsule.intent.proof_id
+                ]
+                if prior and any(record.payload != proof_payload for record in prior):
+                    raise ReceiptError("proof ID was reused with a different capsule")
+                if not prior:
+                    ledger.append("proof-capsule", proof_payload)
+        reconcile_input_hash = sha256_json(
+            {
+                "analysis_hash": sha256_bytes(canonical_analysis_bytes(analysis)),
+                "proof_capsule_hashes": [
+                    capsule.capsule_hash for capsule in verified_capsules
+                ],
+            }
+        )
+        journal.record(
+            "reconcile",
+            "started",
+            idempotency_key=f"reconcile:started:{reconcile_input_hash[:24]}",
+            payload={
+                "analysis_hash": sha256_bytes(canonical_analysis_bytes(analysis)),
+                "proof_capsule_hashes": [
+                    capsule.capsule_hash for capsule in verified_capsules
+                ],
+            },
+        )
         degradation = [
             item for item in pending.get("degradation_reasons", []) if isinstance(item, str)
         ]
@@ -193,13 +324,29 @@ class FusionEngine:
             dispositions,
             require_all=not bool(degradation),
         )
-        signoff = ledger.append(
-            "signoff",
-            {
-                "run_id": run_id,
-                "analysis_hash": sha256_bytes(canonical_analysis_bytes(analysis)),
-                "automatic": automatic,
-                "disposition_count": len(dispositions),
+        signoff_payload: JsonObject = {
+            "run_id": run_id,
+            "analysis_hash": sha256_bytes(canonical_analysis_bytes(analysis)),
+            "automatic": automatic,
+            "disposition_count": len(dispositions),
+        }
+        signoff = next(
+            (
+                record
+                for record in ledger.verify()
+                if record.kind == "signoff" and record.payload == signoff_payload
+            ),
+            None,
+        )
+        if signoff is None:
+            signoff = ledger.append("signoff", signoff_payload)
+        journal.record(
+            "reconcile",
+            "completed",
+            idempotency_key="reconcile:completed",
+            payload={
+                "analysis_hash": signoff_payload["analysis_hash"],
+                "signoff_attestation_hash": signoff.record_hash,
             },
         )
         route = self._route_from_pending(pending)
@@ -244,6 +391,17 @@ class FusionEngine:
         artifacts = ReceiptStore(repo_root / relative_receipt_root, self.config).persist(
             analysis, receipt
         )
+        terminal = journal.record(
+            "terminal",
+            "completed",
+            idempotency_key="terminal:completed",
+            payload={
+                "state": state,
+                "verdict": verdict,
+                "fused": fused,
+                "receipt_hash": artifacts.receipt["receipt_hash"],
+            },
+        )
         atomic_write_json(
             run_directory / "finalized.json",
             {
@@ -251,9 +409,37 @@ class FusionEngine:
                 "receipt_path": str(artifacts.receipt_path),
                 "receipt_hash": artifacts.receipt["receipt_hash"],
                 "finished_at": finished_at,
+                "journal_head_hash": terminal.attestation_hash,
             },
         )
         return artifacts
+
+    def status(self, run_id: str) -> JsonObject:
+        """Return verified durable state without resuming provider execution."""
+
+        run_directory = self._run_directory(run_id)
+        if not run_directory.is_dir():
+            raise ReceiptError(f"run does not exist: {run_id}")
+        journal = RunJournal(run_directory / "journal.jsonl", run_id)
+        summary = journal.summary().as_json()
+        pending_path = run_directory / "pending.json"
+        finalized_path = run_directory / "finalized.json"
+        finalized = read_json_object(finalized_path) if finalized_path.is_file() else None
+        receipt: JsonObject | None = None
+        if finalized is not None:
+            receipt_path = Path(str(finalized.get("receipt_path", "")))
+            if receipt_path.is_file():
+                receipt = read_json_object(receipt_path)
+        return {
+            **summary,
+            "pending": pending_path.is_file() and finalized is None,
+            "finalized": finalized is not None,
+            "state": receipt.get("state") if receipt else None,
+            "verdict": receipt.get("verdict") if receipt else None,
+            "fused": receipt.get("fused") if receipt else None,
+            "can_resume_reconciliation": pending_path.is_file() and finalized is None,
+            "interrupted_provider_dispatch_resumable": False,
+        }
 
     def _prepare(self, request: FusionRunRequest) -> PendingRun:
         repo_root = request.repo_root.resolve()
@@ -265,29 +451,49 @@ class FusionEngine:
         run_directory.mkdir(parents=True, exist_ok=False)
         evidence_path = run_directory / "evidence.jsonl"
         ledger = EvidenceLedger(evidence_path)
-        state = RunStateMachine()
-        route = resolve_adaptive_route(
-            self.config,
-            signals=AdaptiveSignals(
-                artifact_paths=request.artifact_paths,
-                cross_module_scope=len(request.artifact_paths) > 3,
-                low_verification_strength=request.artifact_kind != "diff",
-                irreversible=request.artifact_kind == "migration",
-                external_only=request.external_only,
-            ),
-            requested_preset=request.preset,
-            explicit_panel=request.panel,
+        journal = RunJournal(run_directory / "journal.jsonl", run_id)
+        journal.record(
+            "prepare",
+            "completed",
+            idempotency_key="state:prepared",
+            payload={
+                "artifact_kind": request.artifact_kind,
+                "external_only": request.external_only,
+                "pack": request.pack,
+            },
         )
+        state = RunStateMachine()
+        route, pack = self._resolve_route(request)
         assert_callable_participants(
             self.config, tuple(handle for handle in route.participants if handle != "self")
         )
         state.transition(RunState.ROUTED, reason="deterministic policy route resolved")
+        journal.record(
+            "route",
+            "completed",
+            idempotency_key="state:routed",
+            payload={
+                "panel": route.panel,
+                "topology": route.topology,
+                "participants": list(route.participants),
+                "pack": request.pack,
+            },
+        )
         self_identity_hash: str | None = None
         self_family: str | None = None
         if "self" in route.participants:
             self_identity_hash, self_family = self._attest_self(request, ledger)
         snapshot = build_snapshot(repo_root, run_directory / "snapshots")
         state.transition(RunState.FROZEN, reason="content-addressed snapshot created")
+        journal.record(
+            "freeze",
+            "completed",
+            idempotency_key="state:frozen",
+            payload={
+                "snapshot_hash": snapshot.snapshot_hash,
+                "manifest_hash": snapshot.manifest_hash,
+            },
+        )
         guardrails = self.config.section("guardrails")
         dlp_action_raw = str(guardrails.get("sensitive_data_action", "redact"))
         if dlp_action_raw not in {"flag", "redact", "block"}:
@@ -316,13 +522,20 @@ class FusionEngine:
             if handle != "self"
         )
         verification = self.config.section("verification")
+        constraints = dict(request.constraints or {})
+        if pack is not None:
+            constraints["fusion_pack"] = {
+                "name": request.pack,
+                "roles": pack["roles"],
+                "proof_policy": pack["proof_policy"],
+            }
         packet = compile_packet(
             snapshot,
             task=request.task,
-            constraints=request.constraints,
+            constraints=constraints,
             artifact_paths=request.artifact_paths,
             verification_registry=verification,
-            focus_role=request.focus_role,
+            focus_role=request.focus_role or request.pack,
             dlp_policy=dlp_policy,
             include_artifact_contents=include_contents,
         )
@@ -340,6 +553,12 @@ class FusionEngine:
         )
         budget = BudgetLedger(route.budget)
         state.transition(RunState.DISPATCHED, reason="external participants dispatched")
+        journal.record(
+            "dispatch",
+            "started",
+            idempotency_key="dispatch:started",
+            payload={"packet_hash": packet.packet_hash, "required": list(route.participants)},
+        )
         degradation: list[str] = []
         topology_result: OrchestrationResult | PanelRankResult
         packet_dlp = packet.payload.get("dlp")
@@ -372,6 +591,15 @@ class FusionEngine:
                 route, packet, run_id, budget
             )
         results = self._attest_calls(results, ledger)
+        journal.record(
+            "dispatch",
+            "completed",
+            idempotency_key="dispatch:completed",
+            payload={
+                "call_ids": [result.call_id for result in results],
+                "statuses": [result.status.value for result in results],
+            },
+        )
         analysis_inputs = self._analysis_inputs(
             request=request,
             route=route,
@@ -398,9 +626,21 @@ class FusionEngine:
                 "comparisons": [asdict(comparison) for comparison in topology_result.comparisons],
             }
         state.transition(RunState.ANALYZED, reason="structured analysis completed")
+        journal.record(
+            "analyze",
+            "completed",
+            idempotency_key="state:analyzed",
+            payload={"analysis_hash": sha256_json(analysis)},
+        )
         if request.run_grounding and request.artifact_kind == "diff":
             analysis = self._ground(analysis, snapshot, ledger)
             state.transition(RunState.GROUNDED, reason="eligible findings grounded")
+            journal.record(
+                "ground",
+                "completed",
+                idempotency_key="state:grounded",
+                payload={"grounding_result_count": len(analysis["grounding_results"])},
+            )
         if self._topology_degraded(topology_result):
             degradation.append(self._topology_reason(topology_result))
         try:
@@ -429,6 +669,7 @@ class FusionEngine:
             self_family=self_family,
             degradation=tuple(dict.fromkeys(degradation)),
             active_wallclock_s=active_wallclock_s,
+            journal_head_hash=journal.summary().journal_head_hash,
         )
         pending_path = run_directory / "pending.json"
         atomic_write_json(pending_path, pending_payload)
@@ -437,12 +678,25 @@ class FusionEngine:
             {"run_id": run_id, "pending_hash": sha256_bytes(pending_path.read_bytes())},
         )
         requires_reconciliation = "self" in route.participants and not degradation
+        journal.record(
+            "reconcile",
+            "waiting" if requires_reconciliation else "started",
+            idempotency_key=(
+                "reconcile:waiting" if requires_reconciliation else "reconcile:automatic"
+            ),
+            payload={
+                "requires_reconciliation": requires_reconciliation,
+                "degraded": bool(degradation),
+                "pending_hash": sha256_bytes(pending_path.read_bytes()),
+            },
+        )
         return PendingRun(
             run_id=run_id,
             state=state.state.value,
             analysis_path=analysis_path,
             pending_path=pending_path,
             evidence_path=evidence_path,
+            journal_path=journal.path,
             result_path=result_path,
             requires_reconciliation=requires_reconciliation,
             fused=False,
@@ -542,9 +796,19 @@ class FusionEngine:
         if route.topology == "review":
             review_outcome = asyncio.run(run_review(dispatcher, requests[0], budget=budget))
         elif route.topology == "adversarial-review":
-            review_outcome = asyncio.run(
-                run_adversarial_review(dispatcher, requests[0], budget=budget)
-            )
+            if len(requests) == 1:
+                review_outcome = asyncio.run(
+                    run_adversarial_review(dispatcher, requests[0], budget=budget)
+                )
+            else:
+                review_outcome = asyncio.run(
+                    run_adversarial_council(
+                        dispatcher,
+                        requests,
+                        budget=budget,
+                        max_concurrency=min(2, len(requests)),
+                    )
+                )
         elif route.topology == "dual-review":
             review_outcome = asyncio.run(
                 run_dual_review(dispatcher, requests, budget=budget)
@@ -851,6 +1115,7 @@ class FusionEngine:
         self_family: str | None,
         degradation: tuple[str, ...],
         active_wallclock_s: int,
+        journal_head_hash: str | None,
     ) -> JsonObject:
         return {
             "version": 1,
@@ -859,6 +1124,7 @@ class FusionEngine:
             "started_at": started_at,
             "state": state,
             "artifact_kind": request.artifact_kind,
+            "pack": request.pack,
             "task_hash": sha256_bytes(request.task.encode("utf-8")),
             "route": self._route_json(route),
             "snapshot": {
@@ -881,6 +1147,7 @@ class FusionEngine:
             "degradation_reasons": list(degradation),
             "active_wallclock_s": active_wallclock_s,
             "policy_hash": sha256_json(self.config.data),
+            "journal_head_hash": journal_head_hash,
         }
 
     @staticmethod
@@ -966,6 +1233,7 @@ class FusionEngine:
             "topology": route.topology,
             "panel": route.panel,
             "preset": route.selected_preset,
+            "pack": pending.get("pack"),
             "fused": fused,
             "consulted": route.topology == "advisor",
             "cross_model": len(families) >= 2,
@@ -982,6 +1250,7 @@ class FusionEngine:
             "analysis_hash": None,
             "policy_hash": pending["policy_hash"],
             "signoff_attestation_hash": signoff_hash,
+            "journal_head_hash": pending.get("journal_head_hash"),
             "budgets": {
                 "max_calls": route.budget.max_calls,
                 "used_calls": len(calls),
@@ -1016,6 +1285,12 @@ class FusionEngine:
             if isinstance(grounding, list)
             else []
         )
+        proof = analysis.get("proof_results")
+        proof_results = (
+            [item for item in proof if isinstance(item, dict)]
+            if isinstance(proof, list)
+            else []
+        )
         return {
             "blocker": sum(item.get("severity") == "blocker" for item in items),
             "major": sum(item.get("severity") == "major" for item in items),
@@ -1025,6 +1300,14 @@ class FusionEngine:
                     str(item.get("finding_id"))
                     for item in results
                     if item.get("verdict") == "confirmed"
+                }
+            ),
+            "confirmed_by_proof": len(
+                {
+                    str(item.get("finding_id"))
+                    for item in proof_results
+                    if item.get("verdict") == "confirmed"
+                    and item.get("mutation_gate_passed") is True
                 }
             ),
             "deadlocks": sum(item.get("status") == "deadlock" for item in items),

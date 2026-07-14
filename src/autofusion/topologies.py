@@ -146,6 +146,37 @@ async def run_adversarial_review(
     return _result("adversarial-review", results, (request.handle,), context_complete=quorum)
 
 
+async def run_adversarial_council(
+    dispatcher: ProviderDispatcher,
+    requests: Sequence[ProviderRequest],
+    *,
+    budget: BudgetLedger,
+    max_concurrency: int = 2,
+) -> OrchestrationResult:
+    """Run multiple blind adversaries while preserving one bounded topology."""
+
+    if len(requests) < 2:
+        raise ValueError("adversarial council requires at least two reviewer requests")
+    required = tuple(request.handle for request in requests)
+    if not context_quorum(requests, required_handles=required):
+        return OrchestrationResult(
+            "adversarial-review",
+            (),
+            required,
+            context_complete=False,
+            fused=False,
+            degraded=True,
+            reason="context quorum failed before adversarial dispatch",
+        )
+    results = await dispatch_blind_first_passes(
+        dispatcher,
+        requests,
+        budget=budget,
+        max_concurrency=max_concurrency,
+    )
+    return _result("adversarial-review", results, required, context_complete=True)
+
+
 async def run_dual_review(
     dispatcher: ProviderDispatcher,
     requests: Sequence[ProviderRequest],

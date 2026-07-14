@@ -92,6 +92,10 @@
       "type": "string",
       "minLength": 1
     },
+    "pack": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
     "fused": {
       "type": "boolean"
     },
@@ -181,6 +185,10 @@
     "signoff_attestation_hash": {
       "$ref": "#/$defs/hash"
     },
+    "journal_head_hash": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
     "budgets": {
       "$ref": "#/$defs/budgets"
     },
@@ -192,6 +200,7 @@
         "major",
         "minor",
         "confirmed_by_exec",
+        "confirmed_by_proof",
         "deadlocks"
       ],
       "properties": {
@@ -208,6 +217,10 @@
           "minimum": 0
         },
         "confirmed_by_exec": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confirmed_by_proof": {
           "type": "integer",
           "minimum": 0
         },

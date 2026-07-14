@@ -82,18 +82,45 @@ Status: replay, evaluation summaries, drift snapshots, and policy signing primit
 
 Exit criteria: cross-model review demonstrates positive verified outcome value beyond ordinary self-review under at least one declared latency and cost budget.
 
+## 0.5 alpha: proof and durable control plane
+
+Status: supplied proof intents, locally HMAC-attested capsules, durable reconciliation state, declarative packs, metadata-only precedent, and bounded GitHub report rendering are implemented. Automatic proof authoring, managed runner signing, and interrupted provider-dispatch resume remain pending.
+
+1. Add typed verification intents and cryptographically self-consistent proof capsules.
+2. Add mutation-gated regression, repair, feature, and counterexample relations.
+3. Require disposable Docker isolation for generated or externally authored proof overlays.
+4. Bind confirmed proof capsules to findings and prevent unsupported rejection or waiver.
+5. Add an idempotent hash-chained run journal and status surface.
+6. Add metadata-only, repository-scoped precedent and downstream outcome records.
+7. Restrict precedent retrieval to post-blind-review reconciliation.
+8. Add migration, security, release, incident, API contract, dependency, and research evidence packs.
+9. Add an escaped GitHub Checks payload renderer with no posting or merge authority.
+10. Require an environment-backed local HMAC before a capsule can affect reconciliation.
+
+Exit criteria:
+
+1. Weak grounding runners cannot execute proof overlays.
+2. Revision, authorship, overlay, and mutation violations fail closed.
+3. Journal tampering and conflicting idempotency keys are detected.
+4. Precedent cannot enter blind first-pass context or become automatic authority.
+5. Packs cannot weaken global policy.
+6. GitHub reporting cannot grant itself execution or merge authority.
+7. Unsigned, modified, wrong-key, and inactive-key proof capsules fail closed.
+
 ## 1.0: production hardening
 
 1. Add a calibrated, correlation-aware adaptive router.
 2. Add marginal-value stopping after a successful shadow evaluation.
-3. Add disposable strong-isolation executors.
+3. Harden disposable executors with pinned images, externally verifiable runner attestations, managed signing keys, rotation, and platform-specific isolation.
 4. Add capability-brokered credentials.
 5. Add signed policy bundles and release provenance.
 6. Add SBOM and dependency review.
-7. Add GitHub pull request checks and annotations.
+7. Add an authenticated least-privilege GitHub Checks integration around the existing renderer.
 8. Add drift monitoring for models, prompts, judges, and provider capabilities.
 9. Add architect-editor only after a separate mutation-safety proof.
 10. Add external replication for the main product claim.
+11. Add durable provider call attempts and crash-safe dispatch resume without duplicate paid calls.
+12. Add independently evaluated model-driven proof-test authoring.
 
 Exit criteria: the engine, plugin, schemas, security controls, and evaluation evidence support a stable release without relying on hidden or unverifiable behavior.
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from autofusion.errors import PolicyError
 from autofusion.grounding import GroundingResult
+from autofusion.proof import ProofCapsule, ProofVerdict
 from autofusion.util import JsonObject, deep_copy_json
 
 _DISPOSITIONS = {"accepted", "rejected", "deadlock", "resolved", "waived"}
@@ -93,6 +94,62 @@ def attach_grounding(analysis: JsonObject, links: tuple[GroundingLink, ...]) -> 
             if isinstance(evidence, dict):
                 evidence["strength"] = "grounded"
     updated["grounding_results"] = results
+    return updated
+
+
+def attach_proof_capsules(
+    analysis: JsonObject, capsules: tuple[ProofCapsule, ...]
+) -> JsonObject:
+    """Bind independently verified proof capsules to their declared findings."""
+
+    updated = deep_copy_json(analysis)
+    assert isinstance(updated, dict)
+    findings = updated.get("findings")
+    if not isinstance(findings, list):
+        raise ValueError("analysis findings are unavailable")
+    run_id = str(updated.get("run_id", ""))
+    by_id = {
+        str(finding.get("id")): finding for finding in findings if isinstance(finding, dict)
+    }
+    if len({capsule.intent.proof_id for capsule in capsules}) != len(capsules):
+        raise ValueError("proof capsule IDs must be unique")
+    results: list[JsonObject] = []
+    for capsule in capsules:
+        if capsule.intent.fusion_run_id != run_id:
+            raise ValueError("proof capsule belongs to a different fusion run")
+        finding = by_id.get(capsule.intent.finding_id)
+        if finding is None:
+            raise ValueError(
+                f"proof capsule references unknown finding: {capsule.intent.finding_id}"
+            )
+        results.append(
+            {
+                "proof_id": capsule.intent.proof_id,
+                "finding_id": capsule.intent.finding_id,
+                "capsule_hash": capsule.capsule_hash,
+                "intent_hash": capsule.body()["intent_hash"],
+                "relation": capsule.intent.relation.value,
+                "verification_id": capsule.intent.verification_id,
+                "verdict": capsule.verdict.value,
+                "mutation_required": capsule.intent.mutation_required,
+                "mutation_gate_passed": capsule.mutation_gate_passed,
+                "test_author": capsule.intent.test_author,
+                "patch_author": capsule.intent.patch_author,
+                "runner_attestation_hashes": sorted(
+                    {
+                        observation.runner_attestation_hash
+                        for observation in capsule.observations
+                    }
+                ),
+            }
+        )
+        if capsule.verdict is ProofVerdict.CONFIRMED:
+            finding["status"] = "grounded"
+            finding["grounded_by"] = f"proof:{capsule.capsule_hash}"
+            evidence = finding.get("evidence")
+            if isinstance(evidence, dict):
+                evidence["strength"] = "grounded"
+    updated["proof_results"] = results
     return updated
 
 

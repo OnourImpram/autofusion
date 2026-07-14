@@ -32,6 +32,7 @@ from autofusion.models import (
     RunArtifacts,
     SnapshotManifest,
 )
+from autofusion.proof import ProofCapsule, ProofRunner
 from autofusion.providers import (
     AnthropicHttpProvider,
     CliTransportProvider,
@@ -161,7 +162,9 @@ class RecordingFinalizeEngine:
         *,
         dispositions: tuple[FindingDisposition, ...] | None,
         automatic: bool,
+        proof_capsules: tuple[ProofCapsule, ...] = (),
     ) -> RunArtifacts:
+        assert proof_capsules == ()
         self.calls.append((run_id, dispositions, automatic))
         return self.result
 
@@ -416,6 +419,7 @@ def test_inspect_environment_covers_model_states_without_exposing_credentials(
     assert checks["model:api-missing"]["status"] == "credential-missing"
     assert checks["model:unsupported"]["status"] == "unsupported"
     assert checks["grounding-network-isolation"]["detail"] == "RecordingGroundingRunner"
+    assert checks["proof-capsule-signing"]["status"] == "credential-missing"
     assert report["blocking"] == ["model:claude", "model:unsupported"]
     assert report["healthy"] is False
     assert secret not in json.dumps(report, sort_keys=True)
@@ -433,8 +437,12 @@ def test_doctor_cli_emits_injected_diagnostics(
         return runner
 
     def fake_inspect(
-        config: FusionConfig, *, grounding_runner: GroundingRunner | None
+        config: FusionConfig,
+        *,
+        grounding_runner: GroundingRunner | None,
+        proof_runner: ProofRunner | None = None,
     ) -> JsonObject:
+        assert proof_runner is None
         calls.append((config, grounding_runner))
         return {"healthy": True, "blocking": [], "checks": []}
 
@@ -1052,6 +1060,7 @@ def test_run_emits_pending_state_and_does_not_emit_session_fingerprint(
         analysis_path=tmp_path / "analysis.json",
         pending_path=tmp_path / "pending.json",
         evidence_path=tmp_path / "evidence.json",
+        journal_path=tmp_path / "journal.jsonl",
         result_path=tmp_path / "result.json",
         requires_reconciliation=True,
         fused=False,

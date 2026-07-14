@@ -108,15 +108,53 @@ def validate_analysis(analysis: JsonObject) -> None:
             _require(isinstance(exit_code, int) and exit_code != 0, "confirmed run must fail")
             _require(result.get("runner_trust") == "trusted-runner", "runner must be trusted")
             confirmed.add(key)
+    proof_confirmed: set[str] = set()
+    for result in _objects(analysis.get("proof_results"), "proof results must be objects"):
+        finding_id = str(result["finding_id"])
+        _require(finding_id in finding_ids, "proof result references an unknown finding")
+        if result.get("verdict") == "confirmed":
+            _require(
+                result.get("mutation_gate_passed") is True,
+                "confirmed proof requires a passing mutation gate",
+            )
+            _require(
+                result.get("test_author") != result.get("patch_author"),
+                "proof test and patch authors must be independent",
+            )
+            proof_confirmed.add(finding_id)
     for finding in findings:
         if finding.get("status") == "grounded":
             key = (str(finding["id"]), str(finding.get("verification_id")))
-            _require(key in confirmed, f"grounded finding {finding['id']} lacks confirmation")
+            _require(
+                key in confirmed or str(finding["id"]) in proof_confirmed,
+                f"grounded finding {finding['id']} lacks confirmation",
+            )
     decision = _object(analysis.get("decision_impact"), "decision_impact must be an object")
     if not bool(analysis.get("context_complete")):
         _require(
             decision.get("effect") in {"blocked", "human-required"},
             "incomplete context must block or require a human",
+        )
+
+
+def validate_proof_intent(intent: JsonObject) -> None:
+    _validate_schema(intent, "proof-intent.schema.json")
+    _require(
+        intent.get("test_author") != intent.get("patch_author"),
+        "proof test author must be independent from the patch author",
+    )
+
+
+def validate_proof_capsule(capsule: JsonObject) -> None:
+    _validate_schema(capsule, "proof-capsule.schema.json")
+    _require(
+        capsule.get("test_author") != capsule.get("patch_author"),
+        "proof capsule authors must remain independent",
+    )
+    if capsule.get("verdict") == "confirmed":
+        _require(
+            capsule.get("mutation_gate_passed") is True,
+            "confirmed proof capsule requires a passing mutation gate",
         )
 
 
@@ -200,12 +238,20 @@ def _finding_counts(analysis: JsonObject) -> JsonObject:
         for result in grounding
         if result.get("verdict") == "confirmed"
     }
+    proof = _objects(analysis.get("proof_results"), "proof results must contain objects")
+    proof_confirmed = {
+        str(result["finding_id"])
+        for result in proof
+        if result.get("verdict") == "confirmed"
+        and result.get("mutation_gate_passed") is True
+    }
     deadlocks = sum(1 for finding in findings if finding.get("status") == "deadlock")
     return {
         "blocker": severity["blocker"],
         "major": severity["major"],
         "minor": severity["minor"],
         "confirmed_by_exec": len(confirmed),
+        "confirmed_by_proof": len(proof_confirmed),
         "deadlocks": deadlocks,
     }
 

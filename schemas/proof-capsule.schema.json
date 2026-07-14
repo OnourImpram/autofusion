@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/OnourImpram/autofusion/main/schemas/proof-capsule.schema.json",
+  "title": "autofusion proof capsule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proof_id",
+    "fusion_run_id",
+    "finding_id",
+    "intent_hash",
+    "relation",
+    "verification_id",
+    "test_author",
+    "patch_author",
+    "candidate_fix_visible",
+    "overlay_hash",
+    "overlay_entries",
+    "observations",
+    "mutation_required",
+    "mutation_gate_passed",
+    "verdict",
+    "capsule_hash",
+    "attestation"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "proof_id": {"$ref": "#/$defs/id"},
+    "fusion_run_id": {"$ref": "#/$defs/id"},
+    "finding_id": {"$ref": "#/$defs/id"},
+    "intent_hash": {"$ref": "#/$defs/hash"},
+    "relation": {
+      "enum": ["regression", "repair", "feature", "counterexample"]
+    },
+    "verification_id": {"$ref": "#/$defs/id"},
+    "test_author": {"$ref": "#/$defs/id"},
+    "patch_author": {"$ref": "#/$defs/id"},
+    "candidate_fix_visible": {"const": false},
+    "overlay_hash": {"$ref": "#/$defs/hash"},
+    "overlay_entries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size", "content_hash"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "size": {"type": "integer", "minimum": 0},
+          "content_hash": {"$ref": "#/$defs/hash"}
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/observation"}
+    },
+    "mutation_required": {"const": true},
+    "mutation_gate_passed": {"type": "boolean"},
+    "verdict": {
+      "enum": ["confirmed", "not-reproduced", "inconclusive"]
+    },
+    "capsule_hash": {"$ref": "#/$defs/hash"},
+    "attestation": {"$ref": "#/$defs/attestation"}
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "algorithm", "key_id", "bundle_hash", "signature"],
+      "properties": {
+        "version": {"const": 1},
+        "algorithm": {"const": "hmac-sha256"},
+        "key_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+        },
+        "bundle_hash": {"$ref": "#/$defs/hash"},
+        "signature": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision",
+        "revision_hash",
+        "expected",
+        "actual",
+        "exit_code",
+        "execution_status",
+        "output_hash",
+        "output_truncated",
+        "invocation_hash",
+        "runner_attestation_hash"
+      ],
+      "properties": {
+        "revision": {"enum": ["base", "head", "fixed", "control", "mutant"]},
+        "revision_hash": {"$ref": "#/$defs/hash"},
+        "expected": {"enum": ["pass", "fail"]},
+        "actual": {"enum": ["pass", "fail", "timeout", "environment-error"]},
+        "exit_code": {"type": ["integer", "null"]},
+        "execution_status": {
+          "enum": ["completed", "timeout", "environment-error", "runner-error"]
+        },
+        "output_hash": {"$ref": "#/$defs/hash"},
+        "output_truncated": {"type": "boolean"},
+        "invocation_hash": {"$ref": "#/$defs/hash"},
+        "runner_attestation_hash": {"$ref": "#/$defs/hash"}
+      }
+    }
+  }
+}

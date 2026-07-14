@@ -19,6 +19,7 @@
     "blind_spots",
     "grounding_candidates",
     "grounding_results",
+    "proof_results",
     "decision_impact",
     "findings"
   ],
@@ -88,6 +89,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/groundingResult"
+      }
+    },
+    "proof_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/proofResult"
       }
     },
     "decision_impact": {
@@ -499,6 +506,47 @@
             "external-runner",
             "unknown"
           ]
+        }
+      }
+    },
+    "proofResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proof_id",
+        "finding_id",
+        "capsule_hash",
+        "intent_hash",
+        "relation",
+        "verification_id",
+        "verdict",
+        "mutation_required",
+        "mutation_gate_passed",
+        "test_author",
+        "patch_author",
+        "runner_attestation_hashes"
+      ],
+      "properties": {
+        "proof_id": {"type": "string", "minLength": 1},
+        "finding_id": {"type": "string", "minLength": 1},
+        "capsule_hash": {"$ref": "#/$defs/hash"},
+        "intent_hash": {"$ref": "#/$defs/hash"},
+        "relation": {
+          "enum": ["regression", "repair", "feature", "counterexample"]
+        },
+        "verification_id": {"type": "string", "minLength": 1},
+        "verdict": {
+          "enum": ["confirmed", "not-reproduced", "inconclusive", "policy-blocked"]
+        },
+        "mutation_required": {"type": "boolean"},
+        "mutation_gate_passed": {"type": "boolean"},
+        "test_author": {"type": "string", "minLength": 1},
+        "patch_author": {"type": "string", "minLength": 1},
+        "runner_attestation_hashes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/hash"}
         }
       }
     },

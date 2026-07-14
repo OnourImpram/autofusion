@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/OnourImpram/autofusion/main/schemas/proof-intent.schema.json",
+  "title": "autofusion verification intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proof_id",
+    "fusion_run_id",
+    "finding_id",
+    "relation",
+    "verification_id",
+    "test_author",
+    "patch_author",
+    "candidate_fix_visible",
+    "revision_hashes",
+    "mutation_required"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "proof_id": {"$ref": "#/$defs/id"},
+    "fusion_run_id": {"$ref": "#/$defs/id"},
+    "finding_id": {"$ref": "#/$defs/id"},
+    "relation": {
+      "enum": ["regression", "repair", "feature", "counterexample"]
+    },
+    "verification_id": {"$ref": "#/$defs/id"},
+    "test_author": {"$ref": "#/$defs/id"},
+    "patch_author": {"$ref": "#/$defs/id"},
+    "candidate_fix_visible": {"const": false},
+    "revision_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "base": {"$ref": "#/$defs/hash"},
+        "head": {"$ref": "#/$defs/hash"},
+        "fixed": {"$ref": "#/$defs/hash"},
+        "control": {"$ref": "#/$defs/hash"},
+        "mutant": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "mutation_required": {"const": true}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"relation": {"const": "regression"}}},
+      "then": {
+        "properties": {
+          "revision_hashes": {
+            "required": ["base", "head", "mutant"],
+            "minProperties": 3,
+            "maxProperties": 3
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"relation": {"const": "repair"}}},
+      "then": {
+        "properties": {
+          "revision_hashes": {
+            "required": ["head", "fixed", "mutant"],
+            "minProperties": 3,
+            "maxProperties": 3
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"relation": {"const": "feature"}}},
+      "then": {
+        "properties": {
+          "revision_hashes": {
+            "required": ["base", "head", "mutant"],
+            "minProperties": 3,
+            "maxProperties": 3
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"relation": {"const": "counterexample"}}},
+      "then": {
+        "properties": {
+          "revision_hashes": {
+            "required": ["control", "head", "mutant"],
+            "minProperties": 3,
+            "maxProperties": 3
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

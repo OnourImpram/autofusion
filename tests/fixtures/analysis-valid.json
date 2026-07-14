@@ -81,6 +81,7 @@
       "runner_trust": "trusted-runner"
     }
   ],
+  "proof_results": [],
   "decision_impact": {
     "changed": true,
     "effect": "revised",

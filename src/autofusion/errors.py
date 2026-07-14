@@ -44,3 +44,14 @@ class ReceiptError(AutofusionError):
 class ReplayError(AutofusionError):
     """Recorded provider evidence is unavailable or invalid."""
 
+
+class ProofError(AutofusionError):
+    """A proof intent or proof execution violated its safety contract."""
+
+
+class JournalError(AutofusionError):
+    """A durable run journal is invalid, conflicting, or unavailable."""
+
+
+class PrecedentError(AutofusionError):
+    """A precedent or outcome record is invalid or outside policy."""
