@@ -82,6 +82,8 @@ def resolve_route(
     if not panel_name:
         raise ConfigurationError(f"preset {resolved_name} does not resolve to a panel")
     panel = config.panel(panel_name)
+    if panel.get("enabled", True) is not True:
+        raise PolicyError(f"selected panel is disabled: {panel_name}")
     receipt_preset = f"panel:{panel_name}" if explicit_panel is not None else resolved_name
     participants = panel_participants(panel)
     topology = str(panel.get("topology", ""))

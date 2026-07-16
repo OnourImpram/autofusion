@@ -133,6 +133,6 @@ Every release requires:
 3. At least 85 percent coverage for business logic.
 4. Fake-provider failure tests.
 5. Prompt injection, path escape, stale input, timeout, output bomb, and fallback tests.
-6. Real smoke tests for every advertised built-in profile.
+6. Real smoke tests for every enabled advertised built-in profile.
 7. Documentation claim review.
-8. No release tag when advertised models cannot be exercised in the supported environment.
+8. No release tag when an enabled advertised model cannot be exercised in the supported environment. Entitlement-gated profiles remain disabled until canonical identity is proven.

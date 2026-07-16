@@ -78,8 +78,9 @@ class RecordingRunner:
         environment_allowlist = kwargs["environment_allowlist"]
         assert isinstance(environment_allowlist, tuple)
         self.environment_allowlist = environment_allowlist
-        last_message_index = argv.index("--output-last-message") + 1
-        Path(argv[last_message_index]).write_text(self.last_message, encoding="utf-8")
+        if "--output-last-message" in argv:
+            last_message_index = argv.index("--output-last-message") + 1
+            Path(argv[last_message_index]).write_text(self.last_message, encoding="utf-8")
         return self.outcome
 
 
@@ -236,6 +237,93 @@ def test_cli_rejects_identity_mismatch(tmp_path: Path) -> None:
         provider.invoke(_request(tmp_path))
 
 
+def test_codex_cli_uses_pinned_model_when_jsonl_omits_identity(tmp_path: Path) -> None:
+    provider = CliTransportProvider(
+        _profile(model="gpt-5.6-sol", canonical_model="gpt-5.6-sol"),
+        CodexExecAdapter(),
+        RecordingRunner(_outcome('{"type":"turn.completed","usage":{}}')),
+    )
+
+    result = provider.invoke(_request(tmp_path))
+
+    assert result.status is CallStatus.COMPLETED
+    assert result.effective_model == "gpt-5.6-sol"
+
+
+def test_codex_cli_rejects_missing_identity_without_completed_turn(tmp_path: Path) -> None:
+    provider = CliTransportProvider(
+        _profile(model="gpt-5.6-sol", canonical_model="gpt-5.6-sol"),
+        CodexExecAdapter(),
+        RecordingRunner(_outcome('{"type":"item.completed","item":{"type":"agent_message"}}')),
+    )
+
+    with pytest.raises(ProviderError, match="omitted effective model identity"):
+        provider.invoke(_request(tmp_path))
+
+
+def test_cli_promotes_structured_error_event_to_diagnostic_tail(tmp_path: Path) -> None:
+    outcome = replace(
+        _outcome(
+            '{"type":"error","message":"invalid_json_schema"}',
+            returncode=1,
+        ),
+        stderr="",
+    )
+    provider = CliTransportProvider(
+        _profile(),
+        CodexExecAdapter(),
+        RecordingRunner(outcome),
+    )
+
+    result = provider.invoke(_request(tmp_path))
+
+    assert result.status is CallStatus.FAILED
+    assert result.stderr_tail == "invalid_json_schema"
+
+
+def test_cli_promotes_claude_error_envelope_to_diagnostic_tail(tmp_path: Path) -> None:
+    outcome = replace(
+        _outcome('{"is_error":true,"result":"usage credits required"}', returncode=1),
+        stderr="",
+    )
+    provider = CliTransportProvider(
+        _profile(transport="claude-exec"),
+        ClaudeCliAdapter(),
+        RecordingRunner(outcome),
+    )
+
+    result = provider.invoke(_request(tmp_path))
+
+    assert result.status is CallStatus.FAILED
+    assert result.stderr_tail == "usage credits required"
+
+
+def test_cli_appends_structured_error_after_stderr_warning(tmp_path: Path) -> None:
+    outcome = replace(
+        _outcome('{"type":"error","message":"invalid_json_schema"}', returncode=1),
+        stderr="shell snapshot warning",
+    )
+    provider = CliTransportProvider(
+        _profile(),
+        CodexExecAdapter(),
+        RecordingRunner(outcome),
+    )
+
+    result = provider.invoke(_request(tmp_path))
+
+    assert result.stderr_tail == "shell snapshot warning\ninvalid_json_schema"
+
+
+def test_registry_rejects_disabled_provider(tmp_path: Path) -> None:
+    profile = replace(_profile(handle="disabled"), enabled=False)
+    registry = ProviderRegistry(
+        {"disabled": DeterministicFakeProvider(profile, {"answer": "ok"})}
+    )
+
+    with pytest.raises(ProviderError, match="disabled by config"):
+        registry.invoke(replace(_request(tmp_path), handle="disabled"))
+
+
 def test_cli_rejects_schema_violation(tmp_path: Path) -> None:
     provider = CliTransportProvider(
         _profile(),
@@ -258,7 +346,15 @@ def test_cli_timeout_is_a_failed_result_not_a_trusted_output(tmp_path: Path) -> 
 
 
 def test_claude_cli_uses_native_schema_and_read_only_tools(tmp_path: Path) -> None:
-    request = _request(tmp_path)
+    request = _request(
+        tmp_path,
+        schema={
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.test/response.schema.json",
+            "type": "object",
+            "required": ["answer"],
+        },
+    )
     adapter = ClaudeCliAdapter(executable="fake-claude")
     argv = adapter.build_argv(
         _profile(
@@ -276,9 +372,82 @@ def test_claude_cli_uses_native_schema_and_read_only_tools(tmp_path: Path) -> No
     )
     assert "--safe-mode" in argv
     assert "--json-schema" in argv
-    assert json.loads(argv[argv.index("--json-schema") + 1]) == request.response_schema
+    cli_schema = json.loads(argv[argv.index("--json-schema") + 1])
+    assert "$schema" not in cli_schema
+    assert cli_schema["$id"] == request.response_schema["$id"]
+    assert request.response_schema["$schema"].endswith("2020-12/schema")
+    assert argv[argv.index("--prompt-suggestions") + 1] == "false"
     assert argv[argv.index("--permission-mode") + 1] == "plan"
     assert argv[argv.index("--tools") + 1] == "Read,Glob,Grep"
+
+
+def test_claude_cli_rejects_ambiguous_auxiliary_usage(tmp_path: Path) -> None:
+    envelope = {
+        "modelUsage": {
+            "claude-haiku-helper": {"inputTokens": 1},
+            "claude-opus-4-8": {"inputTokens": 10},
+        },
+        "structured_output": {"answer": "ok"},
+        "usage": {"input_tokens": 11, "output_tokens": 2},
+    }
+    provider = CliTransportProvider(
+        _profile(
+            transport="claude-exec",
+            model="opus",
+            canonical_model="claude-opus-4-8",
+        ),
+        ClaudeCliAdapter(executable="fake-claude"),
+        RecordingRunner(_outcome(json.dumps(envelope))),
+    )
+
+    with pytest.raises(ProviderError, match="omitted effective model identity"):
+        provider.invoke(_request(tmp_path))
+
+
+def test_claude_cli_accepts_dominant_canonical_model_usage(tmp_path: Path) -> None:
+    envelope = {
+        "modelUsage": {
+            "claude-haiku-helper": {"outputTokens": 3},
+            "claude-opus-4-8": {"outputTokens": 300},
+        },
+        "structured_output": {"answer": "ok"},
+    }
+    provider = CliTransportProvider(
+        _profile(
+            transport="claude-exec",
+            model="opus",
+            canonical_model="claude-opus-4-8",
+        ),
+        ClaudeCliAdapter(executable="fake-claude"),
+        RecordingRunner(_outcome(json.dumps(envelope))),
+    )
+
+    result = provider.invoke(_request(tmp_path))
+
+    assert result.status is CallStatus.COMPLETED
+    assert result.effective_model == "claude-opus-4-8"
+
+
+def test_claude_cli_rejects_unexpected_auxiliary_models(tmp_path: Path) -> None:
+    envelope = {
+        "modelUsage": {
+            "claude-haiku-helper": {},
+            "claude-sonnet-helper": {},
+        },
+        "structured_output": {"answer": "ok"},
+    }
+    provider = CliTransportProvider(
+        _profile(
+            transport="claude-exec",
+            model="opus",
+            canonical_model="claude-opus-4-8",
+        ),
+        ClaudeCliAdapter(executable="fake-claude"),
+        RecordingRunner(_outcome(json.dumps(envelope))),
+    )
+
+    with pytest.raises(ProviderError, match="omitted effective model identity"):
+        provider.invoke(_request(tmp_path))
 
 
 def test_codex_ultra_fails_closed_without_runtime_capability_proof(tmp_path: Path) -> None:

@@ -85,6 +85,8 @@
       }
     },
     "claude-fable": {
+      "enabled": false,
+      "activation_gate": "usage-credits-and-canonical-identity-smoke",
       "transport": "claude-exec",
       "callable": true,
       "model": "fable",
@@ -204,6 +206,8 @@
       "arbiter": "escalate-human"
     },
     "dual-fable": {
+      "enabled": false,
+      "activation_gate": "claude-fable-canonical-identity-smoke",
       "topology": "dual-review",
       "drafter": "self",
       "reviewers": [
@@ -218,12 +222,25 @@
       "drafter": "self",
       "reviewers": [
         "gpt-sol-ultra",
-        "claude-fable"
+        "claude-opus"
       ],
       "blind": true,
       "arbiter": "escalate-human"
     },
     "external-council": {
+      "topology": "panel-rank",
+      "proposers": [
+        "gpt-sol",
+        "claude-opus"
+      ],
+      "judge": "gpt-sol-ultra",
+      "blind": true,
+      "pairwise_order_check": true,
+      "arbiter": "escalate-human"
+    },
+    "external-council-fable": {
+      "enabled": false,
+      "activation_gate": "claude-fable-canonical-identity-smoke",
       "topology": "panel-rank",
       "proposers": [
         "gpt-sol",

@@ -65,7 +65,13 @@ def inspect_environment(
     for handle, raw in models.items():
         profile = config.model(handle)
         if not profile.enabled:
-            checks.append(DoctorCheck(f"model:{handle}", "disabled", "profile disabled by config"))
+            activation_gate = raw.get("activation_gate") if isinstance(raw, dict) else None
+            detail = (
+                f"profile disabled by config; activation gate: {activation_gate}"
+                if isinstance(activation_gate, str) and activation_gate
+                else "profile disabled by config"
+            )
+            checks.append(DoctorCheck(f"model:{handle}", "disabled", detail))
             continue
         if profile.transport == "self":
             checks.append(

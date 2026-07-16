@@ -6,8 +6,8 @@
   "additionalProperties": false,
   "required": ["winner", "rationale", "confidence"],
   "properties": {
-    "winner": {"enum": ["left", "right", "abstain"]},
+    "winner": {"type": "string", "enum": ["left", "right", "abstain"]},
     "rationale": {"type": "string"},
-    "confidence": {"enum": ["low", "medium", "high"]}
+    "confidence": {"type": "string", "enum": ["low", "medium", "high"]}
   }
 }

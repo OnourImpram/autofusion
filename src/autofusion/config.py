@@ -236,6 +236,9 @@ def validate_config(config: FusionConfig) -> None:
         config.preset(name)
     for panel_name, panel_value in panels.items():
         panel = _as_object(panel_value, f"panels.{panel_name}")
+        panel_enabled = panel.get("enabled", True)
+        if not isinstance(panel_enabled, bool):
+            raise ConfigurationError(f"panel {panel_name} enabled must be boolean")
         topology = str(panel.get("topology", ""))
         participant_fields = ("drafter", "reviewers", "proposers", "judge")
         participants: list[str] = []
@@ -255,6 +258,10 @@ def validate_config(config: FusionConfig) -> None:
                 )
             if profile.vendor in denylist:
                 raise ConfigurationError(f"panel {panel_name} uses denied vendor: {profile.vendor}")
+            if not profile.enabled and panel_enabled:
+                raise ConfigurationError(
+                    f"enabled panel {panel_name} uses disabled model: {handle}"
+                )
         if topology in {"panel-rank", "parallel"} and "self" in participants:
             raise ConfigurationError(f"fully external panel {panel_name} cannot contain self")
     max_panel_size = guardrails.get("max_panel_size")

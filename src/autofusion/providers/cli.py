@@ -50,6 +50,11 @@ class CliAdapter(Protocol):
     def required_environment(self) -> tuple[str, ...]:
         """Declare the minimal extra environment needed for this adapter."""
 
+    def resolve_effective_model(
+        self, profile: ModelProfile, events: tuple[JsonObject, ...]
+    ) -> object:
+        """Resolve the effective model from trusted CLI routing evidence."""
+
 
 class CodexCapabilityProbe(Protocol):
     """Runtime capability evidence for nonstandard Codex reasoning effort values."""
@@ -142,6 +147,18 @@ class CodexExecAdapter:
         # --ignore-user-config does not disable CODEX_HOME-based authentication.
         return (*_COMMON_CLI_ENVIRONMENT, "CODEX_HOME")
 
+    def resolve_effective_model(
+        self, profile: ModelProfile, events: tuple[JsonObject, ...]
+    ) -> object:
+        observed = _effective_model(events, expected=profile.canonical_model)
+        if observed is not None:
+            return observed
+        # Codex 0.144 JSONL omits model identity. Trust the pinned local route only
+        # when the event stream contains the terminal success evidence Codex emits.
+        if _codex_turn_completed(events):
+            return profile.canonical_model
+        return None
+
 
 @dataclass(frozen=True, slots=True)
 class ClaudeCliAdapter:
@@ -156,6 +173,8 @@ class ClaudeCliAdapter:
         output_last_message_path: Path,
     ) -> tuple[str, ...]:
         del output_schema_path, output_last_message_path
+        response_schema = dict(request.response_schema)
+        response_schema.pop("$schema", None)
         argv = [
             self.executable,
             "--print",
@@ -168,8 +187,10 @@ class ClaudeCliAdapter:
             profile.model,
             "--effort",
             profile.effort,
+            "--prompt-suggestions",
+            "false",
             "--json-schema",
-            canonical_json_bytes(request.response_schema).decode("utf-8"),
+            canonical_json_bytes(response_schema).decode("utf-8"),
         ]
         permission_mode = profile.params.get("permission_mode")
         if isinstance(permission_mode, str) and permission_mode:
@@ -189,6 +210,11 @@ class ClaudeCliAdapter:
 
     def required_environment(self) -> tuple[str, ...]:
         return (*_COMMON_CLI_ENVIRONMENT, "CLAUDE_CONFIG_DIR")
+
+    def resolve_effective_model(
+        self, profile: ModelProfile, events: tuple[JsonObject, ...]
+    ) -> object:
+        return _effective_model(events, expected=profile.canonical_model)
 
 
 def _response_envelope(text: str) -> JsonObject:
@@ -223,7 +249,14 @@ def _response_events(text: str) -> tuple[JsonObject, ...]:
         return tuple(events)
 
 
-def _effective_model(events: tuple[JsonObject, ...]) -> object:
+def _model_output_tokens(value: object) -> int | None:
+    if not isinstance(value, dict):
+        return None
+    tokens = value.get("outputTokens", value.get("output_tokens"))
+    return tokens if isinstance(tokens, int) and tokens >= 0 else None
+
+
+def _effective_model(events: tuple[JsonObject, ...], *, expected: str) -> object:
     for event in reversed(events):
         for key in ("effective_model", "model"):
             candidate = event.get(key)
@@ -234,7 +267,32 @@ def _effective_model(events: tuple[JsonObject, ...]) -> object:
             models = [key for key in model_usage if isinstance(key, str) and key]
             if len(models) == 1:
                 return models[0]
+            if expected in models:
+                token_counts = {
+                    model: _model_output_tokens(model_usage[model]) for model in models
+                }
+                expected_tokens = token_counts[expected]
+                other_tokens = [
+                    tokens for model, tokens in token_counts.items() if model != expected
+                ]
+                if (
+                    expected_tokens is not None
+                    and expected_tokens > 0
+                    and all(tokens is not None for tokens in other_tokens)
+                    and expected_tokens
+                    > sum(tokens for tokens in other_tokens if tokens is not None)
+                ):
+                    return expected
     return None
+
+
+def _codex_turn_completed(events: tuple[JsonObject, ...]) -> bool:
+    failed = any(event.get("type") in {"error", "turn.failed"} for event in events)
+    completed = any(
+        event.get("type") == "turn.completed" and isinstance(event.get("usage"), dict)
+        for event in events
+    )
+    return completed and not failed
 
 
 def _usage_from_events(events: tuple[JsonObject, ...]) -> JsonObject | None:
@@ -243,6 +301,26 @@ def _usage_from_events(events: tuple[JsonObject, ...]) -> JsonObject | None:
         if usage is not None:
             return usage
     return None
+
+
+def _error_tail(events: tuple[JsonObject, ...], *, limit: int) -> str:
+    messages: list[str] = []
+    for event in events:
+        if event.get("type") == "error" and isinstance(event.get("message"), str):
+            messages.append(str(event["message"]))
+        if event.get("is_error") is True and isinstance(event.get("result"), str):
+            messages.append(str(event["result"]))
+        error = event.get("error")
+        if isinstance(error, dict) and isinstance(error.get("message"), str):
+            messages.append(str(error["message"]))
+        item = event.get("item")
+        if (
+            isinstance(item, dict)
+            and item.get("type") == "error"
+            and isinstance(item.get("message"), str)
+        ):
+            messages.append(str(item["message"]))
+    return bounded_text("\n".join(dict.fromkeys(messages)), limit)[0]
 
 
 def _structured_from_envelope(envelope: JsonObject) -> JsonObject:
@@ -317,7 +395,7 @@ class CliTransportProvider:
             events = _response_events(outcome.stdout)
             effective_model = assert_effective_identity(
                 expected=self.profile.canonical_model,
-                actual=_effective_model(events),
+                actual=self.adapter.resolve_effective_model(self.profile, events),
             )
             return build_result(
                 profile=self.profile,
@@ -340,6 +418,16 @@ class CliTransportProvider:
         error: str,
     ) -> ProviderResult:
         stdout, truncated = bounded_text(outcome.stdout, request.max_output_chars)
+        try:
+            structured_error = _error_tail(
+                _response_events(outcome.stdout), limit=request.max_output_chars
+            )
+        except OutputValidationError:
+            structured_error = ""
+        diagnostics = [item for item in (outcome.stderr, structured_error) if item]
+        stderr_tail = bounded_text(
+            "\n".join(dict.fromkeys(diagnostics)), request.max_output_chars
+        )[0]
         return ProviderResult(
             call_id=request.call_id,
             handle=self.profile.handle,
@@ -356,7 +444,7 @@ class CliTransportProvider:
             structured_output=None,
             output_hash=None,
             error=error,
-            stderr_tail=outcome.stderr,
+            stderr_tail=stderr_tail,
             truncated=outcome.truncated or truncated,
         )
 

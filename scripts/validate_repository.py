@@ -22,6 +22,9 @@ REQUIRED_PATHS = (
     ROOT / "schemas" / "fusion-receipt.schema.json",
     ROOT / "schemas" / "proof-intent.schema.json",
     ROOT / "schemas" / "proof-capsule.schema.json",
+    ROOT / "schemas" / "proposal-output.schema.json",
+    ROOT / "schemas" / "reviewer-output.schema.json",
+    ROOT / "schemas" / "pairwise-judge.schema.json",
     ROOT / "scripts" / "validate_contract_instances.py",
     ROOT / "scripts" / "validate_analysis_instances.py",
     ROOT / "scripts" / "validate_linked_run.py",
@@ -697,6 +700,23 @@ def validate_config() -> None:
         and claude_fable.get("callable") is True,
         "claude-fable mapping mismatch",
     )
+    require(
+        claude_fable.get("enabled") is False
+        and claude_fable.get("activation_gate")
+        == "usage-credits-and-canonical-identity-smoke",
+        "claude-fable must remain opt-in until canonical identity is proven",
+    )
+    for panel_name in ("dual-fable", "external-council-fable"):
+        fable_panel = as_object(
+            panels.get(panel_name),
+            f"{panel_name} panel must be an object",
+        )
+        require(
+            fable_panel.get("enabled") is False
+            and fable_panel.get("activation_gate")
+            == "claude-fable-canonical-identity-smoke",
+            f"{panel_name} must remain disabled until Fable identity is proven",
+        )
     require("gpt-5.5" not in models, "obsolete gpt-5.5 handle must not return")
     require(
         "opus-4.7" not in models,
@@ -791,12 +811,16 @@ def validate_negative_config_guards() -> None:
     protected.remove("severity")
     require_config_rejected("unprotected severity repair", candidate)
 
+
 def validate_schemas() -> None:
     schema_names = (
         "fusion-analysis.schema.json",
         "fusion-receipt.schema.json",
-        "proof-intent.schema.json",
+        "pairwise-judge.schema.json",
         "proof-capsule.schema.json",
+        "proof-intent.schema.json",
+        "proposal-output.schema.json",
+        "reviewer-output.schema.json",
     )
     for name in schema_names:
         schema = load_json(ROOT / "schemas" / name)
@@ -815,6 +839,23 @@ def validate_schemas() -> None:
             packaged.read_bytes() == (ROOT / "schemas" / name).read_bytes(),
             f"root and packaged schema differ: {name}",
         )
+
+    def require_explicit_enum_types(value: object, location: str) -> None:
+        if isinstance(value, dict):
+            if "enum" in value or "const" in value:
+                require("type" in value, f"provider schema enum lacks type at {location}")
+            for key, child in value.items():
+                require_explicit_enum_types(child, f"{location}/{key}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                require_explicit_enum_types(child, f"{location}/{index}")
+
+    for name in (
+        "pairwise-judge.schema.json",
+        "proposal-output.schema.json",
+        "reviewer-output.schema.json",
+    ):
+        require_explicit_enum_types(load_json(ROOT / "schemas" / name), name)
 
     receipt = load_json(ROOT / "schemas" / "fusion-receipt.schema.json")
     receipt_required = set(

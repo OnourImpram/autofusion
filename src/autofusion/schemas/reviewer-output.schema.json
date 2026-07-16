@@ -16,6 +16,7 @@
       "items": {"type": "string"}
     },
     "recommendation": {
+      "type": "string",
       "enum": ["ship", "revise", "block", "abstain"]
     },
     "findings": {
@@ -35,7 +36,7 @@
           "stance"
         ],
         "properties": {
-          "severity": {"enum": ["blocker", "major", "minor"]},
+          "severity": {"type": "string", "enum": ["blocker", "major", "minor"]},
           "category": {"type": "string"},
           "claim": {"type": "string"},
           "evidence": {
@@ -44,14 +45,14 @@
             "required": ["summary", "strength"],
             "properties": {
               "summary": {"type": "string"},
-              "strength": {"enum": ["artifact-cited", "unverified"]}
+              "strength": {"type": "string", "enum": ["artifact-cited", "unverified"]}
             }
           },
           "suggested_fix": {"type": "string"},
           "checkable": {"type": "boolean"},
           "verification_id": {"type": ["string", "null"]},
           "stance_key": {"type": "string"},
-          "stance": {"enum": ["supports", "opposes", "uncertain"]}
+          "stance": {"type": "string", "enum": ["supports", "opposes", "uncertain"]}
         }
       }
     }
