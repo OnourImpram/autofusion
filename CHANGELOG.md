@@ -24,6 +24,20 @@ All notable changes to autofusion are recorded here.
    trusted execution-grounded findings.
 3. Artifact kinds now include incident, release, API contract, dependency, research
    synthesis, and architecture decision records.
+4. Claude CLI calls remove the unsupported meta-schema declaration, disable auxiliary
+   prompt suggestions, and retain fail-closed identity checks when provider usage reports
+   additional internal models.
+5. Codex CLI calls accept successful explicit model routing when current JSONL omits a
+   redundant model field, while still rejecting any reported model mismatch.
+6. Built-in provider output schemas now use explicit enum types compatible with the
+   OpenAI structured-output subset.
+7. Claude Fable remains available as an opt-in profile but ships disabled until usage
+   credits and a canonical identity smoke prove that Claude CLI did not route to Opus.
+8. Default high, adaptive, and external council routes use only live-smoke-verified
+   GPT SOL, SOL Ultra, and Claude Opus profiles.
+9. Codex identity fallback now requires a successful `turn.completed` event, ambiguous
+   Claude multi-model usage fails closed, and Fable-specific panels are disabled with
+   the profile until canonical identity is proven.
 
 ### Security
 
@@ -35,6 +49,8 @@ All notable changes to autofusion are recorded here.
 4. Proof reconciliation rejects unsigned, modified, wrong-key, and inactive-key capsules.
 5. The proof signing secret never enters Docker, model context, or persisted artifacts.
 6. Proof runners reject mutable image tags and execute the immutable image ID inspected before use.
+7. Failed CLI JSONL error events are promoted to bounded diagnostics without treating
+   model text as trusted output.
 
 ## 0.4.0-alpha.1
 

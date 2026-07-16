@@ -21,7 +21,7 @@ Expected forms:
 /autofusion:fusion plan --preset fast
 /autofusion:fusion diff --preset balanced
 /autofusion:fusion answer --preset adaptive --focus research-evidence
-/autofusion:fusion migration --topology adversarial-review --reviewers gpt-sol-ultra,claude-fable
+/autofusion:fusion migration --topology adversarial-review --reviewers gpt-sol-ultra,claude-opus
 /autofusion:fusion release --pack release --preset adaptive
 ~~~
 
@@ -30,6 +30,8 @@ Supported presets are fast, balanced, high, quality, budget, and adaptive. Quali
 Supported topologies are review, adversarial-review, dual-review, panel-rank, and advisor.
 
 Explicit topology and reviewer arguments override preset choices only when policy permits them.
+
+The claude-fable profile is opt-in. Keep it disabled until the operator has usage credits and a live helper call reports canonical `claude-fable-5` identity. A Claude CLI fallback to Opus is not a successful Fable call.
 
 ## Operating contract
 

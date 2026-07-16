@@ -1,7 +1,7 @@
 # Autofusion proof runtime checklist
 
-Date: 2026-07-14
-Branch: `feat/proof-fusion-runtime`
+Date: 2026-07-16
+Branch: `fix/v0.5.0-alpha.1-release-gates`
 
 ## Remote first constraints
 
@@ -56,19 +56,25 @@ Branch: `feat/proof-fusion-runtime`
 - [x] A journal cannot accept conflicting payloads for one idempotency key.
 - [x] Precedent cannot enter the blind first pass or become authority by itself.
 - [x] A degraded run cannot report `fused: true`.
-- [x] The existing real Claude Code plus GPT SOL smoke gate remains explicit.
+- [x] GPT 5.6 SOL xhigh and SOL Ultra live profile smokes complete with canonical identity.
+- [x] Claude Opus 4.8 xhigh live profile smoke completes with canonical usage dominance.
+- [x] Claude Fable remains opt-in and disabled because current subscription routing reports Opus 4.8 rather than canonical Fable 5.
+- [x] Fable-specific panels remain disabled until usage credits and canonical identity smoke pass.
 
 ## Review notes
 
-Local adversarial verification verdict: PASS.
+Release candidate adversarial verification verdict: PASS with documented external re-review latency.
 
 - Ruff passed across source, tests, and scripts.
 - Strict mypy passed across 65 source files.
-- Pytest passed with 181 tests, one platform-limited skip, and 86.65 percent branch coverage.
+- Pytest passed with 192 tests, one platform-limited skip, and 87.45 percent branch coverage.
 - Root, packaged, instance, linked-run, marketplace, and plugin contracts passed.
-- Clean wheel and source distribution contents passed inspection. Installed-wheel CLI smoke passed.
+- Clean wheel and source distribution contents passed inspection. Installed-wheel config, packs, and doctor smoke passed.
+- Dependency audit passed with zero known vulnerabilities after excluding the stale venv bootstrap state by upgrading the ephemeral audit environment to pip 26.1.2. A CycloneDX SBOM was generated.
 - Adversarial source review found and fixed a Docker image tag time-of-check to time-of-use gap. Proof now requires a full digest and executes the inspected image ID.
 - PR #3 merged after all four required CI jobs passed. The post-merge main workflow also passed.
 - All 52 changed blobs and all 103 non-task main-tree blobs matched the verified staging bytes.
-- Claude external review was unavailable because the account weekly quota was exhausted.
-- GPT SOL live smoke remains a release gate because local Codex CLI 0.128.0 does not support the configured profile.
+- Claude Opus independent review found two major identity-evidence weaknesses. Codex fallback now requires a clean `turn.completed` event. Claude multi-model identity now requires canonical output-token dominance.
+- Targeted tests and final live smokes closed both major findings. Follow-up Opus disposition reviews timed out or returned a failed provider envelope and were not counted as successful review.
+- Codex CLI was updated from 0.128.0 to 0.144.5. GPT SOL xhigh and Ultra completed through the packaged adapter.
+- Claude Fable remained fail closed. The CLI returned Opus 4.8 telemetry for both the alias and full Fable model ID, consistent with an unavailable entitlement or provider fallback.

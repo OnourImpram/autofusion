@@ -34,9 +34,12 @@ class ProviderRegistry:
 
     def get(self, handle: str) -> Provider:
         try:
-            return self.providers[handle]
+            provider = self.providers[handle]
         except KeyError as exc:
             raise ProviderError(f"unknown provider handle: {handle}") from exc
+        if not provider.profile.enabled:
+            raise ProviderError(f"provider handle is disabled by config: {handle}")
+        return provider
 
     def invoke(self, request: ProviderRequest) -> ProviderResult:
         return self.get(request.handle).invoke(request)

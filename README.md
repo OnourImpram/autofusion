@@ -34,12 +34,12 @@ The target profile contract is:
 1. gpt-sol calls gpt-5.6-sol through Codex with xhigh effort.
 2. gpt-sol-ultra calls the same gpt-5.6-sol model with Codex ultra mode.
 3. claude-opus calls Claude CLI with the opus alias, canonically Claude Opus 4.8, at xhigh.
-4. claude-fable calls Claude CLI with the fable alias, canonically Claude Fable 5, at xhigh.
+4. claude-fable is an opt-in Claude CLI profile for canonical Claude Fable 5 at xhigh. It and its Fable panels ship disabled until usage credits are available and a live call reports `effective_model=claude-fable-5`.
 5. self represents the active Claude Code session and is explicitly non-callable.
 
 gpt-sol-ultra is a compound execution mode, not a second model family. Its hidden subagents do not count as independent panel votes.
 
-There is no silent fallback to GPT 5.5 or another model. If the requested profile is unavailable, the run records degradation and cannot claim successful fusion.
+There is no silent fallback to GPT 5.5 or another model. Claude CLI may route an unavailable Fable request to Opus. Autofusion rejects that identity mismatch instead of counting it as Fable. If the requested profile is unavailable, the run records degradation and cannot claim successful fusion.
 
 ## Fusion topologies
 
@@ -115,7 +115,7 @@ Example invocations:
 
 ~~~text
 /autofusion:fusion diff --preset balanced
-/autofusion:fusion plan --topology adversarial-review --reviewers gpt-sol-ultra,claude-fable
+/autofusion:fusion plan --topology adversarial-review --reviewers gpt-sol-ultra,claude-opus
 /autofusion:fusion answer --preset adaptive --focus research-evidence
 /autofusion:fusion release --pack release --preset adaptive
 /autofusion:fusion-parallel --panel external-council
@@ -141,6 +141,8 @@ Load `AUTOFUSION_PROOF_ATTESTATION_KEY` from operator-controlled secure storage 
 
 Start from [.fusion.example.json](.fusion.example.json). Reviewer-supplied command text is never executed. Grounding may invoke only trusted verification IDs whose argv arrays were approved before review.
 
+Claude Fable is entitlement-gated. Anthropic documents Fable 5 as a separate model and notes that subscription access may require usage credits. Before enabling it, create an operator-controlled config overlay that sets `models.claude-fable.enabled` to `true`, run a minimal `autofusion call claude-fable` smoke, and require `effective_model` to equal `claude-fable-5`. Only then enable `dual-fable` or `external-council-fable`. If provider telemetry reports Opus or omits canonical Fable identity, restore the disabled state. See [Claude Fable 5](https://www.anthropic.com/claude/fable) and [Anthropic's redeployment notice](https://www.anthropic.com/news/redeploying-fable-5).
+
 Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu can be configured later as optional comparison providers. They are disabled in the example, cannot nest by default, and do not expose enough worker provenance to satisfy a cross-model quorum on their own.
 
 ## Current status
@@ -149,7 +151,7 @@ Implemented in the alpha runtime:
 
 1. Typed Python package and CLI entry point.
 2. Non-callable `self` boundary.
-3. Built-in profiles for GPT 5.6 SOL, GPT 5.6 SOL Ultra, Claude Opus, and Claude Fable.
+3. Enabled built-in profiles for GPT 5.6 SOL, GPT 5.6 SOL Ultra, and Claude Opus, plus an identity-gated opt-in Claude Fable profile.
 4. Deterministic adaptive routing, hard gates, context quorum, and budget accounting.
 5. Review, adversarial review, dual review, advisor, and panel-rank topologies.
 6. Codex CLI, Claude CLI, OpenAI-compatible HTTP, Anthropic HTTP, and deterministic fake providers.
@@ -164,7 +166,7 @@ Implemented in the alpha runtime:
 
 Still gated before public 1.0 claims:
 
-1. Real smoke evidence for every advertised live profile in the supported environment.
+1. Real smoke evidence for every enabled advertised live profile in the supported environment. Optional profiles must remain disabled until their canonical identity smoke passes.
 2. External replication showing cross-model gain beyond same-model self-review.
 3. Managed production signing for provider routing, cost, external runner identity, and key rotation.
 4. Stronger disposable isolation beyond WSL or Linux `unshare`.
@@ -175,4 +177,4 @@ Still gated before public 1.0 claims:
 
 Receipts reconcile against the linked analysis artifact. A `ship` receipt is valid only when the linked analysis has no blocker or major findings. The runtime writes structural hashes for packets, snapshots, calls, grounding, and receipts, and the validators reject mismatched summaries.
 
-This is still an alpha provenance system. It proves internal consistency and fail-closed behavior. It does not yet claim cryptographic authenticity of external model usage, subscription entitlements, or provider bills. Those require captured trusted runtime evidence and release signing.
+This is still an alpha provenance system. It proves internal consistency and fail-closed behavior. Claude CLI identity comes from provider usage telemetry. A multi-model Claude envelope is accepted only when the canonical model is the dominant output-token contributor. Codex CLI 0.144 may omit model identity from JSONL, so an invocation with the adapter-pinned `--model` argument and a successful `turn.completed` event is recorded as local routing evidence, not provider-side cryptographic attestation. The project does not yet claim cryptographic authenticity of external model usage, subscription entitlements, or provider bills. Those require captured trusted runtime evidence and release signing.

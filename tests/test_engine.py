@@ -347,7 +347,6 @@ def test_external_panel_rank_binds_repeated_judge_calls_and_selects_stably(
             "self": SelfProvider(config.model("self")),
             "gpt-sol": PanelProvider(config.model("gpt-sol"), rank=1),
             "claude-opus": PanelProvider(config.model("claude-opus"), rank=2),
-            "claude-fable": PanelProvider(config.model("claude-fable"), rank=3),
             "gpt-sol-ultra": PanelProvider(config.model("gpt-sol-ultra")),
         }
     )
@@ -365,14 +364,14 @@ def test_external_panel_rank_binds_repeated_judge_calls_and_selects_stably(
     assert not isinstance(artifacts, PendingRun)
     assert artifacts.receipt["fused"] is True
     assert artifacts.receipt["topology"] == "panel-rank"
-    assert artifacts.receipt["budgets"]["used_calls"] == 9
+    assert artifacts.receipt["budgets"]["used_calls"] == 4
     assert artifacts.analysis["selection"]["winner_id"] == "p01"
     assert artifacts.analysis["selection"]["order_sensitive"] is False
     judge_calls = [
         call for call in artifacts.receipt["calls"] if call["handle"] == "gpt-sol-ultra"
     ]
-    assert len(judge_calls) == 6
-    assert len({call["call_id"] for call in judge_calls}) == 6
+    assert len(judge_calls) == 2
+    assert len({call["call_id"] for call in judge_calls}) == 2
 
 
 def test_release_pack_escalates_fast_request_and_records_pack(tmp_path: Path) -> None:
@@ -419,7 +418,7 @@ def test_migration_pack_dispatches_every_adversarial_reviewer(tmp_path: Path) ->
     assert raw["route"]["topology"] == "adversarial-review"
     assert {call["handle"] for call in raw["calls"]} == {
         "gpt-sol-ultra",
-        "claude-fable",
+        "claude-opus",
     }
 
 
