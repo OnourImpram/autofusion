@@ -2,6 +2,28 @@
 
 All notable changes to autofusion are recorded here.
 
+## 0.5.0-alpha.2
+
+### Changed
+
+1. Promoted Python and Claude Code plugin metadata to the second 0.5 alpha release.
+2. Clarified that Claude Fable remains disabled in portable defaults because usage-credit
+   entitlement and provider routing are operator-specific, even after one environment
+   passes canonical identity verification.
+3. Added a metadata-only provider verification record for the exact published adapter
+   paths without persisting prompts, model output, credentials, or private source.
+4. Updated Fable validator diagnostics to describe the portable-default policy rather
+   than implying that one operator smoke can safely enable the profile for every user.
+
+### Verification
+
+1. Claude Code 2.1.212 completed the published Opus route with effective model
+   claude-opus-4-8, recommendation ship, and zero findings.
+2. With operator usage credits available, the published Fable route completed with
+   effective model claude-fable-5, recommendation ship, and zero findings.
+3. Provider identity and policy closure passed 35 targeted tests, Ruff, and strict mypy
+   before the alpha.2 release preparation.
+
 ## 0.5.0-alpha.1
 
 ### Added

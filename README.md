@@ -34,7 +34,7 @@ The target profile contract is:
 1. gpt-sol calls gpt-5.6-sol through Codex with xhigh effort.
 2. gpt-sol-ultra calls the same gpt-5.6-sol model with Codex ultra mode.
 3. claude-opus calls Claude CLI with the opus alias, canonically Claude Opus 4.8, at xhigh.
-4. claude-fable is an opt-in Claude CLI profile for canonical Claude Fable 5 at xhigh. It and its Fable panels ship disabled until usage credits are available and a live call reports `effective_model=claude-fable-5`.
+4. claude-fable is an opt-in Claude CLI profile for canonical Claude Fable 5 at xhigh. It and its Fable panels ship disabled in portable defaults because usage-credit entitlement and routing are operator-specific. An operator-controlled overlay may enable them only after a live call reports `effective_model=claude-fable-5`.
 5. self represents the active Claude Code session and is explicitly non-callable.
 
 gpt-sol-ultra is a compound execution mode, not a second model family. Its hidden subagents do not count as independent panel votes.
@@ -141,7 +141,7 @@ Load `AUTOFUSION_PROOF_ATTESTATION_KEY` from operator-controlled secure storage 
 
 Start from [.fusion.example.json](.fusion.example.json). Reviewer-supplied command text is never executed. Grounding may invoke only trusted verification IDs whose argv arrays were approved before review.
 
-Claude Fable is entitlement-gated. Anthropic documents Fable 5 as a separate model and notes that subscription access may require usage credits. Before enabling it, create an operator-controlled config overlay that sets `models.claude-fable.enabled` to `true`, run a minimal `autofusion call claude-fable` smoke, and require `effective_model` to equal `claude-fable-5`. Only then enable `dual-fable` or `external-council-fable`. If provider telemetry reports Opus or omits canonical Fable identity, restore the disabled state. See [Claude Fable 5](https://www.anthropic.com/claude/fable) and [Anthropic's redeployment notice](https://www.anthropic.com/news/redeploying-fable-5).
+Claude Fable is entitlement-gated. Anthropic documents Fable 5 as a separate model and notes that subscription access may require usage credits. Before enabling it, create an operator-controlled config overlay that sets `models.claude-fable.enabled` to `true`, run a minimal `autofusion call claude-fable` smoke, and require `effective_model` to equal `claude-fable-5`. Only then enable `dual-fable` or `external-council-fable`. If provider telemetry reports Opus or omits canonical Fable identity, restore the disabled state. A canonical Fable pass was recorded for one operator environment on 17 July 2026, but it does not make entitlement portable to other installations. See [provider verification](docs/provider-verification.md), [Claude Fable 5](https://www.anthropic.com/claude/fable), and [Anthropic's redeployment notice](https://www.anthropic.com/news/redeploying-fable-5).
 
 Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu can be configured later as optional comparison providers. They are disabled in the example, cannot nest by default, and do not expose enough worker provenance to satisfy a cross-model quorum on their own.
 
@@ -166,11 +166,11 @@ Implemented in the alpha runtime:
 
 Still gated before public 1.0 claims:
 
-1. Real smoke evidence for every enabled advertised live profile in the supported environment. Optional profiles must remain disabled until their canonical identity smoke passes.
+1. Real smoke evidence for every enabled advertised live profile in each supported operator environment. Optional profiles remain disabled in portable defaults and require a local canonical identity smoke before activation.
 2. External replication showing cross-model gain beyond same-model self-review.
 3. Managed production signing for provider routing, cost, external runner identity, and key rotation.
 4. Stronger disposable isolation beyond WSL or Linux `unshare`.
-5. Published release artifact and installation docs based on an immutable tag.
+5. Repeated installation and provider verification from immutable release artifacts across additional operator environments.
 6. Automatic proof-test authoring and interrupted provider-dispatch resume.
 
 ## Alpha Provenance Boundary

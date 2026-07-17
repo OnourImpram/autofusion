@@ -704,7 +704,7 @@ def validate_config() -> None:
         claude_fable.get("enabled") is False
         and claude_fable.get("activation_gate")
         == "usage-credits-and-canonical-identity-smoke",
-        "claude-fable must remain opt-in until canonical identity is proven",
+        "claude-fable must remain opt-in in portable defaults",
     )
     for panel_name in ("dual-fable", "external-council-fable"):
         fable_panel = as_object(
@@ -715,7 +715,7 @@ def validate_config() -> None:
             fable_panel.get("enabled") is False
             and fable_panel.get("activation_gate")
             == "claude-fable-canonical-identity-smoke",
-            f"{panel_name} must remain disabled until Fable identity is proven",
+            f"{panel_name} must remain disabled in portable defaults",
         )
     require("gpt-5.5" not in models, "obsolete gpt-5.5 handle must not return")
     require(

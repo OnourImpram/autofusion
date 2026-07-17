@@ -5,14 +5,14 @@
     "email": ""
   },
   "description": "Skill-only Claude Code first cross-model review workflow with an optional alpha helper runtime.",
-  "version": "0.5.0-alpha.1",
+  "version": "0.5.0-alpha.2",
   "plugins": [
     {
       "name": "autofusion",
       "displayName": "autofusion",
       "source": "./plugins/autofusion",
       "description": "Skill-only Claude Code first adaptive fusion protocol for plans, diffs, research, and consequential engineering decisions.",
-      "version": "0.5.0-alpha.1",
+      "version": "0.5.0-alpha.2",
       "author": {
         "name": "Onour Impram"
       },

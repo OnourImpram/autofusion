@@ -136,3 +136,6 @@ Every release requires:
 6. Real smoke tests for every enabled advertised built-in profile.
 7. Documentation claim review.
 8. No release tag when an enabled advertised model cannot be exercised in the supported environment. Entitlement-gated profiles remain disabled until canonical identity is proven.
+9. A metadata-only provider verification record for every live release smoke. Operator-specific entitlement evidence must not silently change portable defaults.
+
+The 17 July 2026 operator smoke completed canonical Claude Opus 4.8 and Fable 5 routes through the published adapter. Fable remains opt-in because that result proves one authenticated environment, not universal subscription availability.
