@@ -34,9 +34,10 @@ The target profile contract is:
 1. gpt-sol calls gpt-5.6-sol through Codex with xhigh effort.
 2. gpt-sol-ultra calls the same gpt-5.6-sol model with configured Codex reasoning effort `ultra` and declared compound execution.
 3. claude-opus calls Claude CLI with the opus alias, canonically Claude Opus 5 (`claude-opus-5`), at xhigh.
-4. self represents the active session and is explicitly non-callable. Current default identities are Opus 5, Sonnet 5, Haiku 4.5, and Fable 5.1.
+4. astra-ultra calls `gpt-6-astra` through Codex with configured effort `ultra`, declared compound execution, and opaque workers. It is explicitly admitted as a reviewer or judge.
+5. self represents the active session and is explicitly non-callable. Current default identities are Opus 5, Sonnet 5, Haiku 4.5, and Fable 5.1.
 
-gpt-sol-ultra is a compound execution mode, not a second model family. Its hidden subagents do not count as independent panel votes.
+Ultra effort is a configured execution mode. Hidden workers of gpt-sol-ultra and astra-ultra do not count as independent panel votes. Sol, Astra, and Terra belong to the same `openai-chatgpt` quota group; changing models does not escape quota exhaustion. Terra is quota metadata only here, without a built-in callable profile.
 
 There is no silent fallback to GPT 5.5 or another model. Autofusion rejects canonical model identity mismatches. Fable is permitted only as the active self session; callable profiles, aliases, overlays, and panel roles cannot execute it. If a requested profile is unavailable, the run records degradation and cannot claim successful fusion.
 
@@ -177,3 +178,5 @@ Still gated before public 1.0 claims:
 Receipts reconcile against the linked analysis artifact. A `ship` receipt is valid only when the linked analysis has no blocker or major findings. The runtime writes structural hashes for packets, snapshots, calls, grounding, and receipts, and the validators reject mismatched summaries.
 
 This is still an alpha provenance system. Validators check linked artifact hashes, participant identity consistency, and receipt summaries. Claude CLI identity comes from provider usage telemetry. A multi-model Claude envelope is accepted only when the canonical model is the dominant output-token contributor. Historical Codex CLI 0.144 compatibility permits omitted model identity in JSONL: the adapter-pinned `--model` argument and a successful `turn.completed` event provide configured routing evidence, without an observed provider identity. See the dated records in [provider verification](docs/provider-verification.md). The project does not yet claim cryptographic authenticity of external model usage, subscription entitlements, or provider bills. Those require captured trusted runtime evidence and release signing.
+
+New call records keep `configured_model`, `observed_model`, `identity_evidence`, and `quota_group` separate. `effective_model` retains its resolved-route meaning for compatibility. A successful Codex turn with no model telemetry has `identity_evidence=configured-route` and `observed_model=null`. Legacy receipts without these additive fields remain legacy evidence, not observed-identity attestations.

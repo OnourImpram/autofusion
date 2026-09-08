@@ -11,6 +11,7 @@ from jsonschema import Draft202012Validator
 
 from autofusion.config import FusionConfig
 from autofusion.errors import ReceiptError
+from autofusion.models import ModelProfile
 from autofusion.policy import panel_participants
 from autofusion.util import JsonObject, canonical_json_bytes, read_json_object, sha256_bytes
 
@@ -174,6 +175,47 @@ def _validate_costs(receipt: JsonObject) -> None:
         )
 
 
+def _validate_execution_identity(call: JsonObject, profile: ModelProfile) -> None:
+    fields = {"configured_model", "observed_model", "identity_evidence", "quota_group"}
+    if not fields.intersection(call):
+        return  # Historical receipts did not separate configuration from observation.
+    _require(fields <= call.keys(), "execution identity fields must appear together")
+    evidence = call.get("identity_evidence")
+    configured = call.get("configured_model")
+    observed = call.get("observed_model")
+    quota_group = call.get("quota_group")
+    if evidence == "legacy-unspecified":
+        _require(
+            configured is None and observed is None,
+            "legacy identity evidence cannot claim configuration or observation",
+        )
+        _require(
+            quota_group is None or quota_group == profile.quota_group,
+            "call quota group mismatch",
+        )
+        return
+    _require(configured == profile.canonical_model, "configured model mismatch")
+    _require(quota_group == profile.quota_group, "call quota group mismatch")
+    if evidence == "provider-response":
+        _require(
+            call.get("status") == "completed" and observed == call.get("effective_model")
+            and observed == configured,
+            "observed model must match completed effective identity",
+        )
+    elif evidence == "configured-route":
+        _require(
+            profile.transport == "codex-exec" and observed is None
+            and call.get("status") == "completed" and call.get("effective_model") == configured,
+            "configured route requires completed Codex execution without observed identity",
+        )
+    else:
+        _require(
+            evidence == "unavailable" and call.get("status") != "completed"
+            and observed is None and call.get("effective_model") is None,
+            "unavailable identity requires failed execution without observation",
+        )
+
+
 def validate_receipt(receipt: JsonObject, config: FusionConfig) -> None:
     """Validate receipt schema, policy binding, quorum, and verdict semantics."""
 
@@ -198,6 +240,7 @@ def validate_receipt(receipt: JsonObject, config: FusionConfig) -> None:
     _require(len(call_ids) == len(set(call_ids)), "call_id values must be unique")
     for call in calls:
         profile = config.model(str(call["handle"]))
+        _validate_execution_identity(call, profile)
         _require(call.get("requested_model") == profile.model, "requested model mismatch")
         if call.get("status") == "completed":
             _require(

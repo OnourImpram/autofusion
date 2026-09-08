@@ -177,6 +177,14 @@ class FusionConfig:
         callable_value = raw.get("callable", transport != "self")
         model = str(raw.get("model", handle))
         canonical = str(raw.get("canonical_model", model))
+        quota_group = raw.get("quota_group")
+        for group, definition in self.section("quota_groups").items():
+            if transport == "codex-exec" and isinstance(definition, dict) and canonical in (
+                definition.get("models", [])
+            ):
+                if quota_group is not None and quota_group != group:
+                    raise ConfigurationError(f"model {handle} must share quota group {group}")
+                quota_group = group
         return ModelProfile(
             handle=handle,
             transport=transport,
@@ -194,6 +202,7 @@ class FusionConfig:
             capabilities=_as_object(
                 raw.get("capabilities", {}), f"models.{handle}.capabilities"
             ),
+            quota_group=str(quota_group) if quota_group is not None else None,
         )
 
     def panel(self, name: str) -> JsonObject:
@@ -282,6 +291,20 @@ def validate_config(config: FusionConfig) -> None:
             if handle not in models:
                 raise ConfigurationError(f"panel {panel_name} references unknown model {handle}")
             profile = config.model(handle)
+            if profile.compound:
+                compound = _as_object(config.section("routing").get("compound"), "compound")
+                compound_roles = _as_object(compound.get("allowed_roles"), "compound.allowed_roles")
+                for field, role in (
+                    ("drafter", "drafter"), ("proposers", "proposer"),
+                    ("reviewers", "reviewer"), ("judge", "judge"),
+                ):
+                    members = panel.get(field, [])
+                    used = handle == members or (isinstance(members, list) and handle in members)
+                    permitted = handle in compound.get("allowed_handles", []) and role in (
+                        compound_roles.get(handle, [])
+                    )
+                    if used and not permitted:
+                        raise ConfigurationError(f"compound model {handle} cannot be {role}")
             if handle != "self" and handle not in allowlist:
                 raise ConfigurationError(
                     f"panel {panel_name} uses model outside allowlist: {handle}"

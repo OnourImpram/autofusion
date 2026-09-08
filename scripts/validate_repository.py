@@ -43,6 +43,7 @@ REQUIRED_MODELS = {
     "gpt-sol",
     "gpt-sol-ultra",
     "claude-opus",
+    "astra-ultra",
 }
 
 REQUIRED_PRESETS = {
@@ -650,6 +651,56 @@ def validate_identity_policy(
         )
 
 
+def validate_astra_contract(config: dict[str, Any], models: dict[str, Any]) -> None:
+    astra = as_object(models.get("astra-ultra"), "astra-ultra must be an object")
+    require(
+        astra.get("transport") == "codex-exec"
+        and astra.get("model") == "gpt-6-astra"
+        and astra.get("canonical_model") == "gpt-6-astra"
+        and astra.get("vendor") == "openai"
+        and astra.get("family") == "gpt-6"
+        and astra.get("effort") == "ultra"
+        and astra.get("compound") is True
+        and astra.get("worker_visibility") == "opaque"
+        and astra.get("callable") is True,
+        "astra-ultra must map to codex-exec opaque compound gpt-6-astra ultra",
+    )
+    routing = as_object(config.get("routing"), "routing must be an object")
+    compound = as_object(routing.get("compound"), "routing.compound must be an object")
+    handles = as_string_list(
+        compound.get("allowed_handles"), "compound allowed_handles must be a string array"
+    )
+    require("astra-ultra" in handles, "astra-ultra needs an explicit compound handle allowlist")
+    roles = as_object(compound.get("allowed_roles"), "compound allowed_roles must be an object")
+    require(
+        set(as_string_list(roles.get("astra-ultra"), "astra-ultra roles must be a string array"))
+        == {"reviewer", "judge"},
+        "astra-ultra compound roles must be exactly reviewer and judge",
+    )
+    guardrails = as_object(config.get("guardrails"), "guardrails must be an object")
+    require(
+        "astra-ultra" in as_string_list(
+            guardrails.get("model_allowlist"), "model_allowlist must be a string array"
+        ),
+        "astra-ultra must be in the model allowlist",
+    )
+
+    groups = as_object(config.get("quota_groups"), "quota_groups must be an object")
+    shared = as_object(groups.get("openai-chatgpt"), "openai-chatgpt quota group must exist")
+    require(
+        set(as_string_list(shared.get("models"), "quota models must be a string array"))
+        == {"gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra"}
+        and shared.get("shared_exhaustion") is True,
+        "openai-chatgpt quota group must share exhaustion across Sol, Astra, and Terra",
+    )
+    for handle in ("gpt-sol", "gpt-sol-ultra", "astra-ultra"):
+        profile = as_object(models.get(handle), f"{handle} must be an object")
+        require(
+            profile.get("quota_group") == "openai-chatgpt",
+            f"{handle} must use the shared openai-chatgpt quota group",
+        )
+
+
 def validate_config() -> None:
     config = load_json(ROOT / ".fusion.example.json")
     models = as_object(config.get("models"), "models must be an object")
@@ -677,6 +728,7 @@ def validate_config() -> None:
         "claude-opus must be an object",
     )
     validate_identity_policy(models, panels)
+    validate_astra_contract(config, models)
 
     require(self_model.get("callable") is False, "self must be non-callable")
     require(
@@ -743,6 +795,7 @@ def validate_config_candidate(config: dict[str, Any]) -> None:
     presets = as_object(config.get("presets"), "presets must be an object")
     panels = as_object(config.get("panels"), "panels must be an object")
     validate_identity_policy(models, panels)
+    validate_astra_contract(config, models)
     validate_config_graph(config, models, presets, panels)
     validate_extended_orchestration(config)
 

@@ -111,9 +111,18 @@ def build_result(
     cost_resolver: CostResolver = no_cost_evidence,
     stderr_tail: str = "",
     truncated: bool = False,
+    identity_evidence: str = "provider-response",
 ) -> ProviderResult:
     """Construct a result with evidence hashes after validation and identity checks."""
 
+    effective_model = assert_effective_identity(
+        expected=profile.canonical_model, actual=effective_model
+    )
+    if identity_evidence not in {"provider-response", "configured-route"}:
+        raise ProviderError(
+            "completed result requires provider-response or configured-route evidence"
+        )
+    observed_model = effective_model if identity_evidence == "provider-response" else None
     validated = validate_structured_output(structured_output, request.response_schema)
     input_tokens, output_tokens, usage_hash = usage_evidence(usage)
     cost = cost_resolver(profile, usage or {})
@@ -132,12 +141,20 @@ def build_result(
         "vendor": profile.vendor,
         "family": profile.family,
         "call_id": request.call_id,
+        "configured_model": profile.canonical_model,
+        "observed_model": observed_model,
+        "identity_evidence": identity_evidence,
+        "quota_group": profile.quota_group,
     }
     return ProviderResult(
         call_id=request.call_id,
         handle=profile.handle,
         requested_model=profile.model,
         effective_model=effective_model,
+        configured_model=profile.canonical_model,
+        observed_model=observed_model,
+        identity_evidence=identity_evidence,
+        quota_group=profile.quota_group,
         vendor=profile.vendor,
         family=profile.family,
         mode=profile.effort,

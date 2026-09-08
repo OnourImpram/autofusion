@@ -64,6 +64,7 @@ class ModelProfile:
     enabled: bool = True
     params: JsonObject = field(default_factory=dict)
     capabilities: JsonObject = field(default_factory=dict)
+    quota_group: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +111,10 @@ class ProviderResult:
     error: str | None = None
     stderr_tail: str = ""
     truncated: bool = False
+    configured_model: str | None = None
+    observed_model: str | None = None
+    identity_evidence: str = "legacy-unspecified"
+    quota_group: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

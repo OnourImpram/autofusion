@@ -399,10 +399,18 @@ class CliTransportProvider:
                 expected=self.profile.canonical_model,
                 actual=self.adapter.resolve_effective_model(self.profile, events),
             )
+            # Terminal success may establish the configured Codex route without
+            # provider-reported identity: https://learn.chatgpt.com/docs/non-interactive-mode
+            identity_evidence = (
+                "provider-response"
+                if _effective_model(events, expected=self.profile.canonical_model) is not None
+                else "configured-route"
+            )
             return build_result(
                 profile=self.profile,
                 request=request,
                 effective_model=effective_model,
+                identity_evidence=identity_evidence,
                 duration_ms=outcome.duration_ms,
                 output_text=output_text,
                 structured_output=decode_json_object(output_text, source="provider CLI output"),
@@ -435,6 +443,10 @@ class CliTransportProvider:
             handle=self.profile.handle,
             requested_model=self.profile.model,
             effective_model=None,
+            configured_model=self.profile.canonical_model,
+            observed_model=None,
+            identity_evidence="unavailable",
+            quota_group=self.profile.quota_group,
             vendor=self.profile.vendor,
             family=self.profile.family,
             mode=self.profile.effort,
