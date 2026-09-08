@@ -1,11 +1,13 @@
 # Autofusion proof runtime checklist
 
+Historical operational notes, archived from the former tasks directory at the 0.6.0 release. Dates and model names are kept as recorded.
+
 Date: 2026-07-17
 Branch: release/v0.5.0-alpha.2
 
 ## Remote first constraints
 
-- [x] Keep work out of `C:\Users\onuri\autofusion`.
+- [x] Keep work out of the local checkout.
 - [x] Create the implementation branch directly on GitHub.
 - [x] Use only an ephemeral archive tree for staging and validation.
 - [x] Publish through the GitHub Git Data API without a local git push.
