@@ -41,9 +41,7 @@ _ARTIFACT_KINDS = {
 _TOPOLOGIES = {"review", "adversarial-review", "dual-review", "panel-rank", "advisor"}
 _ENVIRONMENT_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _SIGNING_KEY_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
-_DOCKER_DIGEST_REFERENCE = re.compile(
-    r"(?=.{1,256}\Z)[^\s,]+@sha256:[0-9a-f]{64}\Z"
-)
+_DOCKER_DIGEST_REFERENCE = re.compile(r"(?=.{1,256}\Z)[^\s,]+@sha256:[0-9a-f]{64}\Z")
 
 
 def _as_object(value: object, name: str) -> JsonObject:
@@ -73,9 +71,7 @@ def _merge_guardrails(base: JsonObject, overlay: JsonObject) -> JsonObject:
             item for item in base_allow if isinstance(item, str) and item in overlay_set
         ]
     base_deny = {item for item in base.get("provider_denylist", []) if isinstance(item, str)}
-    overlay_deny = {
-        item for item in overlay.get("provider_denylist", []) if isinstance(item, str)
-    }
+    overlay_deny = {item for item in overlay.get("provider_denylist", []) if isinstance(item, str)}
     merged["provider_denylist"] = sorted(base_deny | overlay_deny)
     for key in _MAXIMUM_KEYS:
         left = base.get(key)
@@ -185,9 +181,7 @@ class FusionConfig:
             worker_visibility=str(raw.get("worker_visibility", "not-applicable")),
             enabled=bool(raw.get("enabled", True)),
             params=_as_object(raw.get("params", {}), f"models.{handle}.params"),
-            capabilities=_as_object(
-                raw.get("capabilities", {}), f"models.{handle}.capabilities"
-            ),
+            capabilities=_as_object(raw.get("capabilities", {}), f"models.{handle}.capabilities"),
         )
 
     def panel(self, name: str) -> JsonObject:
@@ -216,17 +210,68 @@ def _default_data() -> JsonObject:
     return _as_object(parsed, "default_config.json")
 
 
+def panel_assignments(panel: JsonObject) -> tuple[tuple[str, str], ...]:
+    """Normalize every configured participant and its admission role once."""
+    assignments: list[tuple[str, str]] = []
+    for field, role in (
+        ("drafter", "drafter"),
+        ("reviewers", "reviewer"),
+        ("proposers", "proposer"),
+        ("judge", "judge"),
+        ("advisor", "advisor"),
+    ):
+        value = panel.get(field)
+        if value is None:
+            continue
+        if field in {"drafter", "judge", "advisor"} and not isinstance(value, str):
+            raise ConfigurationError(f"panel {field} must be a single model handle")
+        if field in {"reviewers", "proposers"} and not isinstance(value, list):
+            raise ConfigurationError(f"panel {field} must be a list of model handles")
+        values = [value] if isinstance(value, str) else value
+        if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
+            raise ConfigurationError(f"panel {field} must contain model handles")
+        assignments.extend((item, role) for item in values)
+    return tuple(assignments)
+
+
+def validate_participant(
+    config: FusionConfig,
+    handle: str,
+    role: str,
+    *,
+    enabled: bool = True,
+) -> None:
+    """Apply the same model and role policy during loading and runtime admission."""
+    profile = config.model(handle)
+    guardrails = config.section("guardrails")
+    if handle == "self":
+        if role != "drafter":
+            raise ConfigurationError("self must remain a non-callable drafter")
+        return
+    if handle not in guardrails.get("model_allowlist", []):
+        raise ConfigurationError(f"model outside allowlist: {handle}")
+    if profile.vendor in guardrails.get("provider_denylist", []):
+        raise ConfigurationError(f"uses denied vendor: {profile.vendor}")
+    if enabled and not profile.enabled:
+        raise ConfigurationError(f"uses disabled model: {handle}")
+    if not profile.callable or profile.transport == "self":
+        raise ConfigurationError(f"participant is not callable: {handle}")
+    if enabled and any(
+        "fable" in identity.lower() for identity in (handle, profile.model, profile.canonical_model)
+    ):
+        raise ConfigurationError("Fable is permitted only as self")
+    if profile.compound:
+        compound = _as_object(config.section("routing").get("compound", {}), "compound")
+        roles = _as_object(compound.get("allowed_roles", {}), "compound.allowed_roles")
+        if handle not in compound.get("allowed_handles", []) or role not in roles.get(handle, []):
+            raise ConfigurationError(f"compound participant {handle} is not allowed as {role}")
+
+
 def validate_config(config: FusionConfig) -> None:
     models = config.section("models")
     panels = config.section("panels")
     presets = config.section("presets")
     guardrails = config.section("guardrails")
-    allowlist = {
-        item for item in guardrails.get("model_allowlist", []) if isinstance(item, str)
-    }
-    denylist = {
-        item for item in guardrails.get("provider_denylist", []) if isinstance(item, str)
-    }
     if "self" not in models:
         raise ConfigurationError("models.self is required")
     self_profile = config.model("self")
@@ -240,28 +285,12 @@ def validate_config(config: FusionConfig) -> None:
         if not isinstance(panel_enabled, bool):
             raise ConfigurationError(f"panel {panel_name} enabled must be boolean")
         topology = str(panel.get("topology", ""))
-        participant_fields = ("drafter", "reviewers", "proposers", "judge")
-        participants: list[str] = []
-        for field_name in participant_fields:
-            value = panel.get(field_name)
-            if isinstance(value, str):
-                participants.append(value)
-            elif isinstance(value, list):
-                participants.extend(item for item in value if isinstance(item, str))
-        for handle in participants:
+        assignments = panel_assignments(panel)
+        participants = [handle for handle, _ in assignments]
+        for handle, role in assignments:
             if handle not in models:
                 raise ConfigurationError(f"panel {panel_name} references unknown model {handle}")
-            profile = config.model(handle)
-            if handle != "self" and handle not in allowlist:
-                raise ConfigurationError(
-                    f"panel {panel_name} uses model outside allowlist: {handle}"
-                )
-            if profile.vendor in denylist:
-                raise ConfigurationError(f"panel {panel_name} uses denied vendor: {profile.vendor}")
-            if not profile.enabled and panel_enabled:
-                raise ConfigurationError(
-                    f"enabled panel {panel_name} uses disabled model: {handle}"
-                )
+            validate_participant(config, handle, role, enabled=panel_enabled)
         if topology in {"panel-rank", "parallel"} and "self" in participants:
             raise ConfigurationError(f"fully external panel {panel_name} cannot contain self")
     max_panel_size = guardrails.get("max_panel_size")
@@ -272,9 +301,7 @@ def validate_config(config: FusionConfig) -> None:
         if not isinstance(value, int) or value < 1:
             raise ConfigurationError(f"guardrails.{name} must be a positive integer")
     if guardrails.get("sensitive_data_action") not in {"flag", "redact", "block"}:
-        raise ConfigurationError(
-            "guardrails.sensitive_data_action must be flag, redact, or block"
-        )
+        raise ConfigurationError("guardrails.sensitive_data_action must be flag, redact, or block")
     for pack_name, pack_value in config.section("packs").items():
         pack = _as_object(pack_value, f"packs.{pack_name}")
         artifact_kinds = pack.get("artifact_kinds")
@@ -293,8 +320,10 @@ def validate_config(config: FusionConfig) -> None:
             or not all(isinstance(item, str) and item in _TOPOLOGIES for item in topologies)
         ):
             raise ConfigurationError(f"pack {pack_name} has invalid topologies")
-        if not isinstance(roles, list) or not roles or not all(
-            isinstance(item, str) and item for item in roles
+        if (
+            not isinstance(roles, list)
+            or not roles
+            or not all(isinstance(item, str) and item for item in roles)
         ):
             raise ConfigurationError(f"pack {pack_name} has invalid roles")
         if not isinstance(minimum, str) or minimum not in presets:
@@ -307,8 +336,10 @@ def validate_config(config: FusionConfig) -> None:
             raise ConfigurationError(f"pack {pack_name} has an invalid proof policy")
     proof = config.section("proof")
     patterns = proof.get("approved_overlay_patterns")
-    if not isinstance(patterns, list) or not patterns or not all(
-        isinstance(item, str) and item for item in patterns
+    if (
+        not isinstance(patterns, list)
+        or not patterns
+        or not all(isinstance(item, str) and item for item in patterns)
     ):
         raise ConfigurationError("proof approved overlay patterns are invalid")
     for name in ("max_overlay_files", "max_overlay_bytes", "max_output_chars"):
@@ -323,8 +354,7 @@ def validate_config(config: FusionConfig) -> None:
         raise ConfigurationError("proof capsules must require local attestation signatures")
     docker_image = proof.get("docker_image")
     if docker_image is not None and (
-        not isinstance(docker_image, str)
-        or not _DOCKER_DIGEST_REFERENCE.fullmatch(docker_image)
+        not isinstance(docker_image, str) or not _DOCKER_DIGEST_REFERENCE.fullmatch(docker_image)
     ):
         raise ConfigurationError("proof Docker image must be pinned by a SHA-256 digest")
     key_env = proof.get("attestation_key_env")
@@ -335,11 +365,7 @@ def validate_config(config: FusionConfig) -> None:
         raise ConfigurationError("proof attestation key ID is invalid")
     precedent = config.section("precedent")
     precedent_path = Path(str(precedent.get("directory", "")))
-    if (
-        not str(precedent_path)
-        or precedent_path.is_absolute()
-        or ".." in precedent_path.parts
-    ):
+    if not str(precedent_path) or precedent_path.is_absolute() or ".." in precedent_path.parts:
         raise ConfigurationError("precedent directory must remain inside the repository")
     if precedent.get("retrieval_phase") != "post-blind-review":
         raise ConfigurationError("precedent retrieval must remain post blind review")

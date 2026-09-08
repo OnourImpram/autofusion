@@ -710,7 +710,7 @@ class FusionEngine:
         run_id: str,
         budget: BudgetLedger,
     ) -> tuple[tuple[ProviderResult, ...], OrchestrationResult | PanelRankResult, JsonObject]:
-        dispatcher = _AsyncRegistryDispatcher(self.registry)
+        dispatcher = _AsyncRegistryDispatcher(replace(self.registry, config=self.config))
         panel = self.config.panel(route.panel)
         if route.topology == "panel-rank":
             proposer_handles = tuple(
@@ -726,6 +726,7 @@ class FusionEngine:
                     packet=packet,
                     prompt=proposal_prompt(packet),
                     schema=proposal_schema,
+                    role="proposer",
                 )
                 for handle in proposer_handles
             )
@@ -748,6 +749,7 @@ class FusionEngine:
                         packet_hash=packet.packet_hash,
                     ),
                     schema=judge_schema,
+                    role="judge",
                 )
 
             panel_outcome = asyncio.run(
@@ -788,6 +790,7 @@ class FusionEngine:
                     adversarial=route.topology == "adversarial-review",
                 ),
                 schema=schema,
+                role="advisor" if route.topology == "advisor" else "reviewer",
             )
             for handle in reviewers
         )
@@ -839,6 +842,7 @@ class FusionEngine:
         packet: Packet,
         prompt: str,
         schema: JsonObject,
+        role: str = "reviewer",
     ) -> ProviderRequest:
         call_id = f"call-{uuid.uuid4().hex[:16]}"
         return ProviderRequest(
@@ -854,6 +858,7 @@ class FusionEngine:
             ),
             environment_allowlist=self.credential_broker.for_handle(profile.handle),
             metadata={
+                "role": role,
                 "packet_hash": packet.packet_hash,
                 "requested_model": profile.model,
                 "effective_model": profile.canonical_model,

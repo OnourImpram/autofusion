@@ -4,21 +4,14 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 
-from autofusion.config import FusionConfig
+from autofusion.config import FusionConfig, panel_assignments, validate_participant
 from autofusion.errors import ConfigurationError, PolicyError
 from autofusion.models import RouteDecision, RunBudget
 from autofusion.util import JsonObject
 
 
 def panel_participants(panel: JsonObject) -> tuple[str, ...]:
-    ordered: list[str] = []
-    for key in ("drafter", "reviewers", "proposers", "judge"):
-        value = panel.get(key)
-        if isinstance(value, str):
-            ordered.append(value)
-        elif isinstance(value, list):
-            ordered.extend(item for item in value if isinstance(item, str))
-    return tuple(dict.fromkeys(ordered))
+    return tuple(dict.fromkeys(handle for handle, _ in panel_assignments(panel)))
 
 
 def _matches_pattern(path: str, pattern: str) -> bool:
@@ -84,6 +77,8 @@ def resolve_route(
     panel = config.panel(panel_name)
     if panel.get("enabled", True) is not True:
         raise PolicyError(f"selected panel is disabled: {panel_name}")
+    for handle, role in panel_assignments(panel):
+        validate_participant(config, handle, role)
     receipt_preset = f"panel:{panel_name}" if explicit_panel is not None else resolved_name
     participants = panel_participants(panel)
     topology = str(panel.get("topology", ""))

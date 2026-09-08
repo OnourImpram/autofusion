@@ -16,7 +16,7 @@ from typing import NoReturn, cast
 import pytest
 
 from autofusion import cli, doctor
-from autofusion.config import FusionConfig
+from autofusion.config import FusionConfig, load_config
 from autofusion.engine import FusionRunRequest, PendingRun
 from autofusion.errors import ConfigurationError, ProviderError
 from autofusion.grounding import (
@@ -599,7 +599,7 @@ def test_call_dispatches_through_registry_to_controlled_provider(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    provider = RecordingProvider(_profile(), status=status)
+    provider = RecordingProvider(load_config().model("gpt-sol"), status=status)
     snapshot_calls = _install_call_fakes(monkeypatch, tmp_path, provider)
     schema_path = tmp_path / "schema.json"
     schema_path.write_text('{"type":"object"}', encoding="utf-8")
@@ -634,7 +634,7 @@ def test_call_dispatches_through_registry_to_controlled_provider(
     assert payload["status"] == status.value
     assert payload["handle"] == "gpt-sol"
     assert payload["effective_model"] == (
-        "controlled-model" if status is CallStatus.COMPLETED else None
+        provider.profile.model if status is CallStatus.COMPLETED else None
     )
     assert "stderr_tail" in payload
     assert "truncated" in payload
