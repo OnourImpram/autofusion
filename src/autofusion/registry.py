@@ -5,12 +5,15 @@ from __future__ import annotations
 import os
 import shutil
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import cast
 
-from autofusion.config import FusionConfig
-from autofusion.errors import ConfigurationError, ProviderError
+from autofusion.config import FusionConfig, validate_participant
+from autofusion.dlp import DlpAction, DlpPolicy, preflight_packet, preflight_text
+from autofusion.errors import ConfigurationError, PolicyError, ProviderError
 from autofusion.identity import assert_executable_identity
 from autofusion.models import ProviderRequest, ProviderResult
+from autofusion.packet import context_fit_error
 from autofusion.providers import (
     AnthropicHttpProvider,
     ClaudeCliAdapter,
@@ -34,6 +37,7 @@ class ProviderRegistry:
     """A complete immutable handle-to-provider map for one loaded configuration."""
 
     providers: Mapping[str, Provider]
+    config: FusionConfig | None = None
 
     def get(self, handle: str) -> Provider:
         try:
@@ -47,6 +51,43 @@ class ProviderRegistry:
         return provider
 
     def invoke(self, request: ProviderRequest) -> ProviderResult:
+        if self.config is not None:
+            try:
+                provider = self.get(request.handle)
+            except ProviderError as exc:
+                raise PolicyError(str(exc)) from exc
+            if provider.profile != self.config.model(request.handle):
+                raise PolicyError(
+                    "executable provider profile does not match admitted configuration"
+                )
+            validate_participant(
+                self.config, request.handle, str(request.metadata.get("role", "reviewer"))
+            )
+            action = self.config.section("guardrails").get("sensitive_data_action", "redact")
+            policy = DlpPolicy(action=cast(DlpAction, action))
+            sanitized = preflight_text(request.prompt, policy)
+            schema = preflight_packet(request.response_schema, policy, credential_keys=False)
+            request = replace(request, prompt=sanitized.text, response_schema=schema.payload)
+            if request.context_budget is not None:
+                fit_error = context_fit_error((request,))
+                if fit_error is not None:
+                    raise PolicyError(fit_error)
+            profile = self.config.model(request.handle)
+            if profile.context != "packet" or profile.transport in {
+                "codex-exec", "claude-exec", "agy-headless", "acp",
+            }:
+                secret_policy = DlpPolicy(
+                    action="flag", rules=tuple(rule for rule in policy.rules if rule[0] != "email")
+                )
+                for path in request.working_directory.rglob("*"):
+                    if (
+                        path.is_file()
+                        and preflight_text(
+                            path.read_bytes().decode("utf-8", errors="replace"), secret_policy
+                        ).matches
+                    ):
+                        raise PolicyError("repo-access dispatch blocked by snapshot DLP")
+        request = replace(request, timeout_s=request.remaining_timeout_s())
         return self.get(request.handle).invoke(request)
 
     @classmethod
@@ -114,7 +155,7 @@ class ProviderRegistry:
             else:
                 message = f"unsupported provider transport for {handle}: {profile.transport}"
                 raise ConfigurationError(message)
-        return cls(providers=providers)
+        return cls(providers=providers, config=config)
 
 
 def _raw_model(value: object, handle: str) -> JsonObject:

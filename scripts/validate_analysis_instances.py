@@ -262,7 +262,7 @@ def validate_participants(
     )
     families: dict[str, str] = {}
     eligible: set[str] = set()
-    statuses: list[str] = []
+    complete_context: list[bool] = []
     participant_ids: set[str] = set()
 
     for raw_participant in participants:
@@ -340,19 +340,30 @@ def validate_participants(
             participant.get("status"),
             f"participant {source_id} status must be a string",
         )
-        statuses.append(status)
+        coverage = participant.get("coverage")
+        complete_context.append(
+            status == "completed"
+            and participant.get("context_complete", True) is True
+            and participant.get("recommendation") != "abstain"
+            and not participant.get("blind_spots")
+            and (
+                coverage is None
+                or (
+                    isinstance(coverage, list)
+                    and any(isinstance(area, str) and area.strip() for area in coverage)
+                )
+            )
+        )
         families[source_id] = family
         if status == "completed":
             eligible.add(source_id)
 
     validate_analysis_policy_binding(analysis, config, models, participant_ids)
 
-    expected_context_complete = all(
-        status == "completed" for status in statuses
-    )
+    expected_context_complete = all(complete_context)
     require(
         analysis.get("context_complete") is expected_context_complete,
-        "context_complete does not match participant completion",
+        "context_complete does not match participant coverage and completion",
     )
     if not expected_context_complete:
         decision = as_object(
@@ -808,6 +819,23 @@ def validate_analysis_semantics(
     validate_contradictions(analysis, eligible)
     validate_coverage_and_unique_insights(analysis, eligible)
     validate_grounding(analysis, config, eligible)
+    for participant in analysis["participants"]:
+        if participant.get("status") != "completed" or participant.get("recommendation") not in {
+            "block", "revise"
+        }:
+            continue
+        reported = [
+            finding for finding in analysis.get("findings", [])
+            if participant["source_id"] in finding["source_ids"]
+        ]
+        if not reported or any(
+            finding.get("status") not in {"accepted", "rejected", "resolved", "waived"}
+            for finding in reported
+        ):
+            require(
+                analysis["decision_impact"]["effect"] in {"blocked", "human-required"},
+                "unsettled reviewer recommendation requires human reconciliation",
+            )
 
 
 def validate_analysis(

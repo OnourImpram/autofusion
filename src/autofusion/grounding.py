@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from autofusion.budget import BudgetLedger
 from autofusion.config import FusionConfig
 from autofusion.errors import GroundingError, PolicyError
 from autofusion.util import JsonObject, bounded_text, sha256_json, sha256_text
@@ -30,12 +31,13 @@ class RunnerOutput:
     stderr: str = ""
     timed_out: bool = False
     failure_class: str | None = None
+    truncated: bool = False
 
 
 class GroundingRunner(Protocol):
     network_denied: bool
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput: ...
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,28 +152,39 @@ def run_grounding(
     snapshot_root: Path,
     runner: GroundingRunner | None,
     max_output_chars: int,
+    budget: BudgetLedger | None = None,
 ) -> GroundingResult:
     """Execute an injected, network-denied runner and classify its evidence conservatively."""
 
     if runner is None or not runner.network_denied:
         raise PolicyError("grounding is blocked without a verified network-denied runner")
+    if budget is not None and getattr(runner, "supports_execution_deadline", True) is False:
+        raise PolicyError("grounding runner cannot enforce a total execution deadline")
     cwd = _within_snapshot(snapshot_root, command.cwd)
+    timeout_s = float(command.timeout_s)
+    if budget is not None:
+        timeout_s = min(timeout_s, budget.remaining_s())
     invocation_hash = sha256_json(
         {
             "verification_id": command.verification_id,
             "argv": list(command.argv),
             "cwd": command.cwd,
-            "timeout_s": command.timeout_s,
+            "timeout_s": timeout_s,
             "network": "deny",
         }
     )
     try:
-        executed = runner.run(command.argv, cwd, command.timeout_s)
+        if timeout_s <= 0:
+            raise TimeoutError("execution deadline exhausted")
+        executed = runner.run(command.argv, cwd, timeout_s)
+        if budget is not None and budget.remaining_s() <= 0:
+            executed = RunnerOutput(exit_code=executed.exit_code, timed_out=True)
     except TimeoutError:
         executed = RunnerOutput(exit_code=None, timed_out=True)
     except OSError as exc:
         executed = RunnerOutput(exit_code=None, stderr=str(exc), failure_class="environment")
     output, truncated = bounded_text(f"{executed.stdout}\n{executed.stderr}", max_output_chars)
+    truncated = truncated or executed.truncated
     if executed.timed_out:
         verdict, status, failure_class, matched = "timeout", "timeout", "timeout", False
     elif executed.exit_code == 0:

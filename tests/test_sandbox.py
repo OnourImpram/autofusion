@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
 from autofusion import sandbox
-from autofusion.errors import GroundingError
+from autofusion.budget import BudgetLedger
+from autofusion.errors import GroundingError, PolicyError
+from autofusion.grounding import VerificationCommand, run_grounding
+from autofusion.models import RunBudget
 from autofusion.providers.process import CommandOutcome
 from autofusion.sandbox import (
     DockerProofRunner,
@@ -51,6 +55,35 @@ def test_wsl_runner_uses_fixed_argv_network_namespace_without_shell(tmp_path: Pa
     )
 
 
+def test_wsl_translation_consumes_the_verification_deadline(tmp_path: Path) -> None:
+    command_runner = RecordingCommandRunner()
+
+    def slow_translation(path: Path) -> str:
+        time.sleep(0.1)
+        return "/mnt/c/snapshot"
+
+    runner = WslUnshareGroundingRunner(
+        command_runner=command_runner, path_translator=slow_translation
+    )
+    outcome = runner.run(("pytest", "-q"), tmp_path, 0.05)
+    assert outcome.timed_out
+    assert command_runner.argv is None
+
+
+def test_orchestrated_wsl_grounding_is_blocked_before_launch(tmp_path: Path) -> None:
+    command_runner = RecordingCommandRunner()
+    runner = WslUnshareGroundingRunner(
+        command_runner=command_runner, path_translator=lambda _: "/mnt/c/snapshot"
+    )
+    with pytest.raises(PolicyError, match="total execution deadline"):
+        run_grounding(
+            VerificationCommand("python.pytest", ("pytest", "-q"), 30, "dynamic"),
+            snapshot_root=tmp_path, runner=runner, max_output_chars=128,
+            budget=BudgetLedger(RunBudget(1, 1, None, 128)),
+        )
+    assert command_runner.argv is None
+
+
 def test_linux_runner_uses_fixed_unshare_argv(tmp_path: Path) -> None:
     command_runner = RecordingCommandRunner()
     runner = LinuxUnshareGroundingRunner(
@@ -66,6 +99,30 @@ def test_linux_runner_uses_fixed_unshare_argv(tmp_path: Path) -> None:
         "pytest",
         "-q",
     )
+
+
+@pytest.mark.parametrize("runner_kind", ["linux", "wsl", "docker"])
+def test_runner_preserves_upstream_output_truncation(tmp_path: Path, runner_kind: str) -> None:
+    class TruncatingCommandRunner:
+        def run(self, argv: Sequence[str], **kwargs: object) -> CommandOutcome:
+            return CommandOutcome(tuple(argv), 1, "AssertionError", "", 1, False, True)
+
+    command_runner = TruncatingCommandRunner()
+    if runner_kind == "linux":
+        runner = LinuxUnshareGroundingRunner(command_runner)
+        output = runner.run(("pytest", "-q"), tmp_path, 1)
+    elif runner_kind == "wsl":
+        wsl_runner = WslUnshareGroundingRunner(
+            command_runner, path_translator=lambda _: "/mnt/c/snapshot"
+        )
+        output = wsl_runner.run(("pytest", "-q"), tmp_path, 1)
+    else:
+        docker_runner = DockerProofRunner(
+            command_runner, "docker", "proof@sha256:" + "1" * 64,
+            "sha256:" + "2" * 64, "28.0.0",
+        )
+        output = docker_runner.run(("pytest", "-q"), tmp_path, 1)
+    assert output.truncated
 
 
 def test_docker_proof_runner_applies_disposable_security_controls(tmp_path: Path) -> None:

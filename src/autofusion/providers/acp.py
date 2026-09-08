@@ -550,6 +550,11 @@ class AcpProvider:
         if any(not isinstance(part, str) or not part for part in argv):
             raise ProviderError("ACP command must be a nonempty argv sequence")
         started = time.monotonic()
+        deadline = started + request.timeout_s
+        if request.deadline_monotonic is not None:
+            if not math.isfinite(request.deadline_monotonic):
+                raise ProviderError("execution deadline must be finite")
+            deadline = min(deadline, request.deadline_monotonic)
         if self.cancel_event is not None and self.cancel_event.is_set():
             return self._failed(request, started, CallStatus.CANCELLED, "ACP call cancelled")
         # Caller allowlists cannot expand the transport's reviewed routing boundary.
@@ -571,7 +576,7 @@ class AcpProvider:
         _preflight_grok(environment, request.working_directory)
         if self.cancel_event is not None and self.cancel_event.is_set():
             return self._failed(request, started, CallStatus.CANCELLED, "ACP call cancelled")
-        if time.monotonic() >= started + request.timeout_s:
+        if time.monotonic() >= deadline:
             return self._failed(request, started, CallStatus.TIMEOUT, "ACP deadline exceeded")
         try:
             job = WindowsJob()
@@ -607,7 +612,7 @@ class AcpProvider:
                 connection = _Connection(process, request.max_output_chars, job)
                 connection.start()
                 session = _Session(connection, request, self.profile,
-                                   started + request.timeout_s, self.cancel_event)
+                                   deadline, self.cancel_event)
             except (RuntimeError, OSError) as exc:
                 raise ProviderError("ACP I/O startup failed") from exc
             return self._run(session, request, started)
@@ -695,6 +700,8 @@ class AcpProvider:
         return ProviderResult(
             call_id=request.call_id, handle=self.profile.handle,
             requested_model=self.profile.model, effective_model=None,
+            configured_model=self.profile.canonical_model, observed_model=None,
+            identity_evidence="unavailable", quota_group=self.profile.quota_group,
             vendor=self.profile.vendor, family=self.profile.family, mode=self.profile.effort,
             compound=self.profile.compound, worker_visibility=self.profile.worker_visibility,
             status=status, duration_ms=max(0, int((time.monotonic() - started) * 1000)),

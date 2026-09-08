@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from autofusion.config import FusionConfig, load_config
@@ -217,7 +217,7 @@ def _config_validate(args: argparse.Namespace) -> int:
 
 def _call(args: argparse.Namespace) -> int:
     config = _config(args)
-    registry = ProviderRegistry.from_config(config)
+    registry = replace(ProviderRegistry.from_config(config), config=config)
     repo = Path(args.repo).resolve()
     work = _path(args.work_root) or Path.home() / ".fusion" / "work"
     snapshot = build_snapshot(repo, work / f"call-{uuid.uuid4().hex}" / "snapshots")

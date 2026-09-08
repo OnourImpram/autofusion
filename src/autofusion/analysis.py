@@ -7,7 +7,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from autofusion.models import CallStatus, ProviderResult, Severity
-from autofusion.util import JsonObject, sha256_json
+from autofusion.util import JsonObject, deep_copy_json, sha256_json
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +19,56 @@ class AnalysisInput:
     @property
     def source_id(self) -> str:
         return self.result.handle
+
+
+def participant_context_complete(participant: JsonObject) -> bool:
+    """Keep transport completion distinct from a complete reviewer contribution.
+
+    Reviewer metadata is optional for legacy artifacts and other participant roles.
+    The reviewer contract cannot distinguish optional from mandatory blind spots,
+    so a reported gap requires reconciliation with a human.
+    """
+
+    coverage = participant.get("coverage")
+    return (
+        participant.get("status") == "completed"
+        and participant.get("context_complete", True) is True
+        and participant.get("recommendation") != "abstain"
+        and not participant.get("blind_spots")
+        and (
+            coverage is None
+            or (
+                isinstance(coverage, list)
+                and any(isinstance(area, str) and area.strip() for area in coverage)
+            )
+        )
+    )
+
+
+def unsettled_review_recommendations(
+    participants: Sequence[JsonObject], findings: Sequence[JsonObject]
+) -> bool:
+    """Require human judgment until an adverse review has settled findings.
+
+    All of a source's findings need explicit dispositions. A different source's
+    findings cannot explain a recommendation, nor can an undisposed finding.
+    """
+
+    for participant in participants:
+        if participant.get("status") != "completed" or participant.get("recommendation") not in {
+            "block", "revise"
+        }:
+            continue
+        reported = [
+            finding for finding in findings
+            if participant.get("source_id") in finding.get("source_ids", [])
+        ]
+        if not reported or any(
+            finding.get("status") not in {"accepted", "rejected", "resolved", "waived"}
+            for finding in reported
+        ):
+            return True
+    return False
 
 
 def build_analysis(
@@ -36,17 +86,14 @@ def build_analysis(
     handles = [item.source_id for item in inputs]
     if len(handles) != len(set(handles)):
         raise ValueError("analysis participants must have unique model handles")
+    participants = [_participant(item) for item in inputs]
     completed = {
-        item.result.handle
-        for item in inputs
-        if item.context_complete and item.result.status is CallStatus.COMPLETED
+        str(item["source_id"]) for item in participants if participant_context_complete(item)
     }
-    context_complete = required.issubset(completed) and all(
-        item.context_complete for item in inputs if item.result.handle in required
-    )
+    context_complete = required.issubset(completed) and len(completed) == len(participants)
     findings = _extract_findings(inputs)
     consensus, contradictions, unique_insights = _compare(findings)
-    blind_spots: list[JsonObject] = []
+    partial_coverage, blind_spots = _review_coverage(participants)
     if not context_complete:
         blind_spots.append(
             {
@@ -71,6 +118,12 @@ def build_analysis(
             "effect": "human-required",
             "rationale": "context quorum failed",
         }
+    elif unsettled_review_recommendations(participants, findings):
+        impact = {
+            "changed": False,
+            "effect": "human-required",
+            "rationale": "a reviewer recommendation still requires explicit reconciliation",
+        }
     elif blockers:
         impact = {
             "changed": True,
@@ -86,10 +139,10 @@ def build_analysis(
         "panel": panel,
         "topology": topology,
         "context_complete": context_complete,
-        "participants": [_participant(item) for item in inputs],
+        "participants": participants,
         "consensus": consensus,
         "contradictions": contradictions,
-        "partial_coverage": [],
+        "partial_coverage": partial_coverage,
         "unique_insights": unique_insights,
         "blind_spots": blind_spots,
         "grounding_candidates": candidates,
@@ -116,7 +169,7 @@ def _participant(item: AnalysisInput) -> JsonObject:
         "compound": result.compound,
         "worker_visibility": result.worker_visibility,
     }
-    return {
+    participant: JsonObject = {
         "source_id": item.source_id,
         "effective_model": result.effective_model,
         "family": result.family,
@@ -126,7 +179,48 @@ def _participant(item: AnalysisInput) -> JsonObject:
         "call_id": None if item.source_id == "self" else result.call_id,
         "output_hash": result.output_hash,
         "identity_hash": item.identity_hash or sha256_json(identity),
+        "context_complete": item.context_complete,
     }
+    output = result.structured_output
+    if isinstance(output, dict):
+        for name in ("coverage", "blind_spots", "recommendation"):
+            if name in output:
+                participant[name] = deep_copy_json(output[name])
+    return participant
+
+
+def _review_coverage(
+    participants: Sequence[JsonObject],
+) -> tuple[list[JsonObject], list[JsonObject]]:
+    reviewers = [
+        item for item in participants if item.get("status") == "completed" and "coverage" in item
+    ]
+    covered_by: dict[str, list[str]] = defaultdict(list)
+    blind_spots: list[JsonObject] = []
+    for participant in reviewers:
+        source = str(participant["source_id"])
+        for area in participant["coverage"]:
+            if isinstance(area, str) and area.strip() and source not in covered_by[area]:
+                covered_by[area].append(source)
+        for gap in participant.get("blind_spots", []):
+            blind_spots.append(
+                {
+                    "area": f"review by {source}",
+                    "reason": f"{source} reported: {gap}",
+                    "next_action": "provide missing context and rerun the reviewer",
+                }
+            )
+    coverage: list[JsonObject] = []
+    for area, sources in covered_by.items():
+        missing = [str(item["source_id"]) for item in reviewers if item["source_id"] not in sources]
+        coverage.append(
+            {
+                "area": area,
+                "covered_by": sources,
+                "missing": f"not covered by: {', '.join(missing)}" if missing else "",
+            }
+        )
+    return coverage, blind_spots
 
 
 def _extract_findings(inputs: Sequence[AnalysisInput]) -> list[JsonObject]:

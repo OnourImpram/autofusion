@@ -9,7 +9,8 @@ import subprocess
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from time import monotonic
+from typing import ClassVar, Protocol
 
 from autofusion.errors import GroundingError
 from autofusion.grounding import GroundingRunner, RunnerOutput
@@ -65,7 +66,7 @@ class LinuxUnshareGroundingRunner(GroundingRunner):
             return None
         return cls(command_runner=CommandRunner(), executable=executable)
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
         outcome = self.command_runner.run(
             (self.executable, "-Urn", "--", *argv),
             input_text="",
@@ -79,11 +80,13 @@ class LinuxUnshareGroundingRunner(GroundingRunner):
             stdout=outcome.stdout,
             stderr=outcome.stderr,
             timed_out=outcome.timed_out,
+            truncated=outcome.truncated,
         )
 
 
 @dataclass(slots=True)
 class WslUnshareGroundingRunner(GroundingRunner):
+    supports_execution_deadline: ClassVar[bool] = False
     command_runner: _CommandExecutor
     distro: str = "Ubuntu-24.04"
     executable: str = "wsl.exe"
@@ -101,7 +104,7 @@ class WslUnshareGroundingRunner(GroundingRunner):
             return None
         return cls(command_runner=CommandRunner(), distro=distro, executable=executable)
 
-    def _translate(self, path: Path) -> str:
+    def _translate(self, path: Path, *, timeout_s: float = 5.0) -> str:
         if self.path_translator is not None:
             return self.path_translator(path)
         try:
@@ -119,7 +122,7 @@ class WslUnshareGroundingRunner(GroundingRunner):
                 check=False,
                 capture_output=True,
                 shell=False,
-                timeout=5.0,
+                timeout=timeout_s,
             )
         except (OSError, subprocess.TimeoutExpired) as error:
             raise GroundingError("unable to translate snapshot path for WSL") from error
@@ -128,8 +131,21 @@ class WslUnshareGroundingRunner(GroundingRunner):
             raise GroundingError("WSL returned an invalid snapshot path")
         return translated
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
-        linux_cwd = self._translate(cwd)
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
+        deadline = monotonic() + timeout_s
+        if timeout_s <= 0:
+            return RunnerOutput(exit_code=None, timed_out=True)
+        try:
+            linux_cwd = self._translate(cwd, timeout_s=min(5.0, timeout_s))
+        except TimeoutError:
+            return RunnerOutput(exit_code=None, timed_out=True)
+        except GroundingError as error:
+            if isinstance(error.__cause__, subprocess.TimeoutExpired):
+                return RunnerOutput(exit_code=None, timed_out=True)
+            raise
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            return RunnerOutput(exit_code=None, timed_out=True)
         outcome = self.command_runner.run(
             (
                 self.executable,
@@ -145,7 +161,7 @@ class WslUnshareGroundingRunner(GroundingRunner):
             ),
             input_text="",
             cwd=Path(os.environ.get("SYSTEMROOT", "C:\\Windows")),
-            timeout_s=timeout_s,
+            timeout_s=remaining,
             max_output_chars=64_000,
             environment_allowlist=("PATH", "SystemRoot", "WINDIR", "USERPROFILE", "TEMP", "TMP"),
         )
@@ -154,6 +170,7 @@ class WslUnshareGroundingRunner(GroundingRunner):
             stdout=outcome.stdout,
             stderr=outcome.stderr,
             timed_out=outcome.timed_out,
+            truncated=outcome.truncated,
         )
 
 
@@ -256,7 +273,7 @@ class DockerProofRunner:
             pids_limit=pids_limit,
         )
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
         workspace = cwd.resolve(strict=True)
         mount = f"type=bind,source={workspace},target=/workspace"
         outcome = self.command_runner.run(
@@ -306,6 +323,7 @@ class DockerProofRunner:
             stdout=outcome.stdout,
             stderr=outcome.stderr,
             timed_out=outcome.timed_out,
+            truncated=outcome.truncated,
         )
 
 
