@@ -81,14 +81,22 @@ whose reversal failed nothing was not counted.
     lock covers the whole per-run finalization transaction, so a competing finalization
     cannot drop an accepted capsule.
     Mutation: 5 failed on durability; 1 on the concurrent-finalization race.
-13. Supervised stdin. The process runner writes stdin from a worker that is closed under
+13. Precise proof execution results. Proof confirmation requires the intended verification
+    outcome, an intended assertion or static diagnostic, and untruncated output. Generic
+    nonzero exits, collection or setup failures and no-tests results no longer satisfy a
+    head or mutant failure; pytest exit semantics apply only to pytest invocations; the
+    actual Python traceback takes precedence over printed assertion text; invocation hashes
+    bind verification kind and expected patterns. Legacy capsules without typed match
+    evidence are not promoted to confirmed proof.
+    Mutation: 51 failed with the five production and schema files reverted.
+14. Supervised stdin. The process runner writes stdin from a worker that is closed under
     the deadline, starts the deadline before spawn, supervises all pipes and bounds worker
     cleanup, so a child that never reads its input cannot hold the run open.
     Mutation: 2 failed.
-14. `.gitattributes` keeps hash-bound JSON fixtures byte-exact on checkout, so linked-run
+15. `.gitattributes` keeps hash-bound JSON fixtures byte-exact on checkout, so linked-run
     provenance validates on `core.autocrlf=true` checkouts without rewriting any
     historical hash.
-15. Operational notes moved from `tasks/` to `docs/history/`. Release hygiene files added:
+16. Operational notes moved from `tasks/` to `docs/history/`. Release hygiene files added:
     `.gitignore`, `SECURITY.md`, `CONTRIBUTING.md`.
 
 ### Added
