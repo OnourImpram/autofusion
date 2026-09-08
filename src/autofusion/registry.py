@@ -56,7 +56,7 @@ class ProviderRegistry:
             action = self.config.section("guardrails").get("sensitive_data_action", "redact")
             policy = DlpPolicy(action=cast(DlpAction, action))
             sanitized = preflight_text(request.prompt, policy)
-            schema = preflight_packet(request.response_schema, policy)
+            schema = preflight_packet(request.response_schema, policy, credential_keys=False)
             request = replace(request, prompt=sanitized.text, response_schema=schema.payload)
             profile = self.config.model(request.handle)
             if profile.context != "packet" or profile.transport in {"codex-exec", "claude-exec"}:
