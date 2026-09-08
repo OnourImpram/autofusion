@@ -20,7 +20,7 @@ def test_provider_stays_suspended_until_job_assignment(tmp_path: Path) -> None:
     process = subprocess.Popen(
         [sys.executable, "-c", "from pathlib import Path; import sys; "
          "Path(sys.argv[1]).touch()", str(marker)],
-        creationflags=job.creationflags | subprocess.CREATE_NO_WINDOW,
+        creationflags=job.creationflags | getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     try:
         time.sleep(0.1)
@@ -58,7 +58,7 @@ def test_job_close_reaps_descendant_after_parent_exits(tmp_path: Path, children:
     job = WindowsJob()
     process = subprocess.Popen(
         [sys.executable, "-c", parent_code, child_code, *map(str, locked_files)],
-        creationflags=job.creationflags | subprocess.CREATE_NO_WINDOW,
+        creationflags=job.creationflags | getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     try:
         job.assign_and_resume(process.pid)
@@ -100,7 +100,7 @@ def test_job_close_failure_still_triggers_kill_on_close(
     job = WindowsJob()
     process = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(30)"],
-        creationflags=job.creationflags | subprocess.CREATE_NO_WINDOW,
+        creationflags=job.creationflags | getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     try:
         job.assign_and_resume(process.pid)

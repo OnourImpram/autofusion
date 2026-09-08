@@ -93,5 +93,5 @@ Inputs: shared af-ortak.md contract, review sections 2 and 5, agy and ACP refere
 Verification: red tests before implementation, fake peers for framing and lifecycle failures, whole-suite mutation reversal for each step, pytest/ruff/strict mypy/repository validators, independent review.
 Stop conditions: architecture replacement or unavailable required contract; preserve explicit NOT_RUN evidence. Main session owns profile activation and release.
 - [x] Step 17 implementation, integration, mutation, commit.
-- [ ] Step 18 implementation, integration, mutation, commit.
-- [ ] Gate summaries and dated smoke evidence in the external run report.
+- [x] Step 18 implementation, integration, mutation, commit.
+- [x] Gate summaries and dated smoke evidence in the external run report.
