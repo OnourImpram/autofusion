@@ -145,7 +145,12 @@ whose reversal failed nothing was not counted.
    context. Mutation: 12 failed with the merge repairs reverted and the tests kept.
 6. Full gate on the release revision, measured 8 September 2026 on Windows with Python 3.14:
    794 passed and 1 skipped (the POSIX-only no-op test), Ruff clean, strict mypy clean over
-   96 source files, four repository validators passed.
+   96 source files, four repository validators passed. On Linux (WSL, Python 3.12) the same
+   revision gave 790 passed and 5 skipped (the Windows Job Object tests). The Linux run found
+   two defects the Windows gate could not: a test that imported `scripts` only because
+   `python -m pytest` puts the working directory on the path, and a test that seeded a
+   difference inside a copied snapshot whose directories kept their 0o555 modes. Both are
+   fixed in this release; CI on the release pull request is the multi-version record.
 
 ### Known limits
 
