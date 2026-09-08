@@ -2,6 +2,8 @@
 
 ## 0.2 alpha: product contract and plugin surface
 
+Historical July scope. The callable Fable work below is superseded by the 0.6.0 self-only policy.
+
 1. Replace obsolete model examples with gpt-5.6-sol xhigh and ultra profiles.
 2. Add Claude Opus 4.8 and Fable 5 profiles.
 3. Add fast, balanced, high, quality compatibility, budget, and adaptive presets.
@@ -15,6 +17,8 @@
 Exit criteria: the plugin and documentation expose a coherent, truthful target contract and do not claim the engine already exists.
 
 ## 0.2 engine: trustworthy review vertical slice
+
+Historical July scope. The Claude transport remains available for Opus; external Fable execution is no longer permitted.
 
 Status: implemented as alpha runtime, except the live Claude Code plus GPT Sol proof remains a release gate.
 
@@ -107,6 +111,17 @@ Exit criteria:
 6. GitHub reporting cannot grant itself execution or merge authority.
 7. Unsigned, modified, wrong-key, and inactive-key proof capsules fail closed.
 
+## 0.6.0: current identities and transport upgrades
+
+1. Migrate active contracts to Opus 5 and validated self identities for Opus 5, Sonnet 5, Haiku 4.5, and Fable 5.1.
+2. Restrict Fable to self and reject legacy external Fable profiles and panels with named replacements. Preserve the July observations as historical records.
+3. Add Astra ultra through the existing Codex adapter with explicit compound reviewer and judge roles, shared OpenAI quota metadata, and configured identity distinct from observed identity.
+4. Enforce context capacity against every participant, including prompt overhead and reserved output.
+5. Add session delegates and optional Workflow orchestration only after their request/result contracts and local execution evidence are validated.
+6. Add agy and ACP transports after protocol framing, identity, cancellation, and permission behavior are tested.
+
+These are implementation milestones. A live transport is verified only by its dated provider-verification record.
+
 ## 1.0: production hardening
 
 1. Add a calibrated, correlation-aware adaptive router.
@@ -135,7 +150,7 @@ Every release requires:
 5. Prompt injection, path escape, stale input, timeout, output bomb, and fallback tests.
 6. Real smoke tests for every enabled advertised built-in profile.
 7. Documentation claim review.
-8. No release tag when an enabled advertised model cannot be exercised in the supported environment. Entitlement-gated profiles remain disabled until canonical identity is proven.
+8. No release tag when an enabled advertised model cannot be exercised in the supported environment. Fable remains self-only regardless of entitlement or past external smoke success.
 9. A metadata-only provider verification record for every live release smoke. Operator-specific entitlement evidence must not silently change portable defaults.
 
-The 17 July 2026 operator smoke completed canonical Claude Opus 4.8 and Fable 5 routes through the published adapter. Fable remains opt-in because that result proves one authenticated environment, not universal subscription availability.
+Historical evidence: the 17 July 2026 operator smoke completed canonical Claude Opus 4.8 and Fable 5 routes through the published adapter. The 0.6.0 migration supersedes that release's opt-in Fable policy with an unconditional self-only rule.

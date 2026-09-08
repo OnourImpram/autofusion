@@ -22,7 +22,7 @@ Expected forms:
 /autofusion:fusion-parallel --pack security --preset adaptive --artifact patch.diff
 ~~~
 
-`external-council` uses the enabled GPT SOL and Claude Opus profiles. The optional `external-council-fable` panel requires explicitly enabling claude-fable only after canonical Fable identity is proven.
+`external-council` uses the enabled GPT SOL and Claude Opus 5 profiles. Fable is self-only and cannot participate in a fully external council. Replace legacy `external-council-fable` overlays with `external-council`; callable Fable profiles and aliases are rejected.
 
 ## Operating contract
 

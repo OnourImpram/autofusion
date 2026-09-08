@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from autofusion.errors import OutputValidationError, ProviderError
+from autofusion.identity import assert_executable_identity
 from autofusion.models import ModelProfile, ProviderRequest, ProviderResult
 from autofusion.providers.base import (
     CostResolver,
@@ -142,6 +143,7 @@ class OpenAICompatibleHttpProvider:
     cost_resolver: CostResolver = no_cost_evidence
 
     def invoke(self, request: ProviderRequest) -> ProviderResult:
+        assert_executable_identity(self.profile)
         started = time.monotonic()
         payload: JsonObject = {
             "model": self.profile.model,
@@ -201,6 +203,7 @@ class AnthropicHttpProvider:
     cost_resolver: CostResolver = no_cost_evidence
 
     def invoke(self, request: ProviderRequest) -> ProviderResult:
+        assert_executable_identity(self.profile)
         started = time.monotonic()
         max_tokens = self.profile.params.get("max_tokens", 4096)
         if not isinstance(max_tokens, int) or max_tokens <= 0:

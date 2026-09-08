@@ -9,6 +9,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from autofusion.errors import ConfigurationError
+from autofusion.identity import FABLE_MIGRATION, SessionIdentity, names_fable, reject_fable_routes
 from autofusion.models import ModelProfile
 from autofusion.util import JsonObject, deep_copy_json, read_json_object
 
@@ -90,6 +91,7 @@ def _merge_guardrails(base: JsonObject, overlay: JsonObject) -> JsonObject:
 def merge_layers(base: JsonObject, overlay: JsonObject) -> JsonObject:
     """Merge one approved layer without allowing guardrail weakening."""
 
+    reject_fable_routes(overlay)
     merged = _deep_merge(base, overlay)
     base_guardrails = _as_object(base.get("guardrails", {}), "guardrails")
     overlay_guardrails = _as_object(overlay.get("guardrails", {}), "guardrails")
@@ -166,7 +168,11 @@ class FusionConfig:
 
     def model(self, handle: str) -> ModelProfile:
         models = self.section("models")
+        if handle != "self" and names_fable(handle):
+            raise ConfigurationError(FABLE_MIGRATION)
         raw = _as_object(models.get(handle), f"models.{handle}")
+        if handle != "self" and names_fable(raw):
+            raise ConfigurationError(FABLE_MIGRATION)
         transport = str(raw.get("transport", ""))
         callable_value = raw.get("callable", transport != "self")
         model = str(raw.get("model", handle))
@@ -191,7 +197,22 @@ class FusionConfig:
         )
 
     def panel(self, name: str) -> JsonObject:
+        if names_fable(name):
+            raise ConfigurationError(FABLE_MIGRATION)
         return _as_object(self.section("panels").get(name), f"panels.{name}")
+
+    def session_identity(self, model: str) -> SessionIdentity:
+        raw = _as_object(self.section("models").get("self"), "models.self")
+        if model not in raw.get("allowed_models", []):
+            raise ConfigurationError(f"active self model is not allowed: {model}")
+        identities = _as_object(raw.get("identities", {}), "self identity metadata")
+        identity = identities.get(model)
+        if not isinstance(identity, dict) or any(
+            not isinstance(identity.get(key), str) or not identity[key].strip()
+            or identity[key] == "unknown" for key in ("vendor", "family")
+        ):
+            raise ConfigurationError(f"self identity metadata is required for {model}")
+        return SessionIdentity(vendor=identity["vendor"], family=identity["family"])
 
     def pack(self, name: str) -> JsonObject:
         return _as_object(self.section("packs").get(name), f"packs.{name}")
@@ -217,6 +238,7 @@ def _default_data() -> JsonObject:
 
 
 def validate_config(config: FusionConfig) -> None:
+    reject_fable_routes(config.data)
     models = config.section("models")
     panels = config.section("panels")
     presets = config.section("presets")
@@ -232,6 +254,14 @@ def validate_config(config: FusionConfig) -> None:
     self_profile = config.model("self")
     if self_profile.transport != "self" or self_profile.callable:
         raise ConfigurationError("self must be a non-callable self transport")
+    raw_self = _as_object(models["self"], "models.self")
+    allowed_self = raw_self.get("allowed_models")
+    if not isinstance(allowed_self, list) or not allowed_self or not all(
+        isinstance(model, str) for model in allowed_self
+    ):
+        raise ConfigurationError("self allowed_models must name validated session identities")
+    for model in allowed_self:
+        config.session_identity(model)
     for name in presets:
         config.preset(name)
     for panel_name, panel_value in panels.items():

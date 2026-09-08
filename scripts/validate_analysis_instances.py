@@ -918,7 +918,9 @@ def exercise_negative_cases(
 
     candidate = clone(valid)
     second_participant(candidate)["effective_model"] = "claude-fable-5"
-    assert_rejected("participant model identity mismatch", candidate, schema, config)
+    assert_rejected(
+        "deliberately disallowed legacy Fable participant identity", candidate, schema, config
+    )
 
     candidate = clone(valid)
     first_finding(candidate)["verification_id"] = "python.untrusted"

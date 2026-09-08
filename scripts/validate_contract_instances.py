@@ -722,7 +722,9 @@ def exercise_negative_cases(
 
     candidate = clone(valid)
     first_call(candidate)["effective_model"] = "claude-fable-5"
-    assert_rejected("external model identity mismatch", candidate, schema, config)
+    assert_rejected(
+        "deliberately disallowed legacy Fable external identity", candidate, schema, config
+    )
 
     candidate = clone(valid)
     candidate["self_model"] = "fabricated-model"
@@ -833,11 +835,11 @@ def exercise_negative_cases(
 
     candidate = clone(valid)
     candidate["requested_participants"] = ["self", "claude-opus"]
-    candidate["self_model"] = "claude-opus-4-8"
+    candidate["self_model"] = "claude-opus-5"
     call = first_call(candidate)
     call["handle"] = "claude-opus"
     call["requested_model"] = "opus"
-    call["effective_model"] = "claude-opus-4-8"
+    call["effective_model"] = "claude-opus-5"
     call["vendor"] = "anthropic"
     call["family"] = "claude-opus"
     call["mode"] = "xhigh"
