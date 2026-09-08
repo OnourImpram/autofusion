@@ -10,6 +10,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
+from time import monotonic
 from typing import cast
 
 from autofusion.analysis import AnalysisInput, build_analysis
@@ -444,6 +445,7 @@ class FusionEngine:
         }
 
     def _prepare(self, request: FusionRunRequest) -> PendingRun:
+        execution_started = monotonic()
         repo_root = request.repo_root.resolve()
         if not repo_root.is_dir():
             raise ValueError(f"repository root does not exist: {repo_root}")
@@ -466,6 +468,7 @@ class FusionEngine:
         )
         state = RunStateMachine()
         route, pack = self._resolve_route(request)
+        budget = BudgetLedger(route.budget, started_at=execution_started)
         assert_callable_participants(
             self.config, tuple(handle for handle in route.participants if handle != "self")
         )
@@ -553,7 +556,6 @@ class FusionEngine:
                 "hard_gates": list(route.hard_gates),
             },
         )
-        budget = BudgetLedger(route.budget)
         state.transition(RunState.DISPATCHED, reason="external participants dispatched")
         journal.record(
             "dispatch",
@@ -634,8 +636,12 @@ class FusionEngine:
             idempotency_key="state:analyzed",
             payload={"analysis_hash": sha256_json(analysis)},
         )
-        if request.run_grounding and request.artifact_kind == "diff":
-            analysis = self._ground(analysis, snapshot, ledger)
+        if (
+            request.run_grounding
+            and request.artifact_kind == "diff"
+            and budget.remaining_s() > 0
+        ):
+            analysis = self._ground(analysis, snapshot, ledger, budget)
             state.transition(RunState.GROUNDED, reason="eligible findings grounded")
             journal.record(
                 "ground",
@@ -651,7 +657,7 @@ class FusionEngine:
         except SnapshotError as error:
             degradation.append(str(error))
         active_wallclock_s = self._wallclock_seconds(started_at, isoformat_z(utc_now()))
-        if active_wallclock_s > route.budget.max_wallclock_s:
+        if budget.remaining_s() <= 0 or active_wallclock_s > route.budget.max_wallclock_s:
             degradation.append("active execution exceeded the configured wallclock budget")
         validate_analysis(analysis)
         analysis_path = run_directory / "analysis.json"
@@ -1053,6 +1059,7 @@ class FusionEngine:
         analysis: JsonObject,
         snapshot: SnapshotManifest,
         ledger: EvidenceLedger,
+        budget: BudgetLedger,
     ) -> JsonObject:
         candidates = analysis.get("grounding_candidates")
         if not isinstance(candidates, list):
@@ -1066,6 +1073,8 @@ class FusionEngine:
             verification_id = str(candidate.get("verification_id", ""))
             result = cached.get(verification_id)
             if result is None:
+                if budget.remaining_s() <= 0:
+                    break
                 try:
                     command = resolve_verification(self.config, verification_id)
                     result = run_grounding(
@@ -1073,6 +1082,7 @@ class FusionEngine:
                         snapshot_root=snapshot.root,
                         runner=self.grounding_runner,
                         max_output_chars=32_000,
+                        budget=budget,
                     )
                 except (GroundingError, PolicyError) as error:
                     result = GroundingResult(

@@ -132,9 +132,9 @@ class RecordingGroundingRunner:
         default_factory=lambda: RunnerOutput(exit_code=0, stdout="controlled success")
     )
     network_denied: bool = True
-    calls: list[tuple[tuple[str, ...], Path, int]] = field(default_factory=list)
+    calls: list[tuple[tuple[str, ...], Path, float]] = field(default_factory=list)
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
         self.calls.append((tuple(argv), cwd, timeout_s))
         return self.output
 

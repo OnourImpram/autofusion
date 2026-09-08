@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
 from autofusion import sandbox
-from autofusion.errors import GroundingError
+from autofusion.budget import BudgetLedger
+from autofusion.errors import GroundingError, PolicyError
+from autofusion.grounding import VerificationCommand, run_grounding
+from autofusion.models import RunBudget
 from autofusion.providers.process import CommandOutcome
 from autofusion.sandbox import (
     DockerProofRunner,
@@ -49,6 +53,35 @@ def test_wsl_runner_uses_fixed_argv_network_namespace_without_shell(tmp_path: Pa
         "pytest",
         "-q",
     )
+
+
+def test_wsl_translation_consumes_the_verification_deadline(tmp_path: Path) -> None:
+    command_runner = RecordingCommandRunner()
+
+    def slow_translation(path: Path) -> str:
+        time.sleep(0.1)
+        return "/mnt/c/snapshot"
+
+    runner = WslUnshareGroundingRunner(
+        command_runner=command_runner, path_translator=slow_translation
+    )
+    outcome = runner.run(("pytest", "-q"), tmp_path, 0.05)
+    assert outcome.timed_out
+    assert command_runner.argv is None
+
+
+def test_orchestrated_wsl_grounding_is_blocked_before_launch(tmp_path: Path) -> None:
+    command_runner = RecordingCommandRunner()
+    runner = WslUnshareGroundingRunner(
+        command_runner=command_runner, path_translator=lambda _: "/mnt/c/snapshot"
+    )
+    with pytest.raises(PolicyError, match="total execution deadline"):
+        run_grounding(
+            VerificationCommand("python.pytest", ("pytest", "-q"), 30, "dynamic"),
+            snapshot_root=tmp_path, runner=runner, max_output_chars=128,
+            budget=BudgetLedger(RunBudget(1, 1, None, 128)),
+        )
+    assert command_runner.argv is None
 
 
 def test_linux_runner_uses_fixed_unshare_argv(tmp_path: Path) -> None:

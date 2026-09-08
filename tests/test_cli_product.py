@@ -39,7 +39,7 @@ class _ProofRunner:
     strong_isolation: bool = True
     runner_attestation_hash: str = "a" * 64
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
         del argv, timeout_s
         return self.outcomes[cwd.name]
 

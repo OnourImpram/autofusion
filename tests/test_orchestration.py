@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -89,6 +90,51 @@ def test_unknown_cost_fails_closed_under_hard_cost_budget() -> None:
     reservation = ledger.reserve_call(output_chars=1)
     with pytest.raises(BudgetExceeded, match="unknown"):
         ledger.settle_call(reservation, actual_cost_usd=None)
+
+
+def test_deadline_bounds_active_dispatch_and_queued_work() -> None:
+    calls: list[str] = []
+
+    class SlowDispatcher:
+        async def dispatch(self, request: ProviderRequest) -> ProviderResult:
+            calls.append(request.handle)
+            await asyncio.sleep(1.4)
+            return _result(request)
+
+    started = time.monotonic()
+    outcome = asyncio.run(
+        run_dual_review(
+            SlowDispatcher(),
+            (_request("first", "call-1"), _request("second", "call-2")),
+            budget=BudgetLedger(RunBudget(2, 1, None, 100)),
+            max_concurrency=1,
+        )
+    )
+    assert time.monotonic() - started < 1.3
+    assert calls == ["first"]
+    assert all(result.status is CallStatus.TIMEOUT for result in outcome.results)
+    assert not outcome.fused
+
+
+def test_queued_dispatch_receives_only_current_remaining_time() -> None:
+    now = [0.0]
+    timeouts: list[float] = []
+
+    class AdvancingDispatcher:
+        async def dispatch(self, request: ProviderRequest) -> ProviderResult:
+            timeouts.append(request.timeout_s)
+            now[0] = 6.0
+            return _result(request)
+
+    asyncio.run(
+        run_dual_review(
+            AdvancingDispatcher(),
+            (_request("first", "call-1"), _request("second", "call-2")),
+            budget=BudgetLedger(RunBudget(2, 10, None, 100), clock=lambda: now[0]),
+            max_concurrency=1,
+        )
+    )
+    assert timeouts == [10.0, 4.0]
 
 
 def test_hard_gate_cannot_be_downgraded() -> None:

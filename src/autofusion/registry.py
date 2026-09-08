@@ -71,6 +71,7 @@ class ProviderRegistry:
                         ).matches
                     ):
                         raise PolicyError("repo-access dispatch blocked by snapshot DLP")
+        request = replace(request, timeout_s=request.remaining_timeout_s())
         return self.get(request.handle).invoke(request)
 
     @classmethod

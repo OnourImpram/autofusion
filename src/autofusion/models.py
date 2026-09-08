@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+from time import monotonic
 
 from autofusion.util import JsonObject, sha256_text
 
@@ -78,6 +80,19 @@ class ProviderRequest:
     max_output_chars: int
     environment_allowlist: tuple[str, ...] = ()
     metadata: JsonObject = field(default_factory=dict)
+    deadline_monotonic: float | None = None
+
+    def remaining_timeout_s(self) -> float:
+        if not math.isfinite(self.timeout_s) or self.timeout_s <= 0:
+            raise ValueError("provider timeout must be finite and positive")
+        if self.deadline_monotonic is not None and not math.isfinite(self.deadline_monotonic):
+            raise ValueError("execution deadline must be finite")
+        remaining = self.timeout_s
+        if self.deadline_monotonic is not None:
+            remaining = min(remaining, self.deadline_monotonic - monotonic())
+        if remaining <= 0:
+            raise TimeoutError("execution deadline exhausted")
+        return remaining
 
     @property
     def prompt_hash(self) -> str:

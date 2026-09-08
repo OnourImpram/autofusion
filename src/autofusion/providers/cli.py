@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from time import monotonic
 from typing import Protocol
 
 from autofusion.errors import OutputValidationError, ProviderError
@@ -351,26 +352,33 @@ class CliTransportProvider:
     def invoke(self, request: ProviderRequest) -> ProviderResult:
         if not self.profile.callable:
             raise ProviderError(f"provider {self.profile.handle} is marked non-callable")
+        deadline = monotonic() + request.timeout_s
+        if request.deadline_monotonic is not None:
+            deadline = min(deadline, request.deadline_monotonic)
+        request = replace(request, deadline_monotonic=deadline)
+        request.remaining_timeout_s()
         with TemporaryDirectory(prefix="autofusion-provider-") as directory:
             output_directory = Path(directory)
             schema_path = output_directory / "reviewer-output.schema.json"
             last_message_path = output_directory / "last-message.json"
             atomic_write_bytes(schema_path, canonical_json_bytes(request.response_schema))
+            argv = self.adapter.build_argv(
+                self.profile,
+                request,
+                output_schema_path=schema_path,
+                output_last_message_path=last_message_path,
+            )
+            environment_allowlist = _environment_allowlist(
+                request.environment_allowlist,
+                self.adapter.required_environment(),
+            )
             outcome = self.runner.run(
-                self.adapter.build_argv(
-                    self.profile,
-                    request,
-                    output_schema_path=schema_path,
-                    output_last_message_path=last_message_path,
-                ),
+                argv,
                 input_text=request.prompt,
                 cwd=request.working_directory,
-                timeout_s=request.timeout_s,
+                timeout_s=request.remaining_timeout_s(),
                 max_output_chars=request.max_output_chars,
-                environment_allowlist=_environment_allowlist(
-                    request.environment_allowlist,
-                    self.adapter.required_environment(),
-                ),
+                environment_allowlist=environment_allowlist,
             )
             if outcome.timed_out:
                 return self._failed_result(
