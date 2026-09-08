@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "$id": "https://autofusion.dev/schemas/workflow-dual-review-output.schema.json",
+  "required": [
+    "schema_version",
+    "run_id",
+    "topology",
+    "results"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "topology": {
+      "const": "dual-review"
+    },
+    "results": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "call_id",
+          "result"
+        ],
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "additionalProperties": false,
+                "$id": "https://autofusion.dev/schemas/session-result.schema.json",
+                "title": "Correlated active-session delegate result",
+                "required": [
+                  "schema_version",
+                  "run_id",
+                  "call_id",
+                  "packet_hash",
+                  "artifact_manifest_hash",
+                  "reviewer_schema_id",
+                  "reviewer_schema_hash",
+                  "status",
+                  "actual_identity",
+                  "output",
+                  "error"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "1"
+                  },
+                  "run_id": {
+                    "type": "string",
+                    "pattern": "^run-[A-Za-z0-9-]+$",
+                    "maxLength": 128
+                  },
+                  "call_id": {
+                    "type": "string",
+                    "pattern": "^call-[a-f0-9]{16}$"
+                  },
+                  "packet_hash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "artifact_manifest_hash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "reviewer_schema_id": {
+                    "const": "https://autofusion.dev/schemas/reviewer-output.schema.json"
+                  },
+                  "reviewer_schema_hash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "status": {
+                    "enum": [
+                      "completed",
+                      "missing",
+                      "failed",
+                      "cancelled",
+                      "malformed",
+                      "abstaining"
+                    ]
+                  },
+                  "actual_identity": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "model",
+                          "vendor",
+                          "family",
+                          "delegate"
+                        ],
+                        "properties": {
+                          "model": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "vendor": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "family": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "delegate": {
+                            "enum": [
+                              "sol-delege",
+                              "astra-delege",
+                              "terra-delege",
+                              "gemini-delege",
+                              "grok-delege"
+                            ]
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "output": {},
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 4096
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -150,6 +150,24 @@ class PendingRun:
     degraded: bool
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedRun:
+    """Frozen admission state shared by direct and session dispatch."""
+
+    request: FusionRunRequest
+    run_id: str
+    route: RouteDecision
+    snapshot: SnapshotManifest
+    packet: Packet
+    started_at: str
+    reviewed_tree_hash: str
+    self_identity_hash: str | None
+    self_identity: SessionIdentity | None
+    degradation: tuple[str, ...]
+    repo_access_blocked: bool
+    budget: BudgetLedger
+
+
 class _AsyncRegistryDispatcher(ProviderDispatcher):
     def __init__(self, registry: ProviderRegistry) -> None:
         self.registry = registry
@@ -549,7 +567,7 @@ class FusionEngine:
             "interrupted_provider_dispatch_resumable": False,
         }
 
-    def _prepare(self, request: FusionRunRequest) -> PendingRun:
+    def _freeze(self, request: FusionRunRequest, *, packet_only: bool = False) -> PreparedRun:
         execution_started = monotonic()
         repo_root = request.repo_root.resolve()
         if not repo_root.is_dir():
@@ -627,7 +645,7 @@ class FusionEngine:
                     "blocked_handles": list(repo_access_handles),
                 },
             )
-        include_contents = any(
+        include_contents = packet_only or any(
             self.config.model(handle).context == "packet"
             for handle in route.participants
             if handle != "self"
@@ -670,13 +688,24 @@ class FusionEngine:
             payload={"packet_hash": packet.packet_hash, "required": list(route.participants)},
         )
         degradation: list[str] = []
-        topology_result: OrchestrationResult | PanelRankResult
         packet_dlp = packet.payload.get("dlp")
         packet_match_counts = (
             packet_dlp.get("match_counts") if isinstance(packet_dlp, dict) else None
         )
         if isinstance(packet_match_counts, dict) and packet_match_counts:
             degradation.append("sensitive packet content matched the configured DLP policy")
+        return PreparedRun(
+            request, run_id, route, snapshot, packet, started_at, reviewed_tree_hash,
+            self_identity_hash, self_identity, tuple(degradation), repo_access_blocked, budget,
+        )
+
+    def _prepare(self, request: FusionRunRequest) -> PendingRun:
+        prepared = self._freeze(request)
+        route, packet, run_id, budget = (
+            prepared.route, prepared.packet, prepared.run_id, prepared.budget
+        )
+        repo_access_blocked = prepared.repo_access_blocked
+        topology_result: OrchestrationResult | PanelRankResult
         if repo_access_blocked:
             reason = "repo-access dispatch blocked because the snapshot matched secret patterns"
             results = self._policy_blocked_results(route, reason)
@@ -700,6 +729,29 @@ class FusionEngine:
             results, topology_result, result_payload = self._dispatch(
                 route, packet, run_id, budget
             )
+        return self._finish_prepared(prepared, results, topology_result, result_payload)
+
+    def _finish_prepared(
+        self,
+        prepared: PreparedRun,
+        results: tuple[ProviderResult, ...],
+        topology_result: OrchestrationResult | PanelRankResult,
+        result_payload: JsonObject,
+    ) -> PendingRun:
+        """Run the common evidence, analysis, grounding and reconciliation boundary."""
+        request, run_id, route, snapshot, packet = (
+            prepared.request, prepared.run_id, prepared.route, prepared.snapshot, prepared.packet
+        )
+        started_at, reviewed_tree_hash, budget = (
+            prepared.started_at, prepared.reviewed_tree_hash, prepared.budget
+        )
+        self_identity_hash, self_identity = prepared.self_identity_hash, prepared.self_identity
+        degradation = list(prepared.degradation)
+        run_directory = self._run_directory(run_id)
+        evidence_path = run_directory / "evidence.jsonl"
+        ledger = EvidenceLedger(evidence_path)
+        journal = RunJournal(run_directory / "journal.jsonl", run_id)
+        state = RunStateMachine(RunState.DISPATCHED)
         results = self._attest_calls(results, ledger)
         journal.record(
             "dispatch",

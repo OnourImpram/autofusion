@@ -150,7 +150,7 @@ def validate_execution_identity(call: dict[str, Any], model: dict[str, Any]) -> 
         "configured model differs from the registry",
     )
     require(quota_group == model.get("quota_group"), "call quota group differs from the registry")
-    if evidence == "provider-response":
+    if evidence in {"provider-response", "session-asserted"}:
         require(
             call.get("status") == "completed" and observed == call.get("effective_model")
             and observed == configured,

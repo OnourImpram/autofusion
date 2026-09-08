@@ -658,7 +658,7 @@
           "description": "Identity reported by the provider; never inferred from configuration."
         },
         "identity_evidence": {
-          "enum": ["provider-response", "configured-route", "unavailable", "legacy-unspecified"],
+          "enum": ["provider-response", "session-asserted", "configured-route", "unavailable", "legacy-unspecified"],
           "description": "Absent on historical receipts; absence is not observation evidence."
         },
         "quota_group": {

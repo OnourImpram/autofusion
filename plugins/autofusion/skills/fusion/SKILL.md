@@ -92,6 +92,26 @@ Adaptive routing may escalate upward. It must not silently route below a hard ga
 17. Treat `run-status` as pending reconciliation recovery. Do not claim that an interrupted provider dispatch was automatically resumed.
 18. Require `AUTOFUSION_PROOF_ATTESTATION_KEY` before proof execution. Never place the key in a packet, overlay, receipt, or model prompt.
 
+## Session request/result loop
+
+1. Run `autofusion session-export` with the artifact, active self identity, and
+   `--delegate handle=registered-delegate` mappings. Keep the returned run ID.
+2. The main session invokes each dispatchable named delegate with only its frozen
+   prompt and reviewer schema. Keep first passes blind. Python never invokes self.
+3. Save each result using `session-result.schema.json`, retaining that call's
+   run, call, packet, manifest and schema identifiers. Obtain actual identity from
+   that invocation, never from the requested model or the last router receipt.
+4. Run `autofusion session-import RUN_ID --repo . --result .fusion/result.json` for each
+   result. Preserve missing, failed, cancelled, malformed and abstaining outcomes.
+5. Run `autofusion session-complete RUN_ID --repo .`, inspect analysis and grounding,
+   reconcile findings, and use ordinary `autofusion finalize` with dispositions.
+
+Registered delegates inherit or carry tools. Their names do not enforce read-only
+behavior; the main session controls tool access and must keep the artifact frozen.
+Fable is never a reviewer or delegate target. See `docs/session-bridge.md` in the
+repository for complete CLI examples and the identity evidence boundary.
+Keep handoff files outside the reviewed tree or under the excluded `.fusion/` directory.
+
 ## Preset intent
 
 1. fast uses one reviewer and one round.

@@ -63,6 +63,26 @@ Expected forms:
 16. Query scoped, unexpired precedent only after blind first passes complete.
 17. Keep `AUTOFUSION_PROOF_ATTESTATION_KEY` outside packets, prompts, overlays, receipts, and proof containers.
 
+## Session request/result loop
+
+For session-assisted review, switch to a panel with self as drafter and reconciler,
+then run `autofusion session-export` with explicit
+`--delegate handle=registered-delegate` mappings. The bounded bridge supports
+review and dual-review; fully external proposal/judge panels still use direct
+transports. The main session invokes each dispatchable delegate with only its
+prepared prompt and reviewer schema, preserving blind first passes.
+
+Save responses with the request's run ID, call ID, packet hash, manifest hash and
+schema identifiers, plus the actual identity of that specific invocation. Never
+infer actual identity from requested identity or a last-written router receipt.
+Import each with `autofusion session-import RUN_ID --repo . --result .fusion/result.json`,
+then call `autofusion session-complete RUN_ID --repo .` and reconcile through
+ordinary `autofusion finalize`. Preserve missing, failed, cancelled, malformed and
+abstaining responses. Python never invokes self; Fable is never a reviewer or
+delegate target. The main session controls inherited tools and artifact access.
+See `docs/session-bridge.md` for examples and the identity evidence boundary.
+Keep handoff files outside the reviewed tree or under the excluded `.fusion/` directory.
+
 ## Output shape
 
 Return:

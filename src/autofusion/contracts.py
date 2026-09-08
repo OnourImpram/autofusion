@@ -203,7 +203,7 @@ def _validate_execution_identity(call: JsonObject, profile: ModelProfile) -> Non
         return
     _require(configured == profile.canonical_model, "configured model mismatch")
     _require(quota_group == profile.quota_group, "call quota group mismatch")
-    if evidence == "provider-response":
+    if evidence in {"provider-response", "session-asserted"}:
         _require(
             call.get("status") == "completed" and observed == call.get("effective_model")
             and observed == configured,

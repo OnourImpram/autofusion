@@ -48,6 +48,7 @@ from autofusion.receipt import ReceiptStore
 from autofusion.reconcile import FindingDisposition
 from autofusion.registry import ProviderRegistry
 from autofusion.sandbox import detect_grounding_runner, detect_proof_runner
+from autofusion.session_bridge import SessionBridge
 from autofusion.snapshot import build_snapshot
 from autofusion.util import (
     JsonObject,
@@ -124,15 +125,13 @@ def _proof_capsules(paths: list[str]) -> tuple[ProofCapsule, ...]:
     return tuple(capsules)
 
 
-def _run(args: argparse.Namespace) -> int:
-    engine = _engine(args)
+def _run_request(args: argparse.Namespace) -> FusionRunRequest:
     fingerprint = None
     if args.self_session_fingerprint_env:
         fingerprint = os.environ.get(args.self_session_fingerprint_env)
         if fingerprint is None:
             raise PolicyError("self session fingerprint variable is not set")
-    result = engine.run(
-        FusionRunRequest(
+    return FusionRunRequest(
             task=_task(args),
             repo_root=Path(args.repo),
             artifact_kind=args.kind,
@@ -145,8 +144,11 @@ def _run(args: argparse.Namespace) -> int:
             focus_role=args.focus,
             run_grounding=not args.no_grounding,
             pack=args.pack,
-        )
     )
+
+
+def _run(args: argparse.Namespace) -> int:
+    result = _engine(args).run(_run_request(args))
     if isinstance(result, PendingRun):
         _emit(
             {
@@ -162,6 +164,42 @@ def _run(args: argparse.Namespace) -> int:
         )
     else:
         _emit(_artifacts_json(result))
+    return 0
+
+
+def _session_export(args: argparse.Namespace) -> int:
+    delegates: dict[str, str] = {}
+    for value in args.delegate:
+        handle, separator, delegate = value.partition("=")
+        if not separator or not handle or not delegate or handle in delegates:
+            raise ValueError("delegates must be unique handle=delegate mappings")
+        delegates[handle] = delegate
+    bundle = SessionBridge(_engine(args)).export(_run_request(args), delegates)
+    if args.output:
+        atomic_write_json(Path(args.output), bundle)
+    _emit(bundle)
+    return 0
+
+
+def _session_import(args: argparse.Namespace) -> int:
+    _emit(SessionBridge(_engine(args)).import_result(
+        args.run_id, read_json_object(Path(args.result)),
+    ))
+    return 0
+
+
+def _session_complete(args: argparse.Namespace) -> int:
+    pending = SessionBridge(_engine(args)).complete(args.run_id)
+    _emit({
+        "run_id": pending.run_id,
+        "state": pending.state,
+        "requires_reconciliation": pending.requires_reconciliation,
+        "analysis_path": str(pending.analysis_path),
+        "result_path": str(pending.result_path),
+        "pending_path": str(pending.pending_path),
+        "journal_path": str(pending.journal_path),
+        "degraded": pending.degraded,
+    })
     return 0
 
 
@@ -512,16 +550,7 @@ def _common(parser: argparse.ArgumentParser, *, require_repo: bool = True) -> No
     parser.add_argument("--trust-repo-config", action="store_true")
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="autofusion")
-    sub = parser.add_subparsers(dest="command", required=True)
-    doctor = sub.add_parser("doctor")
-    _common(doctor, require_repo=False)
-    doctor.set_defaults(handler=_doctor)
-    config_validate = sub.add_parser("config-validate")
-    _common(config_validate, require_repo=False)
-    config_validate.set_defaults(handler=_config_validate)
-    run = sub.add_parser("run")
+def _run_arguments(run: argparse.ArgumentParser) -> None:
     _common(run)
     run.add_argument("--task")
     run.add_argument("--task-file")
@@ -551,7 +580,36 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--pack")
     run.add_argument("--no-grounding", action="store_true")
     run.add_argument("--work-root")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="autofusion")
+    sub = parser.add_subparsers(dest="command", required=True)
+    doctor = sub.add_parser("doctor")
+    _common(doctor, require_repo=False)
+    doctor.set_defaults(handler=_doctor)
+    config_validate = sub.add_parser("config-validate")
+    _common(config_validate, require_repo=False)
+    config_validate.set_defaults(handler=_config_validate)
+    run = sub.add_parser("run")
+    _run_arguments(run)
     run.set_defaults(handler=_run)
+    session_export = sub.add_parser("session-export")
+    _run_arguments(session_export)
+    session_export.add_argument("--delegate", action="append", default=[])
+    session_export.add_argument("--output")
+    session_export.set_defaults(handler=_session_export)
+    session_import = sub.add_parser("session-import")
+    _common(session_import)
+    session_import.add_argument("run_id")
+    session_import.add_argument("--result", required=True)
+    session_import.add_argument("--work-root")
+    session_import.set_defaults(handler=_session_import)
+    session_complete = sub.add_parser("session-complete")
+    _common(session_complete)
+    session_complete.add_argument("run_id")
+    session_complete.add_argument("--work-root")
+    session_complete.set_defaults(handler=_session_complete)
     finalize = sub.add_parser("finalize")
     _common(finalize)
     finalize.add_argument("run_id")
