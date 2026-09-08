@@ -53,7 +53,8 @@
         "ignore_user_config": true,
         "ignore_rules": true,
         "skip_git_repo_check": true
-      }
+      },
+      "quota_group": "openai-chatgpt"
     },
     "gpt-sol-ultra": {
       "transport": "codex-exec",
@@ -77,7 +78,8 @@
         "ignore_rules": true,
         "skip_git_repo_check": true,
         "probe_on_call": true
-      }
+      },
+      "quota_group": "openai-chatgpt"
     },
     "claude-opus": {
       "transport": "claude-exec",
@@ -129,6 +131,34 @@
       "compound": true,
       "worker_visibility": "opaque",
       "usage": "evaluation-only"
+    },
+    "astra-ultra": {
+      "transport": "codex-exec",
+      "callable": true,
+      "model": "gpt-6-astra",
+      "vendor": "openai",
+      "family": "gpt-6",
+      "effort": "ultra",
+      "context": "repo-snapshot",
+      "compound": true,
+      "worker_visibility": "opaque",
+      "capabilities": {
+        "repo_access": true,
+        "structured_output": "prompt-and-schema",
+        "read_only": true,
+        "context_window_tokens": 1000000,
+        "context_window_source": "operator-measured-2026-09-08"
+      },
+      "params": {
+        "sandbox": "read-only",
+        "ephemeral": true,
+        "ignore_user_config": true,
+        "ignore_rules": true,
+        "skip_git_repo_check": true,
+        "probe_on_call": true
+      },
+      "canonical_model": "gpt-6-astra",
+      "quota_group": "openai-chatgpt"
     }
   },
   "presets": {
@@ -379,10 +409,15 @@
       "max_depth": 1,
       "default_allow_as_panel_member": false,
       "allowed_handles": [
-        "gpt-sol-ultra"
+        "gpt-sol-ultra",
+        "astra-ultra"
       ],
       "allowed_roles": {
         "gpt-sol-ultra": [
+          "reviewer",
+          "judge"
+        ],
+        "astra-ultra": [
           "reviewer",
           "judge"
         ]
@@ -534,7 +569,8 @@
     "model_allowlist": [
       "gpt-sol",
       "gpt-sol-ultra",
-      "claude-opus"
+      "claude-opus",
+      "astra-ultra"
     ],
     "provider_denylist": [],
     "max_panel_size": 4,
@@ -555,5 +591,16 @@
     "include_per_call_cost": true,
     "include_requested_and_effective_models": true,
     "include_context_hash": true
+  },
+  "quota_groups": {
+    "openai-chatgpt": {
+      "models": [
+        "gpt-5.6-sol",
+        "gpt-6-astra",
+        "gpt-5.6-terra"
+      ],
+      "source": "operator-measured-2026-09-08",
+      "shared_exhaustion": true
+    }
   }
 }

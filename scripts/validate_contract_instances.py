@@ -126,6 +126,50 @@ def validate_schema_instance(
         )
 
 
+def validate_execution_identity(call: dict[str, Any], model: dict[str, Any]) -> None:
+    fields = {"configured_model", "observed_model", "identity_evidence", "quota_group"}
+    if not fields.intersection(call):
+        return  # Historical receipts did not distinguish configuration from observation.
+    require(fields <= call.keys(), "execution identity fields must appear together")
+    evidence = call.get("identity_evidence")
+    configured = call.get("configured_model")
+    observed = call.get("observed_model")
+    quota_group = call.get("quota_group")
+    if evidence == "legacy-unspecified":
+        require(
+            configured is None and observed is None,
+            "legacy identity evidence cannot claim configuration or observation",
+        )
+        require(
+            quota_group is None or quota_group == model.get("quota_group"),
+            "call quota group differs from the registry",
+        )
+        return
+    require(
+        configured == model.get("canonical_model", model.get("model")),
+        "configured model differs from the registry",
+    )
+    require(quota_group == model.get("quota_group"), "call quota group differs from the registry")
+    if evidence == "provider-response":
+        require(
+            call.get("status") == "completed" and observed == call.get("effective_model")
+            and observed == configured,
+            "observed model must match completed effective identity",
+        )
+    elif evidence == "configured-route":
+        require(
+            model.get("transport") == "codex-exec" and observed is None
+            and call.get("status") == "completed" and call.get("effective_model") == configured,
+            "configured route requires completed Codex execution without observed identity",
+        )
+    else:
+        require(
+            evidence == "unavailable" and call.get("status") != "completed"
+            and observed is None and call.get("effective_model") is None,
+            "unavailable identity requires failed execution without observation",
+        )
+
+
 def allowed_model_identities(model: dict[str, Any]) -> set[str]:
     identities: set[str] = set()
     for key in ("model", "canonical_model"):
@@ -323,6 +367,7 @@ def validate_call_registry(
         f"call {handle} worker visibility differs from the registry",
     )
 
+    validate_execution_identity(call, model)
     raw_effective_model = call.get("effective_model")
     if raw_effective_model is None:
         return handle, None
@@ -621,6 +666,16 @@ def validate_receipt_semantics(
             trusted_section("routing").get(routing_hash),
             f"call {handle} routing attestation must be trusted",
         )
+        if call.get("identity_evidence") not in {None, "legacy-unspecified"}:
+            identity_fields = {
+                "configured_model", "observed_model", "identity_evidence", "quota_group"
+            }
+            require(
+                identity_fields <= routing_attestation.keys()
+                and routing_attestation.get("call_id") == call.get("call_id")
+                and all(call[field] == routing_attestation[field] for field in identity_fields),
+                f"call {handle} identity evidence does not match the trusted routing attestation",
+            )
         require(
             routing_attestation.get("handle") == handle
             and routing_attestation.get("vendor") == call.get("vendor")

@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-08",
+  "cli_version": "0.153.4",
+  "transport": "codex-exec",
+  "configured_model": "gpt-6-astra",
+  "observed_model": null,
+  "effective_model": "gpt-6-astra",
+  "identity_evidence": "configured-route",
+  "effort": "ultra",
+  "compound": true,
+  "worker_visibility": "opaque",
+  "quota_group": "openai-chatgpt",
+  "status": "completed",
+  "duration_ms": 15692,
+  "input_tokens": 21941,
+  "output_tokens": 240,
+  "output_hash": "bc7dfbc30b63942afe3a4b010fc91bf209735a1a9dcb61080981d9c848bfa0bb",
+  "routing_attestation_hash": "77f5b9f30541da82387560dfc5663c5f7d048563113acdb89f33b6e5626408ed",
+  "schema_hash": "73cd977b580f5ae63929827aa9963fde68bdcf3851d24d58c0432b07d2e4b7c9",
+  "structured_output_valid": true,
+  "error": null
+}

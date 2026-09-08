@@ -339,6 +339,11 @@ def _failed_result(request: ProviderRequest, error: Exception) -> ProviderResult
         handle=request.handle,
         requested_model=str(metadata.get("requested_model", request.handle)),
         effective_model=None,
+        configured_model=metadata.get("configured_model"),
+        identity_evidence=(
+            "unavailable" if metadata.get("configured_model") is not None else "legacy-unspecified"
+        ),
+        quota_group=metadata.get("quota_group"),
         vendor=str(metadata.get("vendor", "unknown")),
         family=str(metadata.get("family", "unknown")),
         mode=str(metadata.get("mode", "unknown")),

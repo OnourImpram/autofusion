@@ -78,7 +78,7 @@ def inspect_environment(
                 DoctorCheck(
                     f"model:{handle}",
                     "context-required",
-                    "active Claude session is intentionally not callable",
+                    "active session is intentionally not callable",
                 )
             )
             continue
@@ -142,6 +142,16 @@ def inspect_environment(
     return {
         "schema_version": 1,
         "config_hash": sha256_json(config.data),
+        "configured_profiles": {
+            handle: {
+                "configured_model": config.model(handle).canonical_model,
+                "observed_model": None,
+                "effort": config.model(handle).effort,
+                "compound": config.model(handle).compound,
+                "quota_group": config.model(handle).quota_group,
+            }
+            for handle in models if handle != "self"
+        },
         "checks": [check.as_json() for check in checks],
         "blocking": blocking,
         "healthy": not blocking,

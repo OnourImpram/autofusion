@@ -640,7 +640,31 @@
         "routing_attestation_hash",
         "output_hash"
       ],
+      "dependentRequired": {
+        "configured_model": ["observed_model", "identity_evidence", "quota_group"],
+        "observed_model": ["configured_model", "identity_evidence", "quota_group"],
+        "identity_evidence": ["configured_model", "observed_model", "quota_group"],
+        "quota_group": ["configured_model", "observed_model", "identity_evidence"]
+      },
       "properties": {
+        "configured_model": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Canonical configured route; null only for explicit legacy metadata."
+        },
+        "observed_model": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "description": "Identity reported by the provider; never inferred from configuration."
+        },
+        "identity_evidence": {
+          "enum": ["provider-response", "configured-route", "unavailable", "legacy-unspecified"],
+          "description": "Absent on historical receipts; absence is not observation evidence."
+        },
+        "quota_group": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
         "call_id": {
           "type": "string",
           "minLength": 1

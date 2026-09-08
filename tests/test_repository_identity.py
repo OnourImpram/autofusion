@@ -35,3 +35,72 @@ def test_repository_rejects_legacy_fable_panel(legacy: str, replacement: str) ->
 
     with pytest.raises(repository.ValidationError, match=rf"migration required.*{replacement}"):
         repository.validate_config_candidate(candidate)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("transport", "openai-compatible"),
+        ("model", "gpt-5.6-sol"),
+        ("canonical_model", "gpt-5.6-sol"),
+        ("vendor", "other"),
+        ("family", "gpt-5.6"),
+        ("effort", "xhigh"),
+        ("compound", False),
+        ("worker_visibility", "transparent"),
+        ("callable", False),
+    ],
+)
+def test_repository_rejects_corrupt_astra_profile(field: str, value: object) -> None:
+    candidate = repository.load_json(repository.ROOT / ".fusion.example.json")
+    candidate["models"]["astra-ultra"][field] = value
+
+    with pytest.raises(repository.ValidationError, match="astra-ultra"):
+        repository.validate_config_candidate(candidate)
+
+
+@pytest.mark.parametrize("roles", [["reviewer"], ["judge"], ["reviewer", "judge", "proposer"]])
+def test_repository_requires_explicit_astra_reviewer_and_judge_roles(roles: list[str]) -> None:
+    candidate = repository.load_json(repository.ROOT / ".fusion.example.json")
+    candidate["routing"]["compound"]["allowed_roles"]["astra-ultra"] = roles
+
+    with pytest.raises(repository.ValidationError, match="astra-ultra"):
+        repository.validate_config_candidate(candidate)
+
+
+@pytest.mark.parametrize("allowlist", ["compound", "models"])
+def test_repository_requires_astra_allowlists(allowlist: str) -> None:
+    candidate = repository.load_json(repository.ROOT / ".fusion.example.json")
+    if allowlist == "compound":
+        candidate["routing"]["compound"]["allowed_handles"].remove("astra-ultra")
+        del candidate["routing"]["compound"]["allowed_roles"]["astra-ultra"]
+    else:
+        candidate["guardrails"]["model_allowlist"].remove("astra-ultra")
+
+    with pytest.raises(repository.ValidationError, match="astra-ultra"):
+        repository.validate_config_candidate(candidate)
+
+
+@pytest.mark.parametrize("handle", ["gpt-sol", "gpt-sol-ultra", "astra-ultra"])
+def test_repository_requires_shared_profile_quota_group(handle: str) -> None:
+    candidate = repository.load_json(repository.ROOT / ".fusion.example.json")
+    candidate["models"][handle]["quota_group"] = "independent-budget"
+
+    with pytest.raises(repository.ValidationError, match="quota"):
+        repository.validate_config_candidate(candidate)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("models", ["gpt-5.6-sol", "gpt-6-astra"]),
+        ("models", ["gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra", "unknown"]),
+        ("shared_exhaustion", False),
+    ],
+)
+def test_repository_requires_shared_quota_contract(field: str, value: object) -> None:
+    candidate = repository.load_json(repository.ROOT / ".fusion.example.json")
+    candidate["quota_groups"]["openai-chatgpt"][field] = value
+
+    with pytest.raises(repository.ValidationError, match="quota"):
+        repository.validate_config_candidate(candidate)
