@@ -124,6 +124,49 @@
         ]
       }
     },
+    "gemini-flash": {
+      "enabled": false,
+      "activation_gate": "main-session-verified-sandbox-and-terminal-identity-smoke",
+      "transport": "agy-headless",
+      "callable": true,
+      "model": "gemini-3.8-flash-high",
+      "canonical_model": "gemini-3.8-flash-high",
+      "vendor": "google",
+      "family": "gemini",
+      "effort": "high",
+      "context": "packet",
+      "compound": false,
+      "capabilities": {
+        "repo_access": false,
+        "structured_output": "prompt-and-schema",
+        "read_only": true,
+        "identity_source": "terminal-result",
+        "usage_source": "terminal-result",
+        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+      }
+    },
+    "grok": {
+      "enabled": false,
+      "activation_gate": "main-session-verified-acp-permissions-and-identity-smoke",
+      "transport": "acp",
+      "callable": true,
+      "model": "grok-4.6",
+      "canonical_model": "grok-4.6",
+      "vendor": "xai",
+      "family": "grok",
+      "effort": "xhigh",
+      "context": "packet",
+      "compound": false,
+      "capabilities": {
+        "repo_access": false,
+        "structured_output": "prompt-and-schema",
+        "read_only": true,
+        "identity_source": "peer-session-model",
+        "usage_source": "prompt-response",
+        "native_tool_policy": "deny-all",
+        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+      }
+    },
     "openrouter-fusion-reference": {
       "enabled": false,
       "transport": "openai-compatible",
