@@ -136,14 +136,25 @@ whose reversal failed nothing was not counted.
    the corrected argument order was established from help output without a second model
    call, and the profile ships disabled pending a live retest.
 4. Claude CLI `claude-opus-5`: unit-tested contract; no live smoke in this release.
-5. Full gate on the release revision: pytest, Ruff, strict mypy over `src`, `scripts` and
-   `tests`, four repository validators and schema parity; counts are in the release notes
-   on GitHub for the exact tagged revision.
+5. The three implementation branches were merged with cross-step tests
+   (`tests/test_merge_deadlines.py`, `tests/test_merge_context_identity.py`,
+   `tests/test_merge_transport_policy.py`): the `agy` and ACP transports stop at the inherited
+   run deadline, context preflight rejects before a rejected admission reaches a provider,
+   a callable Fable profile is rejected by admission as well as by the loader, configured-route
+   identity survives result handling, and redaction growth cannot exceed the admitted
+   context. Mutation: 12 failed with the merge repairs reverted and the tests kept.
+6. Full gate on the release revision, measured 8 September 2026 on Windows with Python 3.14:
+   794 passed and 1 skipped (the POSIX-only no-op test), Ruff clean, strict mypy clean over
+   96 source files, four repository validators passed.
 
 ### Known limits
 
 1. A supervisor termination between suspended process creation and Job Object assignment
    on Windows can leave a suspended child; provider code cannot run in that interval.
+   Separately, the general process runner does not own descendants of its direct child: a
+   descendant that keeps the standard handles open after its parent exits can hold the
+   runner's pipes until it ends. Reproduced on Windows; guaranteed ownership needs a
+   containment redesign and is not claimed here.
 2. Malformed credential structures can cause conservative removal of the remainder of
    that string.
 3. Pending runs prepared before 0.6.0 lack byte binding and durable capsule bytes; they
