@@ -23,6 +23,7 @@ from autofusion.providers import (
     SelfProvider,
     UrllibHttpClient,
 )
+from autofusion.providers.agy import AgyProvider
 from autofusion.util import JsonObject
 
 
@@ -83,6 +84,10 @@ class ProviderRegistry:
                         )
                     ),
                     runner,
+                )
+            elif profile.transport == "agy-headless":
+                providers[handle] = AgyProvider(
+                    profile, executable=str(profile.params.get("executable", "agy"))
                 )
             elif profile.transport == "openai-compatible":
                 providers[handle] = OpenAICompatibleHttpProvider(
