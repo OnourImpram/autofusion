@@ -1,7 +1,7 @@
 {
   "name": "autofusion",
   "displayName": "autofusion",
-  "version": "0.5.0-alpha.2",
+  "version": "0.6.0",
   "description": "Skill-only Claude Code first adaptive cross-model review protocol with an optional alpha helper runtime.",
   "author": {
     "name": "Onour Impram"
