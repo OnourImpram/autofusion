@@ -1,0 +1,2 @@
+# Hashed fixtures must reach the working tree byte for byte; no end-of-line conversion.
+tests/fixtures/** -text
