@@ -135,7 +135,9 @@ def test_engine_supplies_remaining_run_allowance_to_portable_transport(
         artifact_kind="plan", artifact_paths=("app.py",), panel="portable-review",
         self_model="claude-opus-5", run_grounding=False,
     ))
-    assert time.monotonic() - started < 2.0
+    # The peer sleeps 10 s; finishing well under that proves the deadline stopped it. The bound
+    # leaves room for interpreter start-up and loaded CI runners (2.12 s was measured once).
+    assert time.monotonic() - started < 6.0
     assert len(requests) == len(results) == 1
     assert 0 < requests[0].timeout_s < 0.8
     assert requests[0].deadline_monotonic is not None
