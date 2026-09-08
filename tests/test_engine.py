@@ -677,6 +677,8 @@ def test_confirmed_proof_capsule_cannot_be_rejected(
         revision.mkdir()
         (revision / "app.py").write_text(f"VALUE = {name!r}\n", encoding="utf-8")
         revisions[name] = revision
+    frozen = Path(json.loads(pending.pending_path.read_bytes())["snapshot"]["root"])
+    (revisions["head"] / "app.py").write_bytes((frozen / "app.py").read_bytes())
     overlay = tmp_path / "overlay" / "tests" / "autofusion_proof"
     overlay.mkdir(parents=True)
     (overlay / "test_regression.py").write_text(

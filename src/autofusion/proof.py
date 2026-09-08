@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import os
 import re
 import shutil
 import tempfile
@@ -361,6 +362,7 @@ def _iter_files(root: Path) -> tuple[Path, ...]:
 
 
 def hash_proof_tree(root: Path) -> str:
+    """Hash relative paths, sizes and content hashes for proof and frozen review trees."""
     resolved = root.resolve(strict=True)
     entries: list[JsonObject] = []
     for path in _iter_files(resolved):
@@ -378,6 +380,15 @@ def hash_proof_tree(root: Path) -> str:
             }
         )
     return sha256_json({"version": 1, "entries": entries})
+
+
+def assert_reviewed_revision(capsule: ProofCapsule, reviewed_tree_hash: str) -> None:
+    """Every supported relation uses head for the frozen artifact under review."""
+    if (
+        not _HASH_RE.fullmatch(reviewed_tree_hash)
+        or capsule.intent.revision_hashes.get("head") != reviewed_tree_hash
+    ):
+        raise ProofError("proof head does not match the reviewed artifact")
 
 
 def build_overlay_manifest(root: Path, policy: ProofPolicy) -> tuple[OverlayEntry, ...]:
@@ -414,13 +425,16 @@ def _overlay_hash(entries: tuple[OverlayEntry, ...]) -> str:
 
 
 def _copy_revision(source: Path, destination: Path) -> None:
-    _iter_files(source)
-    shutil.copytree(
-        source,
-        destination,
-        symlinks=False,
-        ignore=shutil.ignore_patterns(".git", ".fusion", "__pycache__", ".pytest_cache"),
-    )
+    # Materialize the same file-only, read-only contract as the frozen review snapshot.
+    destination.mkdir(parents=True)
+    for path in _iter_files(source):
+        relative = _safe_relative(path, source)
+        if relative.startswith((".git/", ".fusion/")) or relative in {".git", ".fusion"}:
+            continue
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(path.read_bytes())
+        os.chmod(target, 0o444)
 
 
 def _apply_overlay(overlay_root: Path, workspace: Path, entries: tuple[OverlayEntry, ...]) -> None:
@@ -428,6 +442,8 @@ def _apply_overlay(overlay_root: Path, workspace: Path, entries: tuple[OverlayEn
         source = overlay_root / PurePosixPath(entry.path)
         destination = workspace / PurePosixPath(entry.path)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            os.chmod(destination, 0o600)
         shutil.copy2(source, destination)
         if sha256_bytes(destination.read_bytes()) != entry.content_hash:
             raise ProofError("proof overlay changed during staging")
@@ -596,6 +612,8 @@ def run_proof(
             source = resolved_revisions[revision]
             workspace = temporary_root / revision
             _copy_revision(source, workspace)
+            if hash_proof_tree(workspace) != intent.revision_hashes[revision]:
+                raise ProofError(f"staged revision does not match the reviewed intent: {revision}")
             _apply_overlay(overlay_root.resolve(strict=True), workspace, entries)
             cwd = (workspace / command.cwd).resolve(strict=False)
             try:

@@ -51,6 +51,7 @@ from autofusion.prompts import (
 from autofusion.proof import (
     ProofCapsule,
     capsule_from_json,
+    hash_proof_tree,
     verify_proof_capsule_attestation,
 )
 from autofusion.receipt import ReceiptStore
@@ -279,7 +280,10 @@ class FusionEngine:
                 )
                 for capsule in verified_capsules
             )
-            analysis = attach_proof_capsules(analysis, verified_capsules)
+            analysis = attach_proof_capsules(
+                analysis, verified_capsules,
+                reviewed_tree_hash=str(pending.get("reviewed_tree_hash", "")),
+            )
             for capsule in verified_capsules:
                 proof_payload: JsonObject = {
                     "proof_id": capsule.intent.proof_id,
@@ -498,6 +502,7 @@ class FusionEngine:
         if "self" in route.participants:
             self_identity_hash, self_family = self._attest_self(request, ledger)
         snapshot = build_snapshot(repo_root, run_directory / "snapshots")
+        reviewed_tree_hash = hash_proof_tree(snapshot.root)
         state.transition(RunState.FROZEN, reason="content-addressed snapshot created")
         journal.record(
             "freeze",
@@ -682,6 +687,7 @@ class FusionEngine:
             results=results,
             analysis_path=analysis_path,
             analysis_hash=sha256_bytes(analysis_bytes),
+            reviewed_tree_hash=reviewed_tree_hash,
             started_at=started_at,
             state=state.state.value,
             self_identity_hash=self_identity_hash,
@@ -1138,6 +1144,7 @@ class FusionEngine:
         results: tuple[ProviderResult, ...],
         analysis_path: Path,
         analysis_hash: str,
+        reviewed_tree_hash: str,
         started_at: str,
         state: str,
         self_identity_hash: str | None,
@@ -1166,6 +1173,7 @@ class FusionEngine:
             "packet_hash": packet.packet_hash,
             "analysis_path": str(analysis_path),
             "analysis_hash": analysis_hash,
+            "reviewed_tree_hash": reviewed_tree_hash,
             "calls": [self._result_json(result) for result in results],
             "self_model": request.self_model if "self" in route.participants else None,
             "self_identity_source": (

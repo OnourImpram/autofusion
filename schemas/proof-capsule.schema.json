@@ -107,7 +107,10 @@
         "runner_attestation_hash"
       ],
       "properties": {
-        "revision": {"enum": ["base", "head", "fixed", "control", "mutant"]},
+        "revision": {
+          "enum": ["base", "head", "fixed", "control", "mutant"],
+          "description": "Head is the frozen reviewed artifact for every supported proof relation."
+        },
         "revision_hash": {"$ref": "#/$defs/hash"},
         "expected": {"enum": ["pass", "fail"]},
         "actual": {"enum": ["pass", "fail", "timeout", "environment-error"]},

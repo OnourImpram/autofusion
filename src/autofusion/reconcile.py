@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from autofusion.analysis import unsettled_review_recommendations
 from autofusion.errors import PolicyError
 from autofusion.grounding import GroundingResult
-from autofusion.proof import ProofCapsule, ProofVerdict
+from autofusion.proof import ProofCapsule, ProofVerdict, assert_reviewed_revision
 from autofusion.util import JsonObject, deep_copy_json
 
 _DISPOSITIONS = {"accepted", "rejected", "deadlock", "resolved", "waived"}
@@ -99,9 +99,12 @@ def attach_grounding(analysis: JsonObject, links: tuple[GroundingLink, ...]) -> 
 
 
 def attach_proof_capsules(
-    analysis: JsonObject, capsules: tuple[ProofCapsule, ...]
+    analysis: JsonObject, capsules: tuple[ProofCapsule, ...], *, reviewed_tree_hash: str,
 ) -> JsonObject:
-    """Bind independently verified proof capsules to their declared findings."""
+    """Bind capsules using the independently frozen review tree's hash_proof_tree hash.
+
+    Callers must supply review-side evidence, never a hash copied from the capsule intent.
+    """
 
     updated = deep_copy_json(analysis)
     assert isinstance(updated, dict)
@@ -118,6 +121,7 @@ def attach_proof_capsules(
     for capsule in capsules:
         if capsule.intent.fusion_run_id != run_id:
             raise ValueError("proof capsule belongs to a different fusion run")
+        assert_reviewed_revision(capsule, reviewed_tree_hash)
         finding = by_id.get(capsule.intent.finding_id)
         if finding is None:
             raise ValueError(
