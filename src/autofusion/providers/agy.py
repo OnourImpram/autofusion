@@ -157,6 +157,10 @@ class AgyProvider:
             raise ProviderError("agy output limit must be positive")
         started = time.monotonic()
         deadline = started + request.timeout_s
+        if request.deadline_monotonic is not None:
+            if not math.isfinite(request.deadline_monotonic):
+                raise ProviderError("execution deadline must be finite")
+            deadline = min(deadline, request.deadline_monotonic)
         prompt = (
             request.prompt
             + "\nReturn only JSON matching this schema:\n"
@@ -272,6 +276,10 @@ class AgyProvider:
             handle=self.profile.handle,
             requested_model=self.profile.model,
             effective_model=None,
+            configured_model=self.profile.canonical_model,
+            observed_model=None,
+            identity_evidence="unavailable",
+            quota_group=self.profile.quota_group,
             vendor=self.profile.vendor,
             family=self.profile.family,
             mode=self.profile.effort,

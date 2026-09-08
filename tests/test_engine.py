@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+import subprocess
+import sys
+import threading
+import time
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -21,7 +26,9 @@ from autofusion.proof import (
     sign_proof_capsule,
 )
 from autofusion.providers.base import SelfProvider
+from autofusion.providers.cli import CliTransportProvider, CodexExecAdapter
 from autofusion.providers.fake import DeterministicFakeProvider
+from autofusion.providers.process import CommandOutcome, CommandRunner, _Process
 from autofusion.reconcile import FindingDisposition
 from autofusion.registry import ProviderRegistry
 
@@ -55,6 +62,16 @@ def _repo(tmp_path: Path) -> Path:
     repo.mkdir()
     (repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
     return repo
+
+
+def test_release_pack_accepts_adequate_explicit_panel(tmp_path: Path) -> None:
+    engine = FusionEngine(load_config(), _registry(_review_output()), work_root=tmp_path / "work")
+    pending = engine.run(FusionRunRequest(
+        task="Review release", repo_root=_repo(tmp_path), artifact_kind="release",
+        artifact_paths=("app.py",), panel="dual-opus", pack="release",
+        self_model="claude-opus-5", run_grounding=False,
+    ))
+    assert isinstance(pending, PendingRun)
 
 
 def test_self_driven_run_stops_for_reconciliation_then_writes_linked_receipt(
@@ -138,9 +155,178 @@ def test_required_provider_failure_writes_honest_degraded_receipt(tmp_path: Path
 class FakeGroundingRunner:
     network_denied = True
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
         del argv, cwd, timeout_s
         return RunnerOutput(exit_code=1, stderr="AssertionError: seeded regression")
+
+
+class ControlledChildRunner:
+    def __init__(self) -> None:
+        self.children: list[subprocess.Popen[bytes]] = []
+        self.watchdogs: list[threading.Timer] = []
+        self.timeouts: list[float] = []
+
+    def spawn(self, args: Sequence[str], **kwargs: Any) -> _Process:
+        child = subprocess.Popen(args, **kwargs)
+        self.children.append(child)
+        watchdog = threading.Timer(4.0, child.kill)
+        watchdog.daemon = True
+        self.watchdogs.append(watchdog)
+        watchdog.start()
+        return cast(_Process, child)
+
+    def run(self, argv: Sequence[str], **kwargs: Any) -> CommandOutcome:
+        self.timeouts.append(float(kwargs["timeout_s"]))
+        return CommandRunner(popen_factory=self.spawn).run(argv, **kwargs)
+
+    def close(self) -> None:
+        for watchdog in self.watchdogs:
+            watchdog.cancel()
+            watchdog.join(timeout=1.0)
+        for child in self.children:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=2.0)
+            for stream in (child.stdin, child.stdout, child.stderr):
+                if stream is not None:
+                    stream.close()
+
+
+@pytest.fixture
+def controlled_children() -> Iterator[ControlledChildRunner]:
+    runner = ControlledChildRunner()
+    try:
+        yield runner
+    finally:
+        runner.close()
+
+
+def test_execution_deadline_terminates_real_provider_child(
+    tmp_path: Path, controlled_children: ControlledChildRunner
+) -> None:
+    class SleepingAdapter(CodexExecAdapter):
+        def build_argv(self, *args: object, **kwargs: object) -> tuple[str, ...]:
+            return (sys.executable, "-c", "import time; time.sleep(30)")
+
+    config = load_config(overrides={"guardrails": {"max_wallclock_s": 1}})
+    providers = dict(_registry(_review_output()).providers)
+    providers["gpt-sol"] = CliTransportProvider(
+        config.model("gpt-sol"), SleepingAdapter(), controlled_children
+    )
+    started = time.monotonic()
+    artifacts = FusionEngine(
+        config, ProviderRegistry(providers), work_root=tmp_path / "work"
+    ).run(
+        FusionRunRequest(
+            task="Review under a real execution deadline",
+            repo_root=_repo(tmp_path),
+            artifact_kind="plan",
+            artifact_paths=("app.py",),
+            preset="fast",
+            self_model="claude-opus-5",
+            run_grounding=False,
+        )
+    )
+    assert time.monotonic() - started < 2.5
+    assert not isinstance(artifacts, PendingRun)
+    assert artifacts.receipt["verdict"] == "degraded"
+    assert artifacts.receipt["calls"][0]["status"] == "timed-out"
+    assert 0 < controlled_children.timeouts[0] <= 1.0
+    for child in controlled_children.children:
+        assert child.poll() is not None
+        assert all(stream is not None and stream.closed for stream in (
+            child.stdin, child.stdout, child.stderr
+        ))
+
+
+def test_grounding_deadline_terminates_child_and_prevents_later_command(
+    tmp_path: Path, controlled_children: ControlledChildRunner
+) -> None:
+    findings: list[dict[str, object]] = [
+        {
+            "severity": "minor", "category": "correctness", "claim": f"Check {name}",
+            "evidence": {"summary": "app.py fixture", "strength": "artifact-cited"},
+            "suggested_fix": "Review the fixture", "checkable": True,
+            "verification_id": f"python.{name}", "stance_key": name, "stance": "supports",
+        }
+        for name in ("first", "second")
+    ]
+    config = load_config(overrides={
+        "guardrails": {"max_wallclock_s": 1},
+        "verification": {"profiles": {"python": {"commands": {
+            name: {"argv": ["controlled", name], "timeout_s": 30, "kind": "dynamic"}
+            for name in ("first", "second")
+        }}}},
+    })
+
+    class ControlledGrounding:
+        network_denied = True
+
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
+            self.calls.append(argv[-1])
+            code = "import time; time.sleep(30)" if argv[-1] == "first" else "pass"
+            outcome = controlled_children.run(
+                (sys.executable, "-c", code), input_text="", cwd=cwd, timeout_s=timeout_s,
+                max_output_chars=128, environment_allowlist=(),
+            )
+            return RunnerOutput(exit_code=outcome.returncode, timed_out=outcome.timed_out)
+
+    runner = ControlledGrounding()
+    started = time.monotonic()
+    artifacts = FusionEngine(
+        config, _registry(_review_output(findings)),
+        work_root=tmp_path / "work", grounding_runner=runner,
+    ).run(FusionRunRequest(
+        task="Review grounding deadline", repo_root=_repo(tmp_path), artifact_kind="diff",
+        artifact_paths=("app.py",), preset="fast", self_model="claude-opus-5",
+    ))
+    assert time.monotonic() - started < 2.5
+    assert runner.calls == ["first"]
+    assert 0 < controlled_children.timeouts[0] <= 1.0
+    assert not isinstance(artifacts, PendingRun)
+    assert artifacts.receipt["verdict"] == "degraded"
+    analysis = json.loads(artifacts.analysis_path.read_text(encoding="utf-8"))
+    assert analysis["grounding_results"][0]["execution_status"] == "timeout"
+    assert analysis["grounding_results"][0]["verdict"] == "inconclusive"
+    assert all(child.poll() is not None for child in controlled_children.children)
+
+
+def test_snapshot_preparation_consumes_execution_deadline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from autofusion import engine as engine_module
+    from autofusion.snapshot import build_snapshot as original
+
+    config = load_config(overrides={"guardrails": {"max_wallclock_s": 1}})
+    calls: list[str] = []
+
+    def slow_snapshot(*args: Any, **kwargs: Any) -> Any:
+        time.sleep(1.1)
+        return original(*args, **kwargs)
+
+    class RecordingProvider:
+        profile = config.model("gpt-sol")
+
+        def invoke(self, request: ProviderRequest) -> ProviderResult:
+            calls.append(request.handle)
+            return DeterministicFakeProvider(self.profile, _review_output()).invoke(request)
+
+    monkeypatch.setattr(engine_module, "build_snapshot", slow_snapshot)
+    providers = dict(_registry(_review_output()).providers)
+    providers["gpt-sol"] = RecordingProvider()
+    artifacts = FusionEngine(
+        config, ProviderRegistry(providers), work_root=tmp_path / "work"
+    ).run(FusionRunRequest(
+        task="Review after expensive preparation", repo_root=_repo(tmp_path),
+        artifact_kind="plan", artifact_paths=("app.py",), preset="fast",
+        self_model="claude-opus-5", run_grounding=False,
+    ))
+    assert calls == []
+    assert not isinstance(artifacts, PendingRun)
+    assert artifacts.receipt["verdict"] == "degraded"
 
 
 def test_execution_confirmed_finding_cannot_be_rejected(tmp_path: Path) -> None:
@@ -443,9 +629,12 @@ class CapsuleRunner:
     strong_isolation: bool = True
     runner_attestation_hash: str = "c" * 64
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
         del argv, timeout_s
-        return RunnerOutput(exit_code=0 if cwd.name == "base" else 1)
+        return RunnerOutput(
+            exit_code=0 if cwd.name == "base" else 1,
+            stderr="" if cwd.name == "base" else "AssertionError: intended regression",
+        )
 
 
 def test_confirmed_proof_capsule_cannot_be_rejected(
@@ -490,6 +679,8 @@ def test_confirmed_proof_capsule_cannot_be_rejected(
         revision.mkdir()
         (revision / "app.py").write_text(f"VALUE = {name!r}\n", encoding="utf-8")
         revisions[name] = revision
+    frozen = Path(json.loads(pending.pending_path.read_bytes())["snapshot"]["root"])
+    (revisions["head"] / "app.py").write_bytes((frozen / "app.py").read_bytes())
     overlay = tmp_path / "overlay" / "tests" / "autofusion_proof"
     overlay.mkdir(parents=True)
     (overlay / "test_regression.py").write_text(
@@ -512,7 +703,8 @@ def test_confirmed_proof_capsule_cannot_be_rejected(
         revisions=revisions,
         overlay_root=tmp_path / "overlay",
         command=VerificationCommand(
-            "python.pytest", ("pytest", "-q"), 30, "dynamic"
+            "python.pytest", ("pytest", "-q"), 30, "dynamic",
+            expected_failure=("AssertionError: intended regression",),
         ),
         runner=CapsuleRunner(),
         policy=ProofPolicy(

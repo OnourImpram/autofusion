@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from autofusion.errors import OutputValidationError, ProviderError
+from autofusion.errors import OutputValidationError, PolicyError, ProviderError
 from autofusion.identity import assert_executable_identity
 from autofusion.models import ModelProfile, ProviderRequest, ProviderResult
 from autofusion.providers.base import (
@@ -116,6 +116,14 @@ def _api_key(key_env: str) -> str:
     return key
 
 
+def _admit_deadline(client: HttpClient, request: ProviderRequest) -> None:
+    if request.deadline_monotonic is not None and isinstance(client, UrllibHttpClient):
+        # urllib timeouts cover blocking operations, not total DNS/header/body time.
+        # https://docs.python.org/3.11/library/urllib.request.html#urllib.request.urlopen
+        raise PolicyError("urllib transport cannot enforce a total execution deadline")
+    request.remaining_timeout_s()
+
+
 def _decode_response(response: HttpResponse) -> JsonObject:
     try:
         text = response.body.decode("utf-8")
@@ -144,6 +152,7 @@ class OpenAICompatibleHttpProvider:
 
     def invoke(self, request: ProviderRequest) -> ProviderResult:
         assert_executable_identity(self.profile)
+        _admit_deadline(self.http_client, request)
         started = time.monotonic()
         payload: JsonObject = {
             "model": self.profile.model,
@@ -164,7 +173,7 @@ class OpenAICompatibleHttpProvider:
                 "Content-Type": "application/json",
             },
             body=canonical_json_bytes(payload),
-            timeout_s=request.timeout_s,
+            timeout_s=request.remaining_timeout_s(),
             max_bytes=max(4096, request.max_output_chars * 4),
         )
         envelope = _decode_response(response)
@@ -204,6 +213,7 @@ class AnthropicHttpProvider:
 
     def invoke(self, request: ProviderRequest) -> ProviderResult:
         assert_executable_identity(self.profile)
+        _admit_deadline(self.http_client, request)
         started = time.monotonic()
         max_tokens = self.profile.params.get("max_tokens", 4096)
         if not isinstance(max_tokens, int) or max_tokens <= 0:
@@ -224,7 +234,7 @@ class AnthropicHttpProvider:
                 "content-type": "application/json",
             },
             body=canonical_json_bytes(payload),
-            timeout_s=request.timeout_s,
+            timeout_s=request.remaining_timeout_s(),
             max_bytes=max(4096, request.max_output_chars * 4),
         )
         envelope = _decode_response(response)

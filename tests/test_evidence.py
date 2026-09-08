@@ -22,7 +22,7 @@ class FakeRunner:
         self.output = output
         self.received_argv: tuple[str, ...] | None = None
 
-    def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
+    def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
         self.received_argv = tuple(argv)
         return self.output
 

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
+import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -21,7 +24,7 @@ from autofusion.providers.http import (
     HttpResponse,
     OpenAICompatibleHttpProvider,
 )
-from autofusion.providers.process import CommandOutcome, CommandRunner
+from autofusion.providers.process import CommandOutcome, CommandRunner, _Process
 from autofusion.registry import ProviderRegistry
 from autofusion.util import JsonObject
 
@@ -164,6 +167,79 @@ def test_command_runner_times_out_and_terminates_child(tmp_path: Path) -> None:
     )
     assert outcome.timed_out
     assert time.monotonic() - started < 3.0
+
+
+@pytest.mark.parametrize(
+    ("child_code", "timeout_s", "expected_timeout"),
+    [
+        pytest.param("import time; time.sleep(30)", 0.1, True, id="blocked-stdin"),
+        pytest.param("pass", 2.0, False, id="early-exit"),
+    ],
+)
+def test_command_runner_supervises_large_stdin(
+    tmp_path: Path, child_code: str, timeout_s: float, expected_timeout: bool
+) -> None:
+    children: list[subprocess.Popen[bytes]] = []
+    watchdogs: list[threading.Timer] = []
+    threads_before = set(threading.enumerate())
+
+    def spawn(args: Sequence[str], **kwargs: Any) -> _Process:
+        child = subprocess.Popen(args, **kwargs)
+        children.append(child)
+        # The watchdog bounds this test even when stdin supervision is broken.
+        watchdog = threading.Timer(4.0, child.kill)
+        watchdog.daemon = True
+        watchdogs.append(watchdog)
+        watchdog.start()
+        return cast(_Process, child)
+
+    started = time.monotonic()
+    try:
+        outcome = CommandRunner(popen_factory=spawn).run(
+            (sys.executable, "-c", child_code),
+            input_text="x" * 2_000_000,
+            cwd=tmp_path,
+            timeout_s=timeout_s,
+            max_output_chars=128,
+            environment_allowlist=(),
+        )
+        elapsed = time.monotonic() - started
+        for watchdog in watchdogs:
+            watchdog.cancel()
+            watchdog.join(timeout=1.0)
+        assert elapsed < 2.0
+        assert outcome.timed_out is expected_timeout
+        if not expected_timeout:
+            assert outcome.returncode == 0
+        assert children[0].poll() is not None
+        for stream in (children[0].stdin, children[0].stdout, children[0].stderr):
+            assert stream is not None and stream.closed
+        assert not set(threading.enumerate()).difference(threads_before)
+    finally:
+        for watchdog in watchdogs:
+            watchdog.cancel()
+            watchdog.join(timeout=1.0)
+        for child in children:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=2.0)
+            for stream in (child.stdin, child.stdout, child.stderr):
+                if stream is not None:
+                    stream.close()
+
+
+def test_command_runner_preserves_complete_large_stdin(tmp_path: Path) -> None:
+    outcome = CommandRunner().run(
+        (sys.executable, "-c", "import sys; print(len(sys.stdin.buffer.read()))"),
+        input_text="x" * 2_000_000,
+        cwd=tmp_path,
+        timeout_s=2.0,
+        max_output_chars=128,
+        environment_allowlist=(),
+    )
+    assert outcome.returncode == 0
+    assert not outcome.timed_out
+    assert outcome.stdout.strip() == "2000000"
 
 
 def test_command_runner_does_not_inherit_secret_environment(
@@ -492,6 +568,69 @@ def test_codex_ultra_requires_explicit_runtime_capability_proof(tmp_path: Path) 
     assert provider.invoke(_request(tmp_path)).status is CallStatus.COMPLETED
     assert runner.argv is not None
     assert runner.argv[runner.argv.index("--config") + 1] == "model_reasoning_effort=ultra"
+
+
+@pytest.mark.parametrize("orchestrated", [False, True])
+def test_cli_preparation_consumes_the_call_deadline(
+    tmp_path: Path, orchestrated: bool
+) -> None:
+    class SlowProbe:
+        def supports_reasoning_effort(self, effort: str) -> bool:
+            time.sleep(0.1)
+            return True
+
+    runner = RecordingRunner(_outcome('{"model":"model-1"}'))
+    provider = CliTransportProvider(
+        _profile(effort="ultra"),
+        CodexExecAdapter(capability_probe=SlowProbe()),
+        runner,
+    )
+    with pytest.raises(TimeoutError):
+        provider.invoke(replace(
+            _request(tmp_path), timeout_s=0.05,
+            deadline_monotonic=time.monotonic() + 1.0 if orchestrated else None,
+        ))
+    assert runner.argv is None
+
+
+def test_orchestrated_urllib_call_is_blocked_before_http_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import asyncio
+    from urllib.request import OpenerDirector
+
+    from autofusion.budget import BudgetLedger
+    from autofusion.models import ContextBudget, RunBudget
+    from autofusion.providers.http import UrllibHttpClient
+    from autofusion.topologies import run_review
+
+    attempts: list[object] = []
+
+    def unexpected_open(*args: object, **kwargs: object) -> None:
+        attempts.append(args)
+        raise AssertionError("hard-deadline urllib call must be blocked")
+
+    monkeypatch.setenv("TEST_DEADLINE_KEY", "synthetic-test-value")
+    monkeypatch.setattr(OpenerDirector, "open", unexpected_open)
+    provider = OpenAICompatibleHttpProvider(
+        _profile(transport="openai-compatible"), "https://provider.example/v1",
+        "TEST_DEADLINE_KEY", UrllibHttpClient(),
+    )
+
+    class Dispatcher:
+        async def dispatch(self, request: ProviderRequest) -> Any:
+            return await asyncio.to_thread(provider.invoke, request)
+
+    result = asyncio.run(run_review(
+        Dispatcher(),
+        replace(
+            _request(tmp_path), metadata={"packet_hash": "a" * 64},
+            context_budget=ContextBudget(10_000, 100, 100),
+        ),
+        budget=BudgetLedger(RunBudget(1, 1, None, 512)),
+    ))
+    assert attempts == []
+    assert "total execution deadline" in (result.results[0].error or "")
 
 
 def test_openai_compatible_transport_validates_identity_usage_and_cost(

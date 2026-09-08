@@ -52,6 +52,10 @@ def validate_linked_run(
     )
     require(receipt.get("topology") == analysis.get("topology"), "topology mismatch")
     require(receipt.get("panel") == analysis.get("panel"), "panel mismatch")
+    require(
+        receipt.get("context_complete") == analysis.get("context_complete"),
+        "context_complete mismatch",
+    )
     expected_analysis_hash = hashlib.sha256(analysis_path.read_bytes()).hexdigest()
     require(
         receipt.get("analysis_hash") == expected_analysis_hash,

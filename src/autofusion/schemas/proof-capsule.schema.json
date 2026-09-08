@@ -104,13 +104,18 @@
         "output_hash",
         "output_truncated",
         "invocation_hash",
-        "runner_attestation_hash"
+        "runner_attestation_hash",
+        "failure_class",
+        "matched_expected_failure"
       ],
       "properties": {
-        "revision": {"enum": ["base", "head", "fixed", "control", "mutant"]},
+        "revision": {
+          "enum": ["base", "head", "fixed", "control", "mutant"],
+          "description": "Head is the frozen reviewed artifact for every supported proof relation."
+        },
         "revision_hash": {"$ref": "#/$defs/hash"},
         "expected": {"enum": ["pass", "fail"]},
-        "actual": {"enum": ["pass", "fail", "timeout", "environment-error"]},
+        "actual": {"enum": ["pass", "fail", "timeout", "environment-error", "collection-error", "no-tests", "usage-error", "unknown-failure"]},
         "exit_code": {"type": ["integer", "null"]},
         "execution_status": {
           "enum": ["completed", "timeout", "environment-error", "runner-error"]
@@ -118,7 +123,9 @@
         "output_hash": {"$ref": "#/$defs/hash"},
         "output_truncated": {"type": "boolean"},
         "invocation_hash": {"$ref": "#/$defs/hash"},
-        "runner_attestation_hash": {"$ref": "#/$defs/hash"}
+        "runner_attestation_hash": {"$ref": "#/$defs/hash"},
+        "failure_class": {"enum": [null, "assertion", "static-diagnostic", "collection", "no-tests", "timeout", "environment", "usage", "unknown", "truncated-output"]},
+        "matched_expected_failure": {"type": "boolean"}
       }
     }
   }

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import os
+import sys
 import uuid
 from collections import defaultdict
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
+from time import monotonic
 from typing import cast
 
 from autofusion.analysis import AnalysisInput, build_analysis
@@ -56,6 +61,7 @@ from autofusion.prompts import (
 from autofusion.proof import (
     ProofCapsule,
     capsule_from_json,
+    hash_proof_tree,
     verify_proof_capsule_attestation,
 )
 from autofusion.receipt import ReceiptStore
@@ -86,6 +92,7 @@ from autofusion.util import (
     JsonObject,
     atomic_write_bytes,
     atomic_write_json,
+    canonical_json_bytes,
     isoformat_z,
     read_json_object,
     sha256_bytes,
@@ -151,6 +158,37 @@ class _AsyncRegistryDispatcher(ProviderDispatcher):
         return await asyncio.to_thread(self.registry.invoke, request)
 
 
+def _set_finalization_lock(descriptor: int, acquire: bool) -> None:
+    if sys.platform == "win32":
+        import msvcrt
+
+        # Byte-range locks may extend beyond EOF and fail immediately when occupied.
+        # https://docs.python.org/3.11/library/msvcrt.html#msvcrt.locking
+        msvcrt.locking(descriptor, msvcrt.LK_NBLCK if acquire else msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+
+        # https://docs.python.org/3.11/library/fcntl.html#fcntl.flock
+        fcntl.flock(descriptor, (fcntl.LOCK_EX | fcntl.LOCK_NB) if acquire else fcntl.LOCK_UN)
+
+
+@contextmanager
+def _finalization_lock(directory: Path) -> Iterator[None]:
+    # Keep the inode stable; deleting a lock file can create two independent locks.
+    with (directory / "finalization.lock").open("a+b") as lock:
+        lock.seek(0)
+        try:
+            _set_finalization_lock(lock.fileno(), True)
+        except OSError as error:
+            raise ReceiptError(
+                "run finalization is already in progress or cannot be locked"
+            ) from error
+        try:
+            yield
+        finally:
+            _set_finalization_lock(lock.fileno(), False)
+
+
 class FusionEngine:
     """Coordinate callable participants while never attempting to invoke self."""
 
@@ -200,7 +238,7 @@ class FusionEngine:
             explicit_panel=request.panel,
         )
         if pack is not None:
-            minimum = str(pack["minimum_preset"])
+            minimum, _ = self.config.preset(str(pack["minimum_preset"]))
             if not is_route_at_least(route, minimum):
                 if request.panel is not None:
                     raise PolicyError(
@@ -211,6 +249,8 @@ class FusionEngine:
                     signals=signals,
                     requested_preset=minimum,
                 )
+                if not is_route_at_least(route, minimum):
+                    raise PolicyError(f"configured panel cannot satisfy pack minimum {minimum}")
             allowed_topologies = pack.get("allowed_topologies")
             assert isinstance(allowed_topologies, list)
             if route.topology not in allowed_topologies:
@@ -237,27 +277,75 @@ class FusionEngine:
         """Finalize a pending run after self or external reconciliation."""
 
         run_directory = self._run_directory(run_id)
+        if not run_directory.is_dir():
+            raise ReceiptError(f"pending run does not exist: {run_id}")
+        with _finalization_lock(run_directory):
+            return self._finalize_locked(
+                run_id, dispositions=dispositions, automatic=automatic,
+                proof_capsules=proof_capsules,
+            )
+
+    def _finalize_locked(
+        self, run_id: str, *, dispositions: tuple[FindingDisposition, ...] | None,
+        automatic: bool, proof_capsules: tuple[ProofCapsule, ...],
+    ) -> RunArtifacts:
+
+        run_directory = self._run_directory(run_id)
         pending_path = run_directory / "pending.json"
         if not pending_path.is_file():
             raise ReceiptError(f"pending run does not exist: {run_id}")
         if (run_directory / "finalized.json").exists():
             raise ReceiptError(f"run is already finalized: {run_id}")
         journal = RunJournal(run_directory / "journal.jsonl", run_id)
-        pending = read_json_object(pending_path)
+        pending_bytes = pending_path.read_bytes()
+        pending = json.loads(pending_bytes)
+        if not isinstance(pending, dict):
+            raise ReceiptError("pending state must be an object")
         ledger = EvidenceLedger(run_directory / "evidence.jsonl")
         records = ledger.verify()
-        pending_hash = sha256_bytes(pending_path.read_bytes())
+        pending_hash = sha256_bytes(pending_bytes)
         if not any(
             record.kind == "pending-state" and record.payload.get("pending_hash") == pending_hash
             for record in records
         ):
             raise ReceiptError("pending run is not bound to its evidence ledger")
         analysis_path = run_directory / "analysis.json"
-        analysis = read_json_object(analysis_path)
-        verified_capsules = tuple(
+        analysis_bytes = analysis_path.read_bytes()
+        if sha256_bytes(analysis_bytes) != pending.get("analysis_hash"):
+            raise ReceiptError("pending analysis bytes are not bound to the reviewed state")
+        analysis = json.loads(analysis_bytes)
+        if not isinstance(analysis, dict):
+            raise ReceiptError("pending analysis must be an object")
+        accepted_records = [record for record in records if record.kind == "proof-capsule"]
+        accepted_capsules: list[ProofCapsule] = []
+        for record in accepted_records:
+            capsule_hash = record.payload.get("capsule_hash")
+            if (
+                not isinstance(capsule_hash, str) or len(capsule_hash) != 64
+                or any(char not in "0123456789abcdef" for char in capsule_hash)
+            ):
+                raise ReceiptError("accepted proof capsule hash is invalid")
+            capsule_path = run_directory / "proof-capsules" / f"{capsule_hash}.json"
+            try:
+                capsule_bytes = capsule_path.read_bytes()
+            except OSError as error:
+                raise ReceiptError("accepted proof capsule is unavailable") from error
+            if sha256_bytes(capsule_bytes) != record.payload.get("capsule_file_hash"):
+                raise ReceiptError("accepted proof capsule bytes changed")
+            capsule = capsule_from_json(json.loads(capsule_bytes))
+            if (
+                capsule.capsule_hash != capsule_hash
+                or capsule.intent.proof_id != record.payload.get("proof_id")
+            ):
+                raise ReceiptError("accepted proof capsule does not match its evidence record")
+            accepted_capsules.append(capsule)
+        if len({capsule.intent.proof_id for capsule in proof_capsules}) != len(proof_capsules):
+            raise ReceiptError("supplied proof capsule IDs must be unique")
+        candidates = (*accepted_capsules, *(
             capsule_from_json(capsule.as_json()) for capsule in proof_capsules
-        )
-        if verified_capsules:
+        ))
+        verified_capsules: tuple[ProofCapsule, ...] = ()
+        if candidates:
             proof_settings = self.config.section("proof")
             key_env = str(proof_settings["attestation_key_env"])
             verification_key = os.environ.get(key_env)
@@ -266,22 +354,31 @@ class FusionEngine:
                     f"proof attestation key variable is not set: {key_env}"
                 )
             key_id = str(proof_settings["attestation_key_id"])
-            verified_capsules = tuple(
-                verify_proof_capsule_attestation(
+            by_id: dict[str, ProofCapsule] = {}
+            for capsule in candidates:
+                verified = verify_proof_capsule_attestation(
                     capsule,
                     key_id=key_id,
                     verification_key=verification_key.encode("utf-8"),
                 )
-                for capsule in verified_capsules
+                prior_capsule = by_id.get(verified.intent.proof_id)
+                if prior_capsule is not None and prior_capsule.as_json() != verified.as_json():
+                    raise ReceiptError("proof ID was reused with a different capsule")
+                by_id[verified.intent.proof_id] = verified
+            verified_capsules = tuple(by_id[proof_id] for proof_id in sorted(by_id))
+            analysis = attach_proof_capsules(
+                analysis, verified_capsules,
+                reviewed_tree_hash=str(pending.get("reviewed_tree_hash", "")),
             )
-            analysis = attach_proof_capsules(analysis, verified_capsules)
             for capsule in verified_capsules:
+                capsule_bytes = canonical_json_bytes(capsule.as_json()) + b"\n"
                 proof_payload: JsonObject = {
                     "proof_id": capsule.intent.proof_id,
                     "finding_id": capsule.intent.finding_id,
                     "capsule_hash": capsule.capsule_hash,
                     "verdict": capsule.verdict.value,
                     "mutation_gate_passed": capsule.mutation_gate_passed,
+                    "capsule_file_hash": sha256_bytes(capsule_bytes),
                 }
                 prior = [
                     record
@@ -292,6 +389,10 @@ class FusionEngine:
                 if prior and any(record.payload != proof_payload for record in prior):
                     raise ReceiptError("proof ID was reused with a different capsule")
                 if not prior:
+                    atomic_write_bytes(
+                        run_directory / "proof-capsules" / f"{capsule.capsule_hash}.json",
+                        capsule_bytes,
+                    )
                     ledger.append("proof-capsule", proof_payload)
         reconcile_input_hash = sha256_json(
             {
@@ -449,6 +550,7 @@ class FusionEngine:
         }
 
     def _prepare(self, request: FusionRunRequest) -> PendingRun:
+        execution_started = monotonic()
         repo_root = request.repo_root.resolve()
         if not repo_root.is_dir():
             raise ValueError(f"repository root does not exist: {repo_root}")
@@ -471,6 +573,7 @@ class FusionEngine:
         )
         state = RunStateMachine()
         route, pack = self._resolve_route(request)
+        budget = BudgetLedger(route.budget, started_at=execution_started)
         assert_callable_participants(
             self.config, tuple(handle for handle in route.participants if handle != "self")
         )
@@ -491,6 +594,7 @@ class FusionEngine:
         if "self" in route.participants:
             self_identity_hash, self_identity = self._attest_self(request, ledger)
         snapshot = build_snapshot(repo_root, run_directory / "snapshots")
+        reviewed_tree_hash = hash_proof_tree(snapshot.root)
         state.transition(RunState.FROZEN, reason="content-addressed snapshot created")
         journal.record(
             "freeze",
@@ -558,7 +662,6 @@ class FusionEngine:
                 "hard_gates": list(route.hard_gates),
             },
         )
-        budget = BudgetLedger(route.budget)
         state.transition(RunState.DISPATCHED, reason="external participants dispatched")
         journal.record(
             "dispatch",
@@ -639,8 +742,12 @@ class FusionEngine:
             idempotency_key="state:analyzed",
             payload={"analysis_hash": sha256_json(analysis)},
         )
-        if request.run_grounding and request.artifact_kind == "diff":
-            analysis = self._ground(analysis, snapshot, ledger)
+        if (
+            request.run_grounding
+            and request.artifact_kind == "diff"
+            and budget.remaining_s() > 0
+        ):
+            analysis = self._ground(analysis, snapshot, ledger, budget)
             state.transition(RunState.GROUNDED, reason="eligible findings grounded")
             journal.record(
                 "ground",
@@ -656,11 +763,12 @@ class FusionEngine:
         except SnapshotError as error:
             degradation.append(str(error))
         active_wallclock_s = self._wallclock_seconds(started_at, isoformat_z(utc_now()))
-        if active_wallclock_s > route.budget.max_wallclock_s:
+        if budget.remaining_s() <= 0 or active_wallclock_s > route.budget.max_wallclock_s:
             degradation.append("active execution exceeded the configured wallclock budget")
         validate_analysis(analysis)
         analysis_path = run_directory / "analysis.json"
-        atomic_write_bytes(analysis_path, canonical_analysis_bytes(analysis))
+        analysis_bytes = canonical_analysis_bytes(analysis)
+        atomic_write_bytes(analysis_path, analysis_bytes)
         result_path = run_directory / "result.json"
         atomic_write_json(result_path, result_payload)
         pending_payload = self._pending_payload(
@@ -670,6 +778,8 @@ class FusionEngine:
             packet=packet,
             results=results,
             analysis_path=analysis_path,
+            analysis_hash=sha256_bytes(analysis_bytes),
+            reviewed_tree_hash=reviewed_tree_hash,
             started_at=started_at,
             state=state.state.value,
             self_identity_hash=self_identity_hash,
@@ -717,7 +827,7 @@ class FusionEngine:
         run_id: str,
         budget: BudgetLedger,
     ) -> tuple[tuple[ProviderResult, ...], OrchestrationResult | PanelRankResult, JsonObject]:
-        dispatcher = _AsyncRegistryDispatcher(self.registry)
+        dispatcher = _AsyncRegistryDispatcher(replace(self.registry, config=self.config))
         panel = self.config.panel(route.panel)
         capacity_handles = list(route.participants)
         advisor = panel.get("advisor")
@@ -741,6 +851,7 @@ class FusionEngine:
                     prompt=proposal_prompt(packet),
                     schema=proposal_schema,
                     shared_input_limit=input_limit,
+                    role="proposer",
                 )
                 for handle in proposer_handles
             )
@@ -755,6 +866,7 @@ class FusionEngine:
                 ),
                 schema=judge_schema,
                 shared_input_limit=input_limit,
+                role="judge",
             )
             context_error = context_fit_error((*proposals, judge_minimum))
             if context_error:
@@ -780,6 +892,7 @@ class FusionEngine:
                     ),
                     schema=judge_schema,
                     shared_input_limit=input_limit,
+                    role="judge",
                 )
 
             panel_outcome = asyncio.run(
@@ -821,6 +934,7 @@ class FusionEngine:
                 ),
                 schema=schema,
                 shared_input_limit=input_limit,
+                role="advisor" if route.topology == "advisor" else "reviewer",
             )
             for handle in reviewers
         )
@@ -876,6 +990,7 @@ class FusionEngine:
         prompt: str,
         schema: JsonObject,
         shared_input_limit: int | None = None,
+        role: str = "reviewer",
     ) -> ProviderRequest:
         call_id = f"call-{uuid.uuid4().hex[:16]}"
         return ProviderRequest(
@@ -896,6 +1011,7 @@ class FusionEngine:
                 shared_input_limit=shared_input_limit,
             ),
             metadata={
+                "role": role,
                 "packet_hash": packet.packet_hash,
                 "requested_model": profile.model,
                 "effective_model": profile.canonical_model,
@@ -1098,6 +1214,7 @@ class FusionEngine:
         analysis: JsonObject,
         snapshot: SnapshotManifest,
         ledger: EvidenceLedger,
+        budget: BudgetLedger,
     ) -> JsonObject:
         candidates = analysis.get("grounding_candidates")
         if not isinstance(candidates, list):
@@ -1111,6 +1228,8 @@ class FusionEngine:
             verification_id = str(candidate.get("verification_id", ""))
             result = cached.get(verification_id)
             if result is None:
+                if budget.remaining_s() <= 0:
+                    break
                 try:
                     command = resolve_verification(self.config, verification_id)
                     result = run_grounding(
@@ -1118,6 +1237,7 @@ class FusionEngine:
                         snapshot_root=snapshot.root,
                         runner=self.grounding_runner,
                         max_output_chars=32_000,
+                        budget=budget,
                     )
                 except (GroundingError, PolicyError) as error:
                     result = GroundingResult(
@@ -1161,6 +1281,8 @@ class FusionEngine:
         packet: Packet,
         results: tuple[ProviderResult, ...],
         analysis_path: Path,
+        analysis_hash: str,
+        reviewed_tree_hash: str,
         started_at: str,
         state: str,
         self_identity_hash: str | None,
@@ -1188,6 +1310,8 @@ class FusionEngine:
             },
             "packet_hash": packet.packet_hash,
             "analysis_path": str(analysis_path),
+            "analysis_hash": analysis_hash,
+            "reviewed_tree_hash": reviewed_tree_hash,
             "calls": [self._result_json(result) for result in results],
             "self_model": request.self_model if "self" in route.participants else None,
             "self_identity_source": (

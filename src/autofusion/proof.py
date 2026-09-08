@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import os
 import re
 import shutil
 import tempfile
@@ -45,6 +46,22 @@ class ProofOutcome(StrEnum):
     FAIL = "fail"
     TIMEOUT = "timeout"
     ENVIRONMENT_ERROR = "environment-error"
+    COLLECTION_ERROR = "collection-error"
+    NO_TESTS = "no-tests"
+    USAGE_ERROR = "usage-error"
+    UNKNOWN_FAILURE = "unknown-failure"
+
+
+class ProofFailureClass(StrEnum):
+    ASSERTION = "assertion"
+    STATIC_DIAGNOSTIC = "static-diagnostic"
+    COLLECTION = "collection"
+    NO_TESTS = "no-tests"
+    TIMEOUT = "timeout"
+    ENVIRONMENT = "environment"
+    USAGE = "usage"
+    UNKNOWN = "unknown"
+    TRUNCATED = "truncated-output"
 
 
 class ProofVerdict(StrEnum):
@@ -141,9 +158,7 @@ class VerificationIntent:
             raise ProofError("verification intent revision_hashes must be an object")
         candidate_fix_visible = raw.get("candidate_fix_visible")
         mutation_required = raw.get("mutation_required", True)
-        if not isinstance(candidate_fix_visible, bool) or not isinstance(
-            mutation_required, bool
-        ):
+        if not isinstance(candidate_fix_visible, bool) or not isinstance(mutation_required, bool):
             raise ProofError("verification intent boolean fields are invalid")
         try:
             return cls(
@@ -196,6 +211,8 @@ class ProofObservation:
     output_truncated: bool
     invocation_hash: str
     runner_attestation_hash: str
+    failure_class: ProofFailureClass | None = None
+    matched_expected_failure: bool = False
 
     def __post_init__(self) -> None:
         if self.revision not in {"base", "head", "fixed", "control", "mutant"}:
@@ -208,6 +225,70 @@ class ProofObservation:
         ):
             if not _HASH_RE.fullmatch(value):
                 raise ProofError("proof observation hash is invalid")
+        if not isinstance(self.output_truncated, bool) or not isinstance(
+            self.matched_expected_failure, bool
+        ):
+            raise ProofError("proof observation boolean fields are invalid")
+        if self.exit_code is not None and (
+            not isinstance(self.exit_code, int) or isinstance(self.exit_code, bool)
+        ):
+            raise ProofError("proof observation exit code is invalid")
+        if self.expected not in {ProofOutcome.PASS, ProofOutcome.FAIL}:
+            raise ProofError("proof observation expected outcome is invalid")
+        if self.failure_class is not None and not isinstance(self.failure_class, ProofFailureClass):
+            raise ProofError("proof observation classification is invalid")
+        nonzero = self.exit_code is not None and self.exit_code != 0
+        if self.actual is ProofOutcome.PASS:
+            valid = (
+                self.exit_code == 0
+                and self.execution_status == "completed"
+                and self.failure_class is None
+                and not self.matched_expected_failure
+                and not self.output_truncated
+            )
+        elif self.actual is ProofOutcome.FAIL:
+            valid = (
+                nonzero
+                and self.exit_code is not None
+                and self.exit_code > 0
+                and self.execution_status == "completed"
+                and not self.output_truncated
+                and self.failure_class
+                in {ProofFailureClass.ASSERTION, ProofFailureClass.STATIC_DIAGNOSTIC}
+                and self.matched_expected_failure
+                and (self.failure_class is not ProofFailureClass.ASSERTION or self.exit_code == 1)
+            )
+        else:
+            classes = {
+                ProofOutcome.TIMEOUT: {ProofFailureClass.TIMEOUT},
+                ProofOutcome.ENVIRONMENT_ERROR: {ProofFailureClass.ENVIRONMENT},
+                ProofOutcome.COLLECTION_ERROR: {ProofFailureClass.COLLECTION},
+                ProofOutcome.NO_TESTS: {ProofFailureClass.NO_TESTS},
+                ProofOutcome.USAGE_ERROR: {ProofFailureClass.USAGE},
+                ProofOutcome.UNKNOWN_FAILURE: {
+                    ProofFailureClass.UNKNOWN,
+                    ProofFailureClass.ASSERTION,
+                    ProofFailureClass.STATIC_DIAGNOSTIC,
+                    ProofFailureClass.TRUNCATED,
+                },
+            }
+            status = (
+                "timeout"
+                if self.actual is ProofOutcome.TIMEOUT
+                else "runner-error"
+                if self.exit_code is None
+                else "environment-error"
+                if self.actual is ProofOutcome.ENVIRONMENT_ERROR
+                else "completed"
+            )
+            valid = (
+                self.failure_class in classes.get(self.actual, set())
+                and not self.matched_expected_failure
+                and self.execution_status == status
+                and (self.failure_class is not ProofFailureClass.TRUNCATED or self.output_truncated)
+            )
+        if not valid:
+            raise ProofError("proof observation outcome is inconsistent with execution evidence")
 
     def as_json(self) -> JsonObject:
         return {
@@ -221,7 +302,28 @@ class ProofObservation:
             "output_truncated": self.output_truncated,
             "invocation_hash": self.invocation_hash,
             "runner_attestation_hash": self.runner_attestation_hash,
+            "failure_class": self.failure_class.value if self.failure_class is not None else None,
+            "matched_expected_failure": self.matched_expected_failure,
         }
+
+
+def _proof_decision(
+    observations: tuple[ProofObservation, ...], *, mutation_required: bool
+) -> tuple[bool, ProofVerdict]:
+    mutation = next((item for item in observations if item.revision == "mutant"), None)
+    mutation_gate = not mutation_required or (
+        mutation is not None
+        and mutation.expected is ProofOutcome.FAIL
+        and mutation.actual is ProofOutcome.FAIL
+        and mutation.matched_expected_failure
+    )
+    if any(item.actual not in {ProofOutcome.PASS, ProofOutcome.FAIL} for item in observations):
+        verdict = ProofVerdict.INCONCLUSIVE
+    elif mutation_gate and all(item.actual is item.expected for item in observations):
+        verdict = ProofVerdict.CONFIRMED
+    else:
+        verdict = ProofVerdict.NOT_REPRODUCED
+    return mutation_gate, verdict
 
 
 @dataclass(frozen=True, slots=True)
@@ -258,28 +360,11 @@ class ProofCapsule:
                 raise ProofError("proof capsule observation revision hash is inconsistent")
             if observation.expected is not expected:
                 raise ProofError("proof capsule expected outcome is inconsistent")
-        mutation = observed.get("mutant")
-        computed_mutation_gate = bool(
-            not self.intent.mutation_required
-            or (
-                mutation is not None
-                and mutation.expected is ProofOutcome.FAIL
-                and mutation.actual is ProofOutcome.FAIL
-            )
+        computed_mutation_gate, computed_verdict = _proof_decision(
+            self.observations, mutation_required=self.intent.mutation_required
         )
         if self.mutation_gate_passed != computed_mutation_gate:
             raise ProofError("proof capsule mutation gate is inconsistent")
-        if any(
-            item.actual in {ProofOutcome.TIMEOUT, ProofOutcome.ENVIRONMENT_ERROR}
-            for item in self.observations
-        ):
-            computed_verdict = ProofVerdict.INCONCLUSIVE
-        elif computed_mutation_gate and all(
-            item.actual is item.expected for item in self.observations
-        ):
-            computed_verdict = ProofVerdict.CONFIRMED
-        else:
-            computed_verdict = ProofVerdict.NOT_REPRODUCED
         if self.verdict is not computed_verdict:
             raise ProofError("proof capsule verdict is inconsistent with its observations")
         if self.capsule_hash and self.capsule_hash != sha256_json(self.body()):
@@ -287,9 +372,7 @@ class ProofCapsule:
         if self.attestation is not None:
             if not self.capsule_hash:
                 raise ProofError("proof capsule attestation requires a capsule hash")
-            if self.attestation.bundle_hash != sha256_json(
-                proof_attestation_bundle(self)
-            ):
+            if self.attestation.bundle_hash != sha256_json(proof_attestation_bundle(self)):
                 raise ProofError("proof capsule attestation bundle hash is inconsistent")
 
     def body(self) -> JsonObject:
@@ -361,6 +444,7 @@ def _iter_files(root: Path) -> tuple[Path, ...]:
 
 
 def hash_proof_tree(root: Path) -> str:
+    """Hash relative paths, sizes and content hashes for proof and frozen review trees."""
     resolved = root.resolve(strict=True)
     entries: list[JsonObject] = []
     for path in _iter_files(resolved):
@@ -380,6 +464,15 @@ def hash_proof_tree(root: Path) -> str:
     return sha256_json({"version": 1, "entries": entries})
 
 
+def assert_reviewed_revision(capsule: ProofCapsule, reviewed_tree_hash: str) -> None:
+    """Every supported relation uses head for the frozen artifact under review."""
+    if (
+        not _HASH_RE.fullmatch(reviewed_tree_hash)
+        or capsule.intent.revision_hashes.get("head") != reviewed_tree_hash
+    ):
+        raise ProofError("proof head does not match the reviewed artifact")
+
+
 def build_overlay_manifest(root: Path, policy: ProofPolicy) -> tuple[OverlayEntry, ...]:
     resolved = root.resolve(strict=True)
     entries: list[OverlayEntry] = []
@@ -387,8 +480,7 @@ def build_overlay_manifest(root: Path, policy: ProofPolicy) -> tuple[OverlayEntr
     for path in _iter_files(resolved):
         relative = _safe_relative(path, resolved)
         if not any(
-            fnmatch.fnmatchcase(relative, pattern)
-            for pattern in policy.approved_overlay_patterns
+            fnmatch.fnmatchcase(relative, pattern) for pattern in policy.approved_overlay_patterns
         ):
             raise PolicyError(f"proof overlay touches an unapproved path: {relative}")
         content = path.read_bytes()
@@ -414,13 +506,16 @@ def _overlay_hash(entries: tuple[OverlayEntry, ...]) -> str:
 
 
 def _copy_revision(source: Path, destination: Path) -> None:
-    _iter_files(source)
-    shutil.copytree(
-        source,
-        destination,
-        symlinks=False,
-        ignore=shutil.ignore_patterns(".git", ".fusion", "__pycache__", ".pytest_cache"),
-    )
+    # Materialize the same file-only, read-only contract as the frozen review snapshot.
+    destination.mkdir(parents=True)
+    for path in _iter_files(source):
+        relative = _safe_relative(path, source)
+        if relative.startswith((".git/", ".fusion/")) or relative in {".git", ".fusion"}:
+            continue
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(path.read_bytes())
+        os.chmod(target, 0o444)
 
 
 def _apply_overlay(overlay_root: Path, workspace: Path, entries: tuple[OverlayEntry, ...]) -> None:
@@ -428,22 +523,126 @@ def _apply_overlay(overlay_root: Path, workspace: Path, entries: tuple[OverlayEn
         source = overlay_root / PurePosixPath(entry.path)
         destination = workspace / PurePosixPath(entry.path)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            os.chmod(destination, 0o600)
         shutil.copy2(source, destination)
         if sha256_bytes(destination.read_bytes()) != entry.content_hash:
             raise ProofError("proof overlay changed during staging")
 
 
-def _classify(output: RunnerOutput) -> tuple[ProofOutcome, str]:
-    if output.timed_out:
-        return ProofOutcome.TIMEOUT, "timeout"
+def _is_pytest(argv: tuple[str, ...]) -> bool:
+    if not argv:
+        return False
+    executable = argv[0].replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    if executable in {"pytest", "pytest.exe"}:
+        return True
+    if not re.fullmatch(r"python(?:\d+(?:\.\d+)*)?(?:\.exe)?", executable):
+        return False
+    # Interpreter options precede the terminating -m, -c, or script interface option.
+    # https://docs.python.org/3.11/using/cmdline.html#interface-options
+    index = 1
+    while index < len(argv):
+        option = argv[index]
+        if option == "-m":
+            return argv[index + 1 : index + 2] == ("pytest",)
+        if option in {"-W", "-X", "--check-hash-based-pycs"}:
+            index += 2
+        elif re.fullmatch(r"-[bBdEiIOPqRsSuvx]+", option) or option.startswith(("-W", "-X")):
+            index += 1
+        else:
+            return False
+    return False
+
+
+def _classify(
+    command: VerificationCommand, output: RunnerOutput
+) -> tuple[ProofOutcome, str, ProofFailureClass | None, bool]:
+    if output.timed_out or output.failure_class == "timeout":
+        return ProofOutcome.TIMEOUT, "timeout", ProofFailureClass.TIMEOUT, False
     if output.exit_code is None:
-        return ProofOutcome.ENVIRONMENT_ERROR, "runner-error"
-    combined = f"{output.stdout}\n{output.stderr}"
-    if output.failure_class == "environment" or _ENVIRONMENT_RE.search(combined):
-        return ProofOutcome.ENVIRONMENT_ERROR, "environment-error"
+        return ProofOutcome.ENVIRONMENT_ERROR, "runner-error", ProofFailureClass.ENVIRONMENT, False
+    declared_errors = {
+        "environment": (ProofOutcome.ENVIRONMENT_ERROR, ProofFailureClass.ENVIRONMENT),
+        "collection": (ProofOutcome.COLLECTION_ERROR, ProofFailureClass.COLLECTION),
+        "collection-error": (ProofOutcome.COLLECTION_ERROR, ProofFailureClass.COLLECTION),
+        "no-tests": (ProofOutcome.NO_TESTS, ProofFailureClass.NO_TESTS),
+        "usage": (ProofOutcome.USAGE_ERROR, ProofFailureClass.USAGE),
+        "usage-error": (ProofOutcome.USAGE_ERROR, ProofFailureClass.USAGE),
+    }
+    if output.failure_class in declared_errors:
+        declared, failure_class = declared_errors[output.failure_class]
+        status = "environment-error" if declared is ProofOutcome.ENVIRONMENT_ERROR else "completed"
+        return declared, status, failure_class, False
+    if output.failure_class not in {None, "assertion", "static-diagnostic"}:
+        return ProofOutcome.UNKNOWN_FAILURE, "completed", ProofFailureClass.UNKNOWN, False
     if output.exit_code == 0:
-        return ProofOutcome.PASS, "completed"
-    return ProofOutcome.FAIL, "completed"
+        if output.truncated:
+            return ProofOutcome.UNKNOWN_FAILURE, "completed", ProofFailureClass.TRUNCATED, False
+        if output.failure_class is not None:
+            return ProofOutcome.UNKNOWN_FAILURE, "completed", ProofFailureClass.UNKNOWN, False
+        return ProofOutcome.PASS, "completed", None, False
+    combined = f"{output.stdout}\n{output.stderr}"
+    if _is_pytest(command.argv):
+        # Exit codes alone do not distinguish test assertions from fixture/collection errors.
+        # https://docs.pytest.org/en/stable/reference/exit-codes.html
+        if re.search(r"(?i)(ERROR collecting|errors? during collection)", combined):
+            return ProofOutcome.COLLECTION_ERROR, "completed", ProofFailureClass.COLLECTION, False
+        if output.exit_code == 5:
+            return ProofOutcome.NO_TESTS, "completed", ProofFailureClass.NO_TESTS, False
+        if output.exit_code == 4:
+            return ProofOutcome.USAGE_ERROR, "completed", ProofFailureClass.USAGE, False
+        if output.exit_code == 3 or re.search(
+            r"(?im)(ERROR at (?:setup|teardown)|^ERROR\s|\b[1-9]\d* errors?\b)", combined
+        ):
+            return (
+                ProofOutcome.ENVIRONMENT_ERROR,
+                "environment-error",
+                ProofFailureClass.ENVIRONMENT,
+                False,
+            )
+        if output.exit_code not in {0, 1}:
+            return ProofOutcome.UNKNOWN_FAILURE, "completed", ProofFailureClass.UNKNOWN, False
+    if output.failure_class == "environment" or _ENVIRONMENT_RE.search(combined):
+        return (
+            ProofOutcome.ENVIRONMENT_ERROR,
+            "environment-error",
+            ProofFailureClass.ENVIRONMENT,
+            False,
+        )
+    if output.truncated:
+        return ProofOutcome.UNKNOWN_FAILURE, "completed", ProofFailureClass.TRUNCATED, False
+    failure_class = ProofFailureClass.UNKNOWN
+    if output.exit_code > 0 and command.kind == "static":
+        failure_class = ProofFailureClass.STATIC_DIAGNOSTIC
+    elif output.exit_code == 1 and re.search(
+        r"(?m)^\s*(?:(?:E\s+)?AssertionError(?::|\s*$)|E\s+assert\s)", combined
+    ):
+        failure_class = ProofFailureClass.ASSERTION
+        traceback = output.stderr.rpartition("Traceback (most recent call last):")
+        if traceback[1]:
+            # Python emits the actual exception after indented traceback frames.
+            exception = re.search(r"(?m)^([^\s:\n]+)(?::|$)", traceback[2])
+            if exception is None or exception[1] != "AssertionError":
+                failure_class = ProofFailureClass.UNKNOWN
+        if any(
+            re.match(r"(?:AssertionError\b|assert(?:\s|$))", summary) is None
+            for summary in re.findall(r"(?m)^FAILED\s+[^\n]+? - ([^\n]+)", combined)
+        ):
+            failure_class = ProofFailureClass.UNKNOWN
+    matched = (
+        failure_class in {ProofFailureClass.ASSERTION, ProofFailureClass.STATIC_DIAGNOSTIC}
+        and bool(command.expected_failure)
+        and all(
+            re.search(pattern, combined, flags=re.MULTILINE) is not None
+            for pattern in command.expected_failure
+        )
+    )
+    return (
+        ProofOutcome.FAIL if matched else ProofOutcome.UNKNOWN_FAILURE,
+        "completed",
+        failure_class,
+        matched,
+    )
 
 
 def _observation(
@@ -456,8 +655,11 @@ def _observation(
     runner: ProofRunner,
     max_output_chars: int,
 ) -> ProofObservation:
-    actual, status = _classify(output)
     bounded, truncated = bounded_text(f"{output.stdout}\n{output.stderr}", max_output_chars)
+    truncated = truncated or output.truncated
+    actual, status, failure_class, matched = _classify(
+        command, replace(output, truncated=truncated)
+    )
     invocation_hash = sha256_json(
         {
             "revision": revision,
@@ -466,6 +668,8 @@ def _observation(
             "argv": list(command.argv),
             "cwd": command.cwd,
             "timeout_s": command.timeout_s,
+            "kind": command.kind,
+            "expected_failure": list(command.expected_failure),
             "network": "deny",
             "isolation": "disposable",
             "runner_attestation_hash": runner.runner_attestation_hash,
@@ -482,6 +686,8 @@ def _observation(
         output_truncated=truncated,
         invocation_hash=invocation_hash,
         runner_attestation_hash=runner.runner_attestation_hash,
+        failure_class=failure_class,
+        matched_expected_failure=matched,
     )
 
 
@@ -575,6 +781,13 @@ def run_proof(
         raise PolicyError("proof policy requires a mutation gate")
     if intent.verification_id != command.verification_id:
         raise ProofError("proof intent and trusted verification command do not match")
+    try:
+        for pattern in command.expected_failure:
+            if not pattern.strip():
+                raise ProofError("proof expected failure patterns must be nonempty")
+            re.compile(pattern)
+    except re.error as error:
+        raise ProofError("proof expected failure pattern is invalid") from error
     expectations = relation_expectations(
         intent.relation, mutation_required=intent.mutation_required
     )
@@ -596,6 +809,8 @@ def run_proof(
             source = resolved_revisions[revision]
             workspace = temporary_root / revision
             _copy_revision(source, workspace)
+            if hash_proof_tree(workspace) != intent.revision_hashes[revision]:
+                raise ProofError(f"staged revision does not match the reviewed intent: {revision}")
             _apply_overlay(overlay_root.resolve(strict=True), workspace, entries)
             cwd = (workspace / command.cwd).resolve(strict=False)
             try:
@@ -607,9 +822,7 @@ def run_proof(
             except TimeoutError:
                 output = RunnerOutput(exit_code=None, timed_out=True)
             except OSError as exc:
-                output = RunnerOutput(
-                    exit_code=None, stderr=str(exc), failure_class="environment"
-                )
+                output = RunnerOutput(exit_code=None, stderr=str(exc), failure_class="environment")
             observations.append(
                 _observation(
                     revision=revision,
@@ -624,28 +837,9 @@ def run_proof(
             if hash_proof_tree(source) != intent.revision_hashes[revision]:
                 raise ProofError(f"proof execution mutated its source revision: {revision}")
     observation_tuple = tuple(observations)
-    mutation = next(
-        (item for item in observation_tuple if item.revision == "mutant"), None
+    mutation_gate_passed, verdict = _proof_decision(
+        observation_tuple, mutation_required=intent.mutation_required
     )
-    mutation_gate_passed = bool(
-        not intent.mutation_required
-        or (
-            mutation is not None
-            and mutation.expected is ProofOutcome.FAIL
-            and mutation.actual is ProofOutcome.FAIL
-        )
-    )
-    if any(
-        item.actual in {ProofOutcome.TIMEOUT, ProofOutcome.ENVIRONMENT_ERROR}
-        for item in observation_tuple
-    ):
-        verdict = ProofVerdict.INCONCLUSIVE
-    elif mutation_gate_passed and all(
-        item.actual is item.expected for item in observation_tuple
-    ):
-        verdict = ProofVerdict.CONFIRMED
-    else:
-        verdict = ProofVerdict.NOT_REPRODUCED
     return _capsule(
         intent,
         entries,
@@ -685,6 +879,9 @@ def capsule_from_json(raw: Mapping[str, object]) -> ProofCapsule:
     observations_raw = raw.get("observations")
     if not isinstance(overlay_raw, list) or not isinstance(observations_raw, list):
         raise ProofError("proof capsule entries or observations are invalid")
+    mutation_gate_passed = raw.get("mutation_gate_passed")
+    if not isinstance(mutation_gate_passed, bool):
+        raise ProofError("proof capsule mutation gate boolean is invalid")
     attestation_raw = raw.get("attestation")
     if not isinstance(attestation_raw, dict):
         raise ProofError("proof capsule attestation is missing or invalid")
@@ -731,20 +928,40 @@ def capsule_from_json(raw: Mapping[str, object]) -> ProofCapsule:
     for item in observations_raw:
         if not isinstance(item, dict):
             raise ProofError("proof capsule observation is invalid")
+        for boolean_field in ("output_truncated", "matched_expected_failure"):
+            if not isinstance(item.get(boolean_field), bool):
+                raise ProofError("proof observation boolean fields are invalid")
+        exit_code = item.get("exit_code")
+        if exit_code is not None and (
+            not isinstance(exit_code, int) or isinstance(exit_code, bool)
+        ):
+            raise ProofError("proof observation exit code is invalid")
+        try:
+            if not isinstance(item.get("expected"), str) or not isinstance(item.get("actual"), str):
+                raise ProofError("proof observation classification is invalid")
+            expected = ProofOutcome(item["expected"])
+            actual = ProofOutcome(item["actual"])
+            failure_class = (
+                ProofFailureClass(item["failure_class"])
+                if item.get("failure_class") is not None
+                else None
+            )
+        except (TypeError, ValueError) as error:
+            raise ProofError("proof observation classification is invalid") from error
         observations.append(
             ProofObservation(
                 revision=str(item.get("revision", "")),
                 revision_hash=str(item.get("revision_hash", "")),
-                expected=ProofOutcome(str(item.get("expected", ""))),
-                actual=ProofOutcome(str(item.get("actual", ""))),
-                exit_code=(
-                    int(item["exit_code"]) if item.get("exit_code") is not None else None
-                ),
+                expected=expected,
+                actual=actual,
+                exit_code=exit_code,
                 execution_status=str(item.get("execution_status", "")),
                 output_hash=str(item.get("output_hash", "")),
-                output_truncated=bool(item.get("output_truncated", False)),
+                output_truncated=item["output_truncated"],
                 invocation_hash=str(item.get("invocation_hash", "")),
                 runner_attestation_hash=str(item.get("runner_attestation_hash", "")),
+                failure_class=failure_class,
+                matched_expected_failure=item["matched_expected_failure"],
             )
         )
     capsule = ProofCapsule(
@@ -752,7 +969,7 @@ def capsule_from_json(raw: Mapping[str, object]) -> ProofCapsule:
         overlay_hash=str(raw.get("overlay_hash", "")),
         overlay_entries=tuple(entries),
         observations=tuple(observations),
-        mutation_gate_passed=bool(raw.get("mutation_gate_passed", False)),
+        mutation_gate_passed=mutation_gate_passed,
         verdict=ProofVerdict(str(raw.get("verdict", ""))),
         capsule_hash=str(raw.get("capsule_hash", "")),
         attestation=attestation,
