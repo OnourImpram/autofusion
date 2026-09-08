@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
+import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -21,7 +24,7 @@ from autofusion.providers.http import (
     HttpResponse,
     OpenAICompatibleHttpProvider,
 )
-from autofusion.providers.process import CommandOutcome, CommandRunner
+from autofusion.providers.process import CommandOutcome, CommandRunner, _Process
 from autofusion.registry import ProviderRegistry
 from autofusion.util import JsonObject
 
@@ -164,6 +167,79 @@ def test_command_runner_times_out_and_terminates_child(tmp_path: Path) -> None:
     )
     assert outcome.timed_out
     assert time.monotonic() - started < 3.0
+
+
+@pytest.mark.parametrize(
+    ("child_code", "timeout_s", "expected_timeout"),
+    [
+        pytest.param("import time; time.sleep(30)", 0.1, True, id="blocked-stdin"),
+        pytest.param("pass", 2.0, False, id="early-exit"),
+    ],
+)
+def test_command_runner_supervises_large_stdin(
+    tmp_path: Path, child_code: str, timeout_s: float, expected_timeout: bool
+) -> None:
+    children: list[subprocess.Popen[bytes]] = []
+    watchdogs: list[threading.Timer] = []
+    threads_before = set(threading.enumerate())
+
+    def spawn(args: Sequence[str], **kwargs: Any) -> _Process:
+        child = subprocess.Popen(args, **kwargs)
+        children.append(child)
+        # The watchdog bounds this test even when stdin supervision is broken.
+        watchdog = threading.Timer(4.0, child.kill)
+        watchdog.daemon = True
+        watchdogs.append(watchdog)
+        watchdog.start()
+        return cast(_Process, child)
+
+    started = time.monotonic()
+    try:
+        outcome = CommandRunner(popen_factory=spawn).run(
+            (sys.executable, "-c", child_code),
+            input_text="x" * 2_000_000,
+            cwd=tmp_path,
+            timeout_s=timeout_s,
+            max_output_chars=128,
+            environment_allowlist=(),
+        )
+        elapsed = time.monotonic() - started
+        for watchdog in watchdogs:
+            watchdog.cancel()
+            watchdog.join(timeout=1.0)
+        assert elapsed < 2.0
+        assert outcome.timed_out is expected_timeout
+        if not expected_timeout:
+            assert outcome.returncode == 0
+        assert children[0].poll() is not None
+        for stream in (children[0].stdin, children[0].stdout, children[0].stderr):
+            assert stream is not None and stream.closed
+        assert not set(threading.enumerate()).difference(threads_before)
+    finally:
+        for watchdog in watchdogs:
+            watchdog.cancel()
+            watchdog.join(timeout=1.0)
+        for child in children:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=2.0)
+            for stream in (child.stdin, child.stdout, child.stderr):
+                if stream is not None:
+                    stream.close()
+
+
+def test_command_runner_preserves_complete_large_stdin(tmp_path: Path) -> None:
+    outcome = CommandRunner().run(
+        (sys.executable, "-c", "import sys; print(len(sys.stdin.buffer.read()))"),
+        input_text="x" * 2_000_000,
+        cwd=tmp_path,
+        timeout_s=2.0,
+        max_output_chars=128,
+        environment_allowlist=(),
+    )
+    assert outcome.returncode == 0
+    assert not outcome.timed_out
+    assert outcome.stdout.strip() == "2000000"
 
 
 def test_command_runner_does_not_inherit_secret_environment(

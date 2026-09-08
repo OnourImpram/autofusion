@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import subprocess
 import threading
@@ -92,6 +93,16 @@ def _read_pipe(stream: BinaryIO, sink: _BoundedBytes) -> None:
         stream.close()
 
 
+def _write_pipe(stream: BinaryIO, content: bytes) -> None:
+    try:
+        stream.write(content)
+    except OSError:
+        pass
+    finally:
+        with suppress(OSError):
+            stream.close()
+
+
 class CommandRunner:
     """Run an argv-only command with bounded pipes, deadline, and tree cleanup."""
 
@@ -118,8 +129,8 @@ class CommandRunner:
     ) -> CommandOutcome:
         if not argv or any(not isinstance(part, str) or not part for part in argv):
             raise ProviderError("provider command must be a non-empty argv sequence")
-        if timeout_s <= 0:
-            raise ProviderError("provider timeout must be positive")
+        if not math.isfinite(timeout_s) or timeout_s <= 0:
+            raise ProviderError("provider timeout must be finite and positive")
         if max_output_chars < 0:
             raise ProviderError("provider output limit must be nonnegative")
         kwargs: dict[str, Any] = {
@@ -135,6 +146,8 @@ class CommandRunner:
         else:
             kwargs["start_new_session"] = True
         started = self._clock()
+        deadline = started + timeout_s
+        input_bytes = input_text.encode("utf-8")
         try:
             process = self._popen(tuple(argv), **kwargs)
         except OSError as exc:
@@ -144,18 +157,13 @@ class CommandRunner:
             raise ProviderError("provider process did not expose required standard streams")
         stdout_sink = _BoundedBytes(max_output_chars)
         stderr_sink = _BoundedBytes(max_output_chars)
-        readers = [
+        workers = [
             threading.Thread(target=_read_pipe, args=(process.stdout, stdout_sink), daemon=True),
             threading.Thread(target=_read_pipe, args=(process.stderr, stderr_sink), daemon=True),
+            threading.Thread(target=_write_pipe, args=(process.stdin, input_bytes), daemon=True),
         ]
-        for reader in readers:
-            reader.start()
-        try:
-            process.stdin.write(input_text.encode("utf-8"))
-            process.stdin.close()
-        except (BrokenPipeError, OSError):
-            pass
-        deadline = started + timeout_s
+        for worker in workers:
+            worker.start()
         timed_out = False
         while process.poll() is None:
             if self._clock() >= deadline:
@@ -169,8 +177,9 @@ class CommandRunner:
             self._kill_tree(process)
             with suppress(subprocess.TimeoutExpired):
                 process.wait(timeout=1.0)
-        for reader in readers:
-            reader.join(timeout=1.0)
+        cleanup_deadline = time.monotonic() + 1.0
+        for worker in workers:
+            worker.join(timeout=max(0.0, cleanup_deadline - time.monotonic()))
         stdout, stdout_truncated = bounded_text(stdout_sink.text(), max_output_chars)
         stderr, stderr_truncated = bounded_text(stderr_sink.text(), max_output_chars)
         return CommandOutcome(
