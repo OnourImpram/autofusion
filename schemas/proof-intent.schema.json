@@ -30,6 +30,7 @@
     "patch_author": {"$ref": "#/$defs/id"},
     "candidate_fix_visible": {"const": false},
     "revision_hashes": {
+      "description": "Proof tree v1 hashes of relative file paths, sizes and content hashes. Staging materializes only these files and their parent directories, with read-only source files as in review snapshots. In every relation, head identifies the frozen reviewed artifact.",
       "type": "object",
       "additionalProperties": false,
       "properties": {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -12,6 +13,31 @@ from autofusion.errors import PolicyError
 from autofusion.models import SnapshotManifest
 
 DlpAction = Literal["flag", "redact", "block"]
+
+_CREDENTIAL_KEYS = (
+    r"(?:api[_-]?key|(?:access|refresh|auth|bearer)[_-]?token|token|password|secret|"
+    r"client[_-]?secret|private[_-]?key|authorization|credentials?)"
+)
+_CREDENTIAL_ASSIGNMENT = (
+    rf"(?i)(?<![\w-])(?:\\*[\"'])?{_CREDENTIAL_KEYS}(?:\\*[\"'])?\s*[:=]\s*"
+)
+_CREDENTIAL_KEY = re.compile(rf"{_CREDENTIAL_KEYS}\Z", re.IGNORECASE)
+_STRING_PREFIX = re.compile(r"(?i)[rubf]{1,2}[\"']")
+_JSON_SCALAR = re.compile(
+    r"(?:-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|true|false|null)"
+    r"(?=\s*[,}\]]|\s*\Z)"
+)
+_MARKER_SPACE = r"(?:[ \t\r\n]|\\[rn])"
+_PRIVATE_LABEL = rf"(?:(?!(?:BEGIN|END)\b)[A-Z0-9]+{_MARKER_SPACE}+)*?PRIVATE\b"
+_PRIVATE_HEADER = (
+    rf"(?i)(?<![\w-])-*\bBEGIN{_MARKER_SPACE}+{_PRIVATE_LABEL}"
+    rf"(?:{_MARKER_SPACE}+KEY\b[ \t]*-*|(?=-)-+)"
+)
+_PRIVATE_OPENING = re.compile(_PRIVATE_HEADER)
+_PRIVATE_FOOTER = re.compile(
+    rf"(?i)(?<![\w-])-*\bEND{_MARKER_SPACE}+{_PRIVATE_LABEL}{_MARKER_SPACE}+KEY\b"
+    r"(?:[ \t]*-+|[ \t]*(?=\r|\n|\\[rn]|\Z|[\"']))"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,11 +58,8 @@ class DlpResult:
 class DlpPolicy:
     action: DlpAction = "redact"
     rules: tuple[tuple[str, str], ...] = (
-        ("private-key", r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----"),
-        (
-            "credential-assignment",
-            r"(?i)\b(?:api[_-]?key|token|password|secret)\s*[:=]\s*[\"']?[^\s\"']{6,}",
-        ),
+        ("private-key", _PRIVATE_HEADER),
+        ("credential-assignment", _CREDENTIAL_ASSIGNMENT),
         ("bearer-token", r"(?i)\bbearer\s+[a-z0-9._~+/=-]{12,}"),
         ("openai-key", r"\bsk-[A-Za-z0-9_-]{16,}"),
         ("anthropic-key", r"\bsk-ant-[A-Za-z0-9_-]{16,}"),
@@ -74,6 +97,51 @@ _REPO_SECRET_RULES = tuple(
 )
 
 
+def _credential_value_end(text: str, start: int) -> int:
+    """Consume one quoted, structured or line-delimited credential value.
+
+    Missing quotes or mismatched containers consume the remaining text, so a
+    malformed credential cannot expose an unmatched suffix.
+    """
+
+    if start == len(text):
+        return start
+    if text[start] in "|>":
+        # A block scalar may span the rest of this field, including malformed indentation.
+        return len(text)
+    quoted = text[start] in "\"'" or _STRING_PREFIX.match(text, start) is not None
+    structured = text[start] in "[{("
+    quote: str | None = None
+    stack: list[str] = []
+    index = start
+    while index < len(text):
+        character = text[index]
+        if character == "\\":
+            index += 3 if text[index + 1:index + 3] == "\r\n" else 2
+            continue
+        if quote is not None:
+            if text.startswith(quote, index):
+                index += len(quote)
+                quote = None
+                continue
+        elif not stack and (
+            character in "\r\n" or ((quoted or structured) and character in ",;]})")
+        ):
+            return index
+        elif character in "\"'":
+            quote = character * 3 if text.startswith(character * 3, index) else character
+            index += len(quote)
+            continue
+        elif character in "[{(":
+            stack.append(character)
+        elif character in "]})" and stack:
+            if (stack[-1], character) not in {("[", "]"), ("{", "}"), ("(", ")")}:
+                return len(text)
+            stack.pop()
+        index += 1
+    return min(index, len(text))
+
+
 def preflight_text(text: str, policy: DlpPolicy | None = None) -> DlpResult:
     """Flag, redact, or reject sensitive text before provider dispatch."""
 
@@ -84,11 +152,36 @@ def preflight_text(text: str, policy: DlpPolicy | None = None) -> DlpResult:
     spans: list[tuple[int, int]] = []
     for name, pattern in active_policy.rules:
         try:
-            found = list(re.finditer(pattern, text))
+            found = re.finditer(pattern, text)
         except re.error as exc:
             raise PolicyError(f"invalid DLP pattern for {name}") from exc
-        matches.extend(DlpMatch(name, item.start(), item.end()) for item in found)
-        spans.extend((item.start(), item.end()) for item in found)
+        covered_until = -1
+        for item in found:
+            if item.start() < covered_until:
+                continue
+            end = item.end()
+            if pattern == _PRIVATE_HEADER:
+                footer = _PRIVATE_FOOTER.search(text, end)
+                nested = (
+                    footer is not None
+                    and _PRIVATE_OPENING.search(text, end, footer.start()) is not None
+                )
+                end = footer.end() if footer is not None and not nested else len(text)
+            elif pattern == _CREDENTIAL_ASSIGNMENT:
+                prefix = item.group().lstrip("\\")
+                if (
+                    prefix.startswith(("\"", "'")) and prefix.rstrip().endswith(":")
+                    and _JSON_SCALAR.match(text, end) is not None
+                ):
+                    # Numeric/boolean JSON fields include DLP counters, not credential text.
+                    continue
+                end = _credential_value_end(text, end)
+                value = text[item.end():end].strip().strip("\"'")
+                if value in {"", "[REDACTED]"}:
+                    continue
+            matches.append(DlpMatch(name, item.start(), end))
+            spans.append((item.start(), end))
+            covered_until = end
     if spans and active_policy.action == "block":
         raise PolicyError("DLP preflight blocked sensitive packet content")
     if active_policy.action == "flag" or not spans:
@@ -106,11 +199,19 @@ def preflight_text(text: str, policy: DlpPolicy | None = None) -> DlpResult:
 
 
 def preflight_packet(
-    payload: Mapping[str, object], policy: DlpPolicy | None = None
+    payload: Mapping[str, object], policy: DlpPolicy | None = None, *, credential_keys: bool = True
 ) -> PacketDlpResult:
-    """Apply DLP recursively without converting structured packet data into prompt text."""
+    """Sanitize JSON data, with explicit key-context exclusion for schema grammar.
+
+    Schema callers disable credential_keys while retaining lexical string DLP.
+    An untrusted object's own fields never grant it an exemption.
+    """
 
     active_policy = policy or DlpPolicy()
+    preflight_text("", active_policy)
+    match_keys = credential_keys and any(
+        pattern == _CREDENTIAL_ASSIGNMENT for _, pattern in active_policy.rules
+    )
     matches: list[DlpMatch] = []
 
     def sanitize(value: object) -> object:
@@ -119,7 +220,20 @@ def preflight_packet(
             matches.extend(result.matches)
             return result.text
         if isinstance(value, Mapping):
-            return {str(key): sanitize(item) for key, item in value.items()}
+            sanitized: dict[str, object] = {}
+            for key, item in value.items():
+                sanitized_item = sanitize(item)
+                if (
+                    match_keys and _CREDENTIAL_KEY.fullmatch(str(key))
+                    and isinstance(sanitized_item, str | dict | list)
+                ):
+                    assignment = f"{key}={json.dumps(sanitized_item, ensure_ascii=False)}"
+                    checked = preflight_text(assignment, active_policy)
+                    matches.extend(checked.matches)
+                    if checked.matches and active_policy.action == "redact":
+                        sanitized_item = "[REDACTED]"
+                sanitized[str(key)] = sanitized_item
+            return sanitized
         if isinstance(value, list):
             return [sanitize(item) for item in value]
         if isinstance(value, tuple):

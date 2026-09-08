@@ -87,14 +87,34 @@ async def dispatch_blind_first_passes(
         )
     semaphore = asyncio.Semaphore(max_concurrency)
 
-    async def dispatch_one(request: ProviderRequest) -> ProviderResult:
+    async def dispatch_admitted(request: ProviderRequest) -> ProviderResult:
         async with semaphore:
             try:
                 reservation = budget.reserve_call(output_chars=request.max_output_chars)
             except BudgetExceeded as exc:
+                if budget.remaining_s() <= 0:
+                    return _failed_result(request, TimeoutError("execution deadline exhausted"))
                 return _failed_result(request, exc)
+            remaining = budget.remaining_s()
+            admitted_at = budget.deadline - remaining
+            deadline = min(budget.deadline, admitted_at + request.timeout_s)
+            if request.deadline_monotonic is not None:
+                deadline = min(deadline, request.deadline_monotonic)
+            request = replace(
+                request,
+                timeout_s=max(0.0, deadline - admitted_at),
+                deadline_monotonic=deadline,
+            )
             try:
-                result = await dispatcher.dispatch(request)
+                result = await asyncio.wait_for(
+                    dispatcher.dispatch(request), timeout=request.timeout_s
+                )
+                if budget.remaining_s() <= 0:
+                    raise TimeoutError("execution deadline exhausted")
+            except asyncio.CancelledError:
+                with suppress(BudgetExceeded):
+                    budget.settle_call(reservation, actual_cost_usd=None)
+                raise
             except Exception as exc:
                 with suppress(BudgetExceeded):
                     budget.settle_call(reservation, actual_cost_usd=None)
@@ -120,6 +140,14 @@ async def dispatch_blind_first_passes(
                     error="provider output exceeded requested bound",
                 )
             return result
+
+    async def dispatch_one(request: ProviderRequest) -> ProviderResult:
+        try:
+            # This bounds queue waits as well as dispatch; transports enforce the same deadline.
+            # https://docs.python.org/3.11/library/asyncio-task.html#asyncio.wait_for
+            return await asyncio.wait_for(dispatch_admitted(request), timeout=budget.remaining_s())
+        except TimeoutError:
+            return _failed_result(request, TimeoutError("execution deadline exhausted"))
 
     return tuple(await asyncio.gather(*(dispatch_one(request) for request in requests)))
 
@@ -361,10 +389,10 @@ def _failed_result(request: ProviderRequest, error: Exception) -> ProviderResult
         mode=str(metadata.get("mode", "unknown")),
         compound=bool(metadata.get("compound", False)),
         worker_visibility=str(metadata.get("worker_visibility", "not-applicable")),
-        status=CallStatus.FAILED,
+        status=CallStatus.TIMEOUT if isinstance(error, TimeoutError) else CallStatus.FAILED,
         duration_ms=0,
         output_text="",
         structured_output=None,
         output_hash=None,
-        error=str(error),
+        error=str(error) or "execution deadline exhausted",
     )

@@ -208,7 +208,27 @@
         },
         "identity_hash": {
           "$ref": "#/$defs/hash"
+        },
+        "context_complete": {
+          "description": "Whether this participant received complete frozen context.",
+          "type": "boolean"
+        },
+        "coverage": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "blind_spots": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "recommendation": {
+          "enum": ["ship", "revise", "block", "abstain"]
         }
+      },
+      "dependentRequired": {
+        "coverage": ["blind_spots", "recommendation"],
+        "blind_spots": ["coverage", "recommendation"],
+        "recommendation": ["coverage", "blind_spots"]
       }
     },
     "evidence": {

@@ -29,14 +29,21 @@ class BudgetSnapshot:
 class BudgetLedger:
     """Reserve attempts before dispatch, including every retry."""
 
-    def __init__(self, budget: RunBudget, *, clock: Callable[[], float] = monotonic) -> None:
+    def __init__(
+        self,
+        budget: RunBudget,
+        *,
+        clock: Callable[[], float] = monotonic,
+        started_at: float | None = None,
+    ) -> None:
         if min(budget.max_calls, budget.max_wallclock_s, budget.max_output_chars_per_call) < 0:
             raise ValueError("budgets must be nonnegative")
         if budget.max_cost_usd is not None and budget.max_cost_usd < 0:
             raise ValueError("cost budget must be nonnegative")
         self._budget = budget
         self._clock = clock
-        self._started_at = clock()
+        self._started_at = clock() if started_at is None else started_at
+        self._deadline = self._started_at + budget.max_wallclock_s
         self._calls_used = 0
         self._cost_used_usd = 0.0
         self._reserved_cost_usd = 0.0
@@ -90,11 +97,18 @@ class BudgetLedger:
             self._assert_wallclock()
             self._assert_cost(0.0)
 
+    @property
+    def deadline(self) -> float:
+        return self._deadline
+
+    def remaining_s(self) -> float:
+        return max(0.0, self._deadline - self._clock())
+
     def _elapsed_s(self) -> float:
         return max(0.0, self._clock() - self._started_at)
 
     def _assert_wallclock(self) -> None:
-        if self._elapsed_s() >= self._budget.max_wallclock_s:
+        if self.remaining_s() <= 0:
             raise BudgetExceeded("wall-clock budget exhausted")
 
     def _assert_cost(self, additional: float) -> None:

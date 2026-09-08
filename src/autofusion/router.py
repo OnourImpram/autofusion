@@ -57,6 +57,7 @@ def resolve_adaptive_route(
         reasons=reasons,
         hard_gates=route.hard_gates,
         budget=route.budget,
+        panel_rank=route.panel_rank,
     )
 
 
@@ -67,4 +68,4 @@ def effective_participant_count(profiles: tuple[ModelProfile, ...]) -> int:
 
 
 def is_route_at_least(decision: RouteDecision, minimum_preset: str) -> bool:
-    return _RANK.get(decision.selected_preset, 0) >= _RANK.get(minimum_preset, 0)
+    return decision.panel_rank >= _RANK.get(minimum_preset, 0)
