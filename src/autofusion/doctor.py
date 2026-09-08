@@ -82,8 +82,9 @@ def inspect_environment(
                 )
             )
             continue
-        if profile.transport in {"codex-exec", "claude-exec"}:
-            fallback = "codex" if profile.transport == "codex-exec" else "claude"
+        if profile.transport in {"codex-exec", "claude-exec", "agy-headless"}:
+            fallback = {"codex-exec": "codex", "claude-exec": "claude",
+                        "agy-headless": "agy"}[profile.transport]
             executable = _resolve_executable(_executable(raw, fallback))
             checks.append(
                 DoctorCheck(
