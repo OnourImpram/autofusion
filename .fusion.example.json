@@ -124,6 +124,27 @@
         ]
       }
     },
+    "gemini-flash": {
+      "enabled": false,
+      "activation_gate": "main-session-verified-sandbox-and-terminal-identity-smoke",
+      "transport": "agy-headless",
+      "callable": true,
+      "model": "gemini-3.8-flash-high",
+      "canonical_model": "gemini-3.8-flash-high",
+      "vendor": "google",
+      "family": "gemini",
+      "effort": "high",
+      "context": "packet",
+      "compound": false,
+      "capabilities": {
+        "repo_access": false,
+        "structured_output": "prompt-and-schema",
+        "read_only": true,
+        "identity_source": "terminal-result",
+        "usage_source": "terminal-result",
+        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+      }
+    },
     "openrouter-fusion-reference": {
       "enabled": false,
       "transport": "openai-compatible",

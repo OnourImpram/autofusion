@@ -84,3 +84,14 @@ Local alpha.2 release candidate adversarial verification verdict: PASS with a do
 - Codex CLI was updated from 0.128.0 to 0.144.5. GPT SOL xhigh and Ultra completed through the packaged adapter.
 - On 16 July 2026, Fable requests returned Opus 4.8 telemetry and failed closed. On 17 July, after operator usage credits became available, the exact published adapter returned canonical claude-fable-5 and completed with recommendation ship and zero findings.
 - The full private-source Opus re-review was not transmitted without separate source-transfer approval. The exact release provider and policy closure still passed 35 targeted tests, Ruff, and strict mypy.
+
+### Run 3 transport implementation, 2026-09-08
+
+Objective: steps 17 and 18 in upgrade/af-3, agy headless and Grok ACP.
+Constraints: existing provider interface, no runtime dependencies, disabled portable profiles, no identity file access, one bounded live smoke per binary at most.
+Inputs: shared af-ortak.md contract, review sections 2 and 5, agy and ACP reference contracts, installed ACP schema, provider and diagnostics code.
+Verification: red tests before implementation, fake peers for framing and lifecycle failures, whole-suite mutation reversal for each step, pytest/ruff/strict mypy/repository validators, independent review.
+Stop conditions: architecture replacement or unavailable required contract; preserve explicit NOT_RUN evidence. Main session owns profile activation and release.
+- [x] Step 17 implementation, integration, mutation, commit.
+- [ ] Step 18 implementation, integration, mutation, commit.
+- [ ] Gate summaries and dated smoke evidence in the external run report.
