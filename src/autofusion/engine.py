@@ -193,7 +193,7 @@ class FusionEngine:
             explicit_panel=request.panel,
         )
         if pack is not None:
-            minimum = str(pack["minimum_preset"])
+            minimum, _ = self.config.preset(str(pack["minimum_preset"]))
             if not is_route_at_least(route, minimum):
                 if request.panel is not None:
                     raise PolicyError(
@@ -204,6 +204,8 @@ class FusionEngine:
                     signals=signals,
                     requested_preset=minimum,
                 )
+                if not is_route_at_least(route, minimum):
+                    raise PolicyError(f"configured panel cannot satisfy pack minimum {minimum}")
             allowed_topologies = pack.get("allowed_topologies")
             assert isinstance(allowed_topologies, list)
             if route.topology not in allowed_topologies:

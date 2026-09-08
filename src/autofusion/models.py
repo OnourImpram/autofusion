@@ -165,6 +165,7 @@ class RouteDecision:
     reasons: tuple[str, ...]
     hard_gates: tuple[str, ...]
     budget: RunBudget
+    panel_rank: int = 0
 
 
 @dataclass(frozen=True, slots=True)

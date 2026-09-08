@@ -58,6 +58,16 @@ def _repo(tmp_path: Path) -> Path:
     return repo
 
 
+def test_release_pack_accepts_adequate_explicit_panel(tmp_path: Path) -> None:
+    engine = FusionEngine(load_config(), _registry(_review_output()), work_root=tmp_path / "work")
+    pending = engine.run(FusionRunRequest(
+        task="Review release", repo_root=_repo(tmp_path), artifact_kind="release",
+        artifact_paths=("app.py",), panel="dual-opus", pack="release",
+        self_model="claude-opus-4-8", run_grounding=False,
+    ))
+    assert isinstance(pending, PendingRun)
+
+
 def test_self_driven_run_stops_for_reconciliation_then_writes_linked_receipt(
     tmp_path: Path,
 ) -> None:

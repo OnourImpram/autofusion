@@ -126,3 +126,17 @@ def test_enabled_panel_cannot_reference_disabled_model() -> None:
     data["panels"]["dual-fable"]["enabled"] = True
     with pytest.raises(ConfigurationError, match="uses disabled model"):
         validate_config(FusionConfig(data=data, source_paths=()))
+
+
+def test_explicit_weak_panel_cannot_bypass_path_minimum() -> None:
+    with pytest.raises(PolicyError, match="minimum"):
+        resolve_route(load_config(), requested_preset="fast",
+                      artifact_paths=("migrations/001.sql",), external_only=False,
+                      explicit_panel="default")
+
+
+def test_relabelled_preset_cannot_bypass_path_minimum() -> None:
+    config = load_config(overrides={"presets": {"balanced": {"panel": "default"}}})
+    with pytest.raises(PolicyError, match="minimum"):
+        resolve_route(config, requested_preset="balanced",
+                      artifact_paths=("migrations/001.sql",), external_only=False)

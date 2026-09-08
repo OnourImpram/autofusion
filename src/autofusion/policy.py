@@ -21,15 +21,27 @@ def _matches_pattern(path: str, pattern: str) -> bool:
 
 
 def _preset_rank(name: str) -> int:
-    ranks = {
-        "budget": 0,
-        "fast": 1,
-        "balanced": 2,
-        "high": 3,
-        "quality": 3,
-        "parallel": 3,
+    ranks = {"budget": 0, "fast": 1, "balanced": 2, "high": 3, "parallel": 3}
+    if name not in ranks:
+        raise ConfigurationError(f"preset has no defined minimum strength: {name}")
+    return ranks[name]
+
+
+def panel_rank(config: FusionConfig, panel: JsonObject) -> int:
+    """Measure the executed review structure independently of panel or preset names."""
+    topology = panel.get("topology")
+    role = "proposer" if topology == "panel-rank" else "reviewer"
+    identities = {
+        config.model(handle).canonical_model
+        for handle, assigned_role in panel_assignments(panel) if assigned_role == role
     }
-    return ranks.get(name, 0)
+    if topology == "panel-rank":
+        return 3 if len(identities) >= 2 and panel.get("judge") else 0
+    if topology == "adversarial-review" and len(identities) >= 2:
+        return 3
+    if topology == "dual-review" and len(identities) >= 2:
+        return 2
+    return 1 if identities and topology in {"review", "adversarial-review"} else 0
 
 
 def _minimum_preset_for_paths(
@@ -61,6 +73,7 @@ def resolve_route(
     reasons: list[str] = []
     hard_gate_reasons: list[str] = []
     minimum, matched_paths = _minimum_preset_for_paths(config, artifact_paths)
+    minimum, _ = config.preset(minimum)
     if matched_paths:
         hard_gate_reasons.append(
             f"sensitive paths require at least {minimum}: {', '.join(matched_paths)}"
@@ -79,6 +92,9 @@ def resolve_route(
         raise PolicyError(f"selected panel is disabled: {panel_name}")
     for handle, role in panel_assignments(panel):
         validate_participant(config, handle, role)
+    strength = panel_rank(config, panel)
+    if matched_paths and strength < _preset_rank(minimum):
+        raise PolicyError(f"panel {panel_name} does not satisfy routing minimum {minimum}")
     receipt_preset = f"panel:{panel_name}" if explicit_panel is not None else resolved_name
     participants = panel_participants(panel)
     topology = str(panel.get("topology", ""))
@@ -107,6 +123,7 @@ def resolve_route(
         participants=participants,
         reasons=tuple(reasons),
         hard_gates=tuple(hard_gate_reasons),
+        panel_rank=strength,
         budget=RunBudget(
             max_calls=max_calls,
             max_wallclock_s=max_wallclock,
