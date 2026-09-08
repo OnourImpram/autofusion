@@ -113,6 +113,8 @@ Exit criteria:
 
 ## 0.6.0: current identities and transport upgrades
 
+Status: items 1 to 4 and 6 shipped in 0.6.0 with unit tests and mutation notes in `CHANGELOG.md`; the `agy` and ACP transports ship disabled until a dated identity-attested smoke. Item 5, session delegates and Workflow orchestration, is 0.6.x work and is not part of the 0.6.0 release.
+
 1. Migrate active contracts to Opus 5 and validated self identities for Opus 5, Sonnet 5, Haiku 4.5, and Fable 5.1.
 2. Restrict Fable to self and reject legacy external Fable profiles and panels with named replacements. Preserve the July observations as historical records.
 3. Add Astra ultra through the existing Codex adapter with explicit compound reviewer and judge roles, shared OpenAI quota metadata, and configured identity distinct from observed identity.
