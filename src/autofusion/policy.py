@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 
-from autofusion.config import FusionConfig, panel_assignments, validate_participant
+from autofusion.config import FusionConfig, cost_limit, panel_assignments, validate_participant
 from autofusion.errors import ConfigurationError, PolicyError
 from autofusion.models import RouteDecision, RunBudget
 from autofusion.util import JsonObject
@@ -111,8 +111,7 @@ def resolve_route(
     max_calls = int(guardrails.get("max_calls_per_run", 1))
     max_wallclock = int(guardrails.get("max_wallclock_s", 1))
     max_output = int(guardrails.get("max_output_chars_per_call", 1))
-    max_cost_raw = guardrails.get("max_cost_usd")
-    max_cost = float(max_cost_raw) if isinstance(max_cost_raw, (int, float)) else None
+    max_cost = cost_limit(guardrails.get("max_cost_usd"))
     if not reasons:
         reasons.append(f"explicit preset {requested_preset} resolved to {resolved_name}")
     return RouteDecision(

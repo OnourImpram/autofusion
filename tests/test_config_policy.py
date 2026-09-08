@@ -140,3 +140,62 @@ def test_relabelled_preset_cannot_bypass_path_minimum() -> None:
     with pytest.raises(PolicyError, match="minimum"):
         resolve_route(config, requested_preset="balanced",
                       artifact_paths=("migrations/001.sql",), external_only=False)
+
+
+@pytest.mark.parametrize("overlay", [10, None, 2])
+def test_cost_cap_cannot_be_relaxed(overlay: object) -> None:
+    base = merge_layers(load_config().data, {"guardrails": {"max_cost_usd": 5}})
+    merged = merge_layers(base, {"guardrails": {"max_cost_usd": overlay}})
+    assert merged["guardrails"]["max_cost_usd"] == (2 if overlay == 2 else 5)
+
+
+@pytest.mark.parametrize(
+    "invalid", ["unlimited", True, -1, float("nan"), float("inf"), -float("inf")]
+)
+def test_invalid_cost_is_rejected(invalid: object) -> None:
+    data = load_config().data
+    with pytest.raises(ConfigurationError, match="cost"):
+        merge_layers(data, {"guardrails": {"max_cost_usd": invalid}})
+    data["guardrails"]["max_cost_usd"] = invalid
+    with pytest.raises(ConfigurationError, match="cost"):
+        validate_config(FusionConfig(data, ()))
+    with pytest.raises(ConfigurationError, match="cost"):
+        resolve_route(FusionConfig(data, ()), requested_preset="fast", artifact_paths=(),
+                      external_only=False)
+
+
+@pytest.mark.parametrize("base_action", ["flag", "redact", "block"])
+@pytest.mark.parametrize("overlay_action", ["flag", "redact", "block"])
+def test_dlp_merge_only_tightens(base_action: str, overlay_action: str) -> None:
+    ranks = ["flag", "redact", "block"]
+    merged = merge_layers({"guardrails": {"sensitive_data_action": base_action}},
+                          {"guardrails": {"sensitive_data_action": overlay_action}})
+    assert merged["guardrails"]["sensitive_data_action"] == ranks[
+        max(ranks.index(base_action), ranks.index(overlay_action))
+    ]
+
+
+@pytest.mark.parametrize("weakening", ["role", "marker"])
+def test_overlay_cannot_weaken_compound_admission(weakening: str) -> None:
+    overlay: dict[str, Any] = {
+        "panels": {"external-council": {"proposers": ["gpt-sol-ultra", "claude-opus"]}}
+    }
+    if weakening == "role":
+        overlay["routing"] = {"compound": {"allowed_roles": {
+            "gpt-sol-ultra": ["reviewer", "judge", "proposer"]
+        }}}
+    else:
+        overlay["models"] = {"gpt-sol-ultra": {"compound": False}}
+    with pytest.raises(ConfigurationError, match="compound"):
+        load_config(overrides=overlay)
+
+
+@pytest.mark.parametrize("weakening", ["minimum", "patterns"])
+def test_overlay_cannot_weaken_hard_path_gates(weakening: str) -> None:
+    gate: dict[str, Any] = (
+        {"minimum_preset": "fast"} if weakening == "minimum" else {"patterns": []}
+    )
+    config = load_config(overrides={"routing": {"hard_gates": gate}})
+    with pytest.raises(PolicyError, match="minimum"):
+        resolve_route(config, requested_preset="fast", artifact_paths=("migrations/001.sql",),
+                      external_only=False, explicit_panel="default")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import re
 from dataclasses import dataclass
@@ -18,6 +19,7 @@ _MAXIMUM_KEYS = {
     "max_wallclock_s",
     "max_output_chars_per_call",
 }
+_PRESET_STRENGTH = {"budget": 0, "fast": 1, "balanced": 2, "high": 3, "quality": 3, "parallel": 3}
 _PROOF_MAXIMUM_KEYS = {
     "max_overlay_files",
     "max_overlay_bytes",
@@ -61,7 +63,20 @@ def _deep_merge(base: JsonObject, overlay: JsonObject) -> JsonObject:
     return merged
 
 
+def _validate_guardrail_lists(layer: JsonObject) -> None:
+    for key in ("model_allowlist", "provider_denylist"):
+        if key in layer and (
+            not isinstance(layer[key], list)
+            or not all(isinstance(item, str) for item in layer[key])
+        ):
+            raise ConfigurationError(f"guardrails.{key} must be a string list")
+
+
 def _merge_guardrails(base: JsonObject, overlay: JsonObject) -> JsonObject:
+    _validate_guardrail_lists(base)
+    _validate_guardrail_lists(overlay)
+    left_cost = cost_limit(base.get("max_cost_usd"))
+    right_cost = cost_limit(overlay.get("max_cost_usd"))
     merged = _deep_merge(base, overlay)
     base_allow = base.get("model_allowlist")
     overlay_allow = overlay.get("model_allowlist")
@@ -80,22 +95,62 @@ def _merge_guardrails(base: JsonObject, overlay: JsonObject) -> JsonObject:
             merged[key] = min(left, right)
     if base.get("fail_closed") is True:
         merged["fail_closed"] = True
+    finite_caps = [cap for cap in (left_cost, right_cost) if cap is not None]
+    merged["max_cost_usd"] = min(finite_caps) if finite_caps else None
+    actions = {"flag": 0, "redact": 1, "block": 2}
+    specified = [layer["sensitive_data_action"] for layer in (base, overlay)
+                 if "sensitive_data_action" in layer]
+    if any(not isinstance(action, str) or action not in actions for action in specified):
+        raise ConfigurationError("guardrails.sensitive_data_action is invalid")
+    if specified:
+        merged["sensitive_data_action"] = max(specified, key=lambda action: actions[action])
     return merged
+
+
+def cost_limit(value: object) -> float | None:
+    """Accept an explicit unlimited cap or a finite nonnegative amount."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ConfigurationError(
+            "guardrails.max_cost_usd must be a finite nonnegative number or null"
+        )
+    if not math.isfinite(value) or value < 0:
+        raise ConfigurationError("guardrails.max_cost_usd must be finite and nonnegative")
+    return float(value)
 
 
 def merge_layers(base: JsonObject, overlay: JsonObject) -> JsonObject:
     """Merge one approved layer without allowing guardrail weakening."""
 
-    merged = _deep_merge(base, overlay)
     base_guardrails = _as_object(base.get("guardrails", {}), "guardrails")
     overlay_guardrails = _as_object(overlay.get("guardrails", {}), "guardrails")
-    merged["guardrails"] = _merge_guardrails(base_guardrails, overlay_guardrails)
+    merged_guardrails = _merge_guardrails(base_guardrails, overlay_guardrails)
+    merged = _deep_merge(base, overlay)
+    merged["guardrails"] = merged_guardrails
     base_routing = _as_object(base.get("routing", {}), "routing")
     overlay_routing = _as_object(overlay.get("routing", {}), "routing")
     merged_routing = _deep_merge(base_routing, overlay_routing)
     base_compound = _as_object(base_routing.get("compound", {}), "routing.compound")
     overlay_compound = _as_object(overlay_routing.get("compound", {}), "routing.compound")
     merged_compound = _deep_merge(base_compound, overlay_compound)
+    if isinstance(base_compound.get("allowed_handles"), list):
+        permitted = base_compound["allowed_handles"]
+        requested = overlay_compound.get("allowed_handles", permitted)
+        if not isinstance(requested, list):
+            raise ConfigurationError("compound allowed_handles must be a list")
+        merged_compound["allowed_handles"] = [item for item in permitted if item in requested]
+    base_roles = _as_object(base_compound.get("allowed_roles", {}), "compound.allowed_roles")
+    requested_roles = _as_object(
+        overlay_compound.get("allowed_roles", {}), "compound.allowed_roles"
+    )
+    merged_roles: JsonObject = {}
+    for handle, roles in base_roles.items():
+        requested = requested_roles.get(handle, roles)
+        if not isinstance(roles, list) or not isinstance(requested, list):
+            raise ConfigurationError("compound roles must be lists")
+        merged_roles[handle] = [role for role in roles if role in requested]
+    merged_compound["allowed_roles"] = merged_roles
     if isinstance(base_compound.get("max_depth"), int) and isinstance(
         overlay_compound.get("max_depth"), int
     ):
@@ -103,7 +158,28 @@ def merge_layers(base: JsonObject, overlay: JsonObject) -> JsonObject:
             int(base_compound["max_depth"]), int(overlay_compound["max_depth"])
         )
     merged_routing["compound"] = merged_compound
+    base_gates = _as_object(base_routing.get("hard_gates", {}), "routing.hard_gates")
+    overlay_gates = _as_object(overlay_routing.get("hard_gates", {}), "routing.hard_gates")
+    gates = _deep_merge(base_gates, overlay_gates)
+    minima = [str(layer["minimum_preset"]) for layer in (base_gates, overlay_gates)
+              if "minimum_preset" in layer]
+    if minima:
+        candidate_config = FusionConfig(merged, ())
+        strongest = max(
+            minima, key=lambda name: preset_strength(candidate_config, name)
+        )
+        # Freeze the inherited meaning before a later layer can redefine a custom alias.
+        gates["minimum_preset"] = candidate_config.preset(strongest)[0]
+    if "patterns" in base_gates:
+        patterns = overlay_gates.get("patterns", [])
+        if not isinstance(patterns, list):
+            raise ConfigurationError("hard gate patterns must be a list")
+        gates["patterns"] = list(dict.fromkeys([*base_gates["patterns"], *patterns]))
+    merged_routing["hard_gates"] = gates
     merged["routing"] = merged_routing
+    for handle, raw in _as_object(base.get("models", {}), "models").items():
+        if isinstance(raw, dict) and raw.get("compound") is True:
+            merged["models"][handle]["compound"] = True
     base_proof = _as_object(base.get("proof", {}), "proof")
     overlay_proof = _as_object(overlay.get("proof", {}), "proof")
     merged_proof = _deep_merge(base_proof, overlay_proof)
@@ -201,6 +277,11 @@ class FusionConfig:
                 raise ConfigurationError(f"preset alias cycle at {resolved_name}")
             seen.add(resolved_name)
             raw = _as_object(presets.get(resolved_name), f"presets.{resolved_name}")
+        if name in _PRESET_STRENGTH and (
+            resolved_name not in _PRESET_STRENGTH
+            or _PRESET_STRENGTH[resolved_name] < _PRESET_STRENGTH[name]
+        ):
+            raise ConfigurationError(f"preset alias cannot weaken minimum strength: {name}")
         return resolved_name, raw
 
 
@@ -208,6 +289,13 @@ def _default_data() -> JsonObject:
     resource = files("autofusion").joinpath("default_config.json")
     parsed: object = __import__("json").loads(resource.read_text(encoding="utf-8"))
     return _as_object(parsed, "default_config.json")
+
+
+def preset_strength(config: FusionConfig, name: str) -> int:
+    canonical, _ = config.preset(name)
+    if canonical not in _PRESET_STRENGTH:
+        raise ConfigurationError(f"preset has no defined minimum strength: {name}")
+    return _PRESET_STRENGTH[canonical]
 
 
 def panel_assignments(panel: JsonObject) -> tuple[tuple[str, str], ...]:
@@ -244,6 +332,7 @@ def validate_participant(
     """Apply the same model and role policy during loading and runtime admission."""
     profile = config.model(handle)
     guardrails = config.section("guardrails")
+    _validate_guardrail_lists(guardrails)
     if handle == "self":
         if role != "drafter":
             raise ConfigurationError("self must remain a non-callable drafter")
@@ -272,6 +361,7 @@ def validate_config(config: FusionConfig) -> None:
     panels = config.section("panels")
     presets = config.section("presets")
     guardrails = config.section("guardrails")
+    cost_limit(guardrails.get("max_cost_usd"))
     if "self" not in models:
         raise ConfigurationError("models.self is required")
     self_profile = config.model("self")
@@ -328,6 +418,7 @@ def validate_config(config: FusionConfig) -> None:
             raise ConfigurationError(f"pack {pack_name} has invalid roles")
         if not isinstance(minimum, str) or minimum not in presets:
             raise ConfigurationError(f"pack {pack_name} references an unknown preset")
+        preset_strength(config, minimum)
         if pack.get("proof_policy") not in {
             "required-for-blocker-major",
             "preferred",
