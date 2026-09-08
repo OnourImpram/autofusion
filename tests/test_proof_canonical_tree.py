@@ -36,6 +36,10 @@ def test_proof_stages_the_same_canonical_tree_as_review(
     roots = {name: tmp_path / f"canonical-{name}" for name in ("base", "head", "mutant")}
     for name, root in roots.items():
         shutil.copytree(frozen, root)
+        # copytree keeps the frozen snapshot's read-only directory modes; on POSIX a 0o555
+        # directory rejects the seeded differences below, so reopen the copied directories.
+        for directory in (root, *(path for path in root.rglob("*") if path.is_dir())):
+            directory.chmod(0o755)
         if name != "base":
             if difference == "empty-directory":
                 (root / "runtime_flag").mkdir()
