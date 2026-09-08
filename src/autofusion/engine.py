@@ -6,8 +6,11 @@ import asyncio
 import json
 import math
 import os
+import sys
 import uuid
 from collections import defaultdict
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
@@ -82,6 +85,7 @@ from autofusion.util import (
     JsonObject,
     atomic_write_bytes,
     atomic_write_json,
+    canonical_json_bytes,
     isoformat_z,
     read_json_object,
     sha256_bytes,
@@ -145,6 +149,37 @@ class _AsyncRegistryDispatcher(ProviderDispatcher):
 
     async def dispatch(self, request: ProviderRequest) -> ProviderResult:
         return await asyncio.to_thread(self.registry.invoke, request)
+
+
+def _set_finalization_lock(descriptor: int, acquire: bool) -> None:
+    if sys.platform == "win32":
+        import msvcrt
+
+        # Byte-range locks may extend beyond EOF and fail immediately when occupied.
+        # https://docs.python.org/3.11/library/msvcrt.html#msvcrt.locking
+        msvcrt.locking(descriptor, msvcrt.LK_NBLCK if acquire else msvcrt.LK_UNLCK, 1)
+    else:
+        import fcntl
+
+        # https://docs.python.org/3.11/library/fcntl.html#fcntl.flock
+        fcntl.flock(descriptor, (fcntl.LOCK_EX | fcntl.LOCK_NB) if acquire else fcntl.LOCK_UN)
+
+
+@contextmanager
+def _finalization_lock(directory: Path) -> Iterator[None]:
+    # Keep the inode stable; deleting a lock file can create two independent locks.
+    with (directory / "finalization.lock").open("a+b") as lock:
+        lock.seek(0)
+        try:
+            _set_finalization_lock(lock.fileno(), True)
+        except OSError as error:
+            raise ReceiptError(
+                "run finalization is already in progress or cannot be locked"
+            ) from error
+        try:
+            yield
+        finally:
+            _set_finalization_lock(lock.fileno(), False)
 
 
 class FusionEngine:
@@ -235,6 +270,20 @@ class FusionEngine:
         """Finalize a pending run after self or external reconciliation."""
 
         run_directory = self._run_directory(run_id)
+        if not run_directory.is_dir():
+            raise ReceiptError(f"pending run does not exist: {run_id}")
+        with _finalization_lock(run_directory):
+            return self._finalize_locked(
+                run_id, dispositions=dispositions, automatic=automatic,
+                proof_capsules=proof_capsules,
+            )
+
+    def _finalize_locked(
+        self, run_id: str, *, dispositions: tuple[FindingDisposition, ...] | None,
+        automatic: bool, proof_capsules: tuple[ProofCapsule, ...],
+    ) -> RunArtifacts:
+
+        run_directory = self._run_directory(run_id)
         pending_path = run_directory / "pending.json"
         if not pending_path.is_file():
             raise ReceiptError(f"pending run does not exist: {run_id}")
@@ -260,10 +309,36 @@ class FusionEngine:
         analysis = json.loads(analysis_bytes)
         if not isinstance(analysis, dict):
             raise ReceiptError("pending analysis must be an object")
-        verified_capsules = tuple(
+        accepted_records = [record for record in records if record.kind == "proof-capsule"]
+        accepted_capsules: list[ProofCapsule] = []
+        for record in accepted_records:
+            capsule_hash = record.payload.get("capsule_hash")
+            if (
+                not isinstance(capsule_hash, str) or len(capsule_hash) != 64
+                or any(char not in "0123456789abcdef" for char in capsule_hash)
+            ):
+                raise ReceiptError("accepted proof capsule hash is invalid")
+            capsule_path = run_directory / "proof-capsules" / f"{capsule_hash}.json"
+            try:
+                capsule_bytes = capsule_path.read_bytes()
+            except OSError as error:
+                raise ReceiptError("accepted proof capsule is unavailable") from error
+            if sha256_bytes(capsule_bytes) != record.payload.get("capsule_file_hash"):
+                raise ReceiptError("accepted proof capsule bytes changed")
+            capsule = capsule_from_json(json.loads(capsule_bytes))
+            if (
+                capsule.capsule_hash != capsule_hash
+                or capsule.intent.proof_id != record.payload.get("proof_id")
+            ):
+                raise ReceiptError("accepted proof capsule does not match its evidence record")
+            accepted_capsules.append(capsule)
+        if len({capsule.intent.proof_id for capsule in proof_capsules}) != len(proof_capsules):
+            raise ReceiptError("supplied proof capsule IDs must be unique")
+        candidates = (*accepted_capsules, *(
             capsule_from_json(capsule.as_json()) for capsule in proof_capsules
-        )
-        if verified_capsules:
+        ))
+        verified_capsules: tuple[ProofCapsule, ...] = ()
+        if candidates:
             proof_settings = self.config.section("proof")
             key_env = str(proof_settings["attestation_key_env"])
             verification_key = os.environ.get(key_env)
@@ -272,25 +347,31 @@ class FusionEngine:
                     f"proof attestation key variable is not set: {key_env}"
                 )
             key_id = str(proof_settings["attestation_key_id"])
-            verified_capsules = tuple(
-                verify_proof_capsule_attestation(
+            by_id: dict[str, ProofCapsule] = {}
+            for capsule in candidates:
+                verified = verify_proof_capsule_attestation(
                     capsule,
                     key_id=key_id,
                     verification_key=verification_key.encode("utf-8"),
                 )
-                for capsule in verified_capsules
-            )
+                prior_capsule = by_id.get(verified.intent.proof_id)
+                if prior_capsule is not None and prior_capsule.as_json() != verified.as_json():
+                    raise ReceiptError("proof ID was reused with a different capsule")
+                by_id[verified.intent.proof_id] = verified
+            verified_capsules = tuple(by_id[proof_id] for proof_id in sorted(by_id))
             analysis = attach_proof_capsules(
                 analysis, verified_capsules,
                 reviewed_tree_hash=str(pending.get("reviewed_tree_hash", "")),
             )
             for capsule in verified_capsules:
+                capsule_bytes = canonical_json_bytes(capsule.as_json()) + b"\n"
                 proof_payload: JsonObject = {
                     "proof_id": capsule.intent.proof_id,
                     "finding_id": capsule.intent.finding_id,
                     "capsule_hash": capsule.capsule_hash,
                     "verdict": capsule.verdict.value,
                     "mutation_gate_passed": capsule.mutation_gate_passed,
+                    "capsule_file_hash": sha256_bytes(capsule_bytes),
                 }
                 prior = [
                     record
@@ -301,6 +382,10 @@ class FusionEngine:
                 if prior and any(record.payload != proof_payload for record in prior):
                     raise ReceiptError("proof ID was reused with a different capsule")
                 if not prior:
+                    atomic_write_bytes(
+                        run_directory / "proof-capsules" / f"{capsule.capsule_hash}.json",
+                        capsule_bytes,
+                    )
                     ledger.append("proof-capsule", proof_payload)
         reconcile_input_hash = sha256_json(
             {

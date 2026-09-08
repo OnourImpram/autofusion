@@ -9,7 +9,8 @@ import pytest
 
 from autofusion.config import load_config
 from autofusion.engine import FusionEngine, FusionRunRequest, PendingRun
-from autofusion.errors import ProofError
+from autofusion.errors import PolicyError, ProofError, ReceiptError
+from autofusion.evidence import EvidenceLedger
 from autofusion.grounding import RunnerOutput, VerificationCommand
 from autofusion.proof import (
     ProofCapsule,
@@ -85,6 +86,7 @@ def _capsule(
     *,
     proof_id: str = "proof-binding",
     test_author: str = "gpt-sol",
+    mutant_survives: bool = False,
 ) -> ProofCapsule:
     expectations = relation_expectations(relation, mutation_required=True)
     frozen = Path(json.loads(pending.pending_path.read_bytes())["snapshot"]["root"])
@@ -120,6 +122,8 @@ def _capsule(
         runner_attestation_hash = "a" * 64
 
         def run(self, argv: Sequence[str], cwd: Path, timeout_s: int) -> RunnerOutput:
+            if mutant_survives and cwd.name == "mutant":
+                return RunnerOutput(0, stdout="1 passed")
             return (
                 RunnerOutput(0, stdout="1 passed")
                 if expectations[cwd.name] is ProofOutcome.PASS
@@ -191,3 +195,111 @@ def test_matching_proof_tree_under_another_root_is_accepted(
         proof_capsules=(capsule,),
     )
     assert artifacts.receipt["findings"]["confirmed_by_proof"] == 1
+
+
+def _rejected_attachment(
+    engine: FusionEngine,
+    pending: PendingRun,
+    finding_id: str,
+    capsule: ProofCapsule,
+) -> None:
+    with pytest.raises(PolicyError, match="cannot be rejected"):
+        engine.finalize(
+            pending.run_id,
+            dispositions=(
+                FindingDisposition(finding_id, "rejected", "Attempt rejection after proof"),
+            ),
+            proof_capsules=(capsule,),
+        )
+
+
+def test_retry_cannot_forget_omitted_proof(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    engine, pending, finding_id = _pending(tmp_path, monkeypatch)
+    capsule = _capsule(tmp_path, pending, finding_id)
+    _rejected_attachment(engine, pending, finding_id, capsule)
+    with pytest.raises(PolicyError, match="cannot be rejected"):
+        engine.finalize(
+            pending.run_id,
+            dispositions=(
+                FindingDisposition(finding_id, "rejected", "Retry without supplying the proof"),
+            ),
+        )
+
+
+@pytest.mark.parametrize("resupply", [False, True])
+def test_retry_preserves_proof_and_is_idempotent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    resupply: bool,
+) -> None:
+    engine, pending, finding_id = _pending(tmp_path, monkeypatch)
+    capsule = _capsule(tmp_path, pending, finding_id)
+    _rejected_attachment(engine, pending, finding_id, capsule)
+    artifacts = engine.finalize(
+        pending.run_id,
+        dispositions=(FindingDisposition(finding_id, "accepted", "Accept the attached evidence"),),
+        proof_capsules=(capsule,) if resupply else (),
+    )
+    assert artifacts.receipt["findings"]["confirmed_by_proof"] == 1
+    assert artifacts.analysis["proof_results"][0]["capsule_hash"] == capsule.capsule_hash
+    assert (
+        sum(r.kind == "proof-capsule" for r in EvidenceLedger(pending.evidence_path).verify()) == 1
+    )
+
+
+def test_new_proof_cannot_replace_prior_confirming_proof(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine, pending, finding_id = _pending(tmp_path, monkeypatch)
+    first = _capsule(tmp_path, pending, finding_id)
+    _rejected_attachment(engine, pending, finding_id, first)
+    second = _capsule(tmp_path, pending, finding_id, proof_id="proof-second", mutant_survives=True)
+    _rejected_attachment(engine, pending, finding_id, second)
+    artifacts = engine.finalize(
+        pending.run_id,
+        dispositions=(FindingDisposition(finding_id, "accepted", "Preserve both proof results"),),
+    )
+    assert {item["capsule_hash"] for item in artifacts.analysis["proof_results"]} == {
+        first.capsule_hash,
+        second.capsule_hash,
+    }
+
+
+def test_changed_or_duplicated_proof_is_rejected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine, pending, finding_id = _pending(tmp_path, monkeypatch)
+    first = _capsule(tmp_path, pending, finding_id)
+    accepted = (FindingDisposition(finding_id, "accepted", "Accept proof"),)
+    with pytest.raises((ValueError, ReceiptError), match=r"unique|duplicate"):
+        engine.finalize(pending.run_id, dispositions=accepted, proof_capsules=(first, first))
+    _rejected_attachment(engine, pending, finding_id, first)
+    changed = _capsule(tmp_path, pending, finding_id, test_author="claude-opus")
+    with pytest.raises(ReceiptError, match=r"reused|different"):
+        engine.finalize(pending.run_id, dispositions=accepted, proof_capsules=(changed,))
+
+
+@pytest.mark.parametrize("damage", ["delete", "alter"])
+def test_accepted_capsule_storage_is_verified_on_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    damage: str,
+) -> None:
+    engine, pending, finding_id = _pending(tmp_path, monkeypatch)
+    capsule = _capsule(tmp_path, pending, finding_id)
+    _rejected_attachment(engine, pending, finding_id, capsule)
+    paths = list((pending.pending_path.parent / "proof-capsules").glob("*.json"))
+    assert len(paths) == 1
+    if damage == "delete":
+        paths[0].unlink()
+    else:
+        paths[0].write_bytes(b"{}\n")
+    with pytest.raises(ReceiptError, match="accepted proof"):
+        engine.finalize(
+            pending.run_id,
+            dispositions=(
+                FindingDisposition(finding_id, "accepted", "Accept only intact evidence"),
+            ),
+        )
