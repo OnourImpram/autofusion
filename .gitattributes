@@ -1,0 +1,2 @@
+# These fixtures contain hashes of exact artifact bytes.
+tests/fixtures/*.json text eol=lf

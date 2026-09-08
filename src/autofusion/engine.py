@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import os
 import uuid
@@ -239,17 +240,25 @@ class FusionEngine:
         if (run_directory / "finalized.json").exists():
             raise ReceiptError(f"run is already finalized: {run_id}")
         journal = RunJournal(run_directory / "journal.jsonl", run_id)
-        pending = read_json_object(pending_path)
+        pending_bytes = pending_path.read_bytes()
+        pending = json.loads(pending_bytes)
+        if not isinstance(pending, dict):
+            raise ReceiptError("pending state must be an object")
         ledger = EvidenceLedger(run_directory / "evidence.jsonl")
         records = ledger.verify()
-        pending_hash = sha256_bytes(pending_path.read_bytes())
+        pending_hash = sha256_bytes(pending_bytes)
         if not any(
             record.kind == "pending-state" and record.payload.get("pending_hash") == pending_hash
             for record in records
         ):
             raise ReceiptError("pending run is not bound to its evidence ledger")
         analysis_path = run_directory / "analysis.json"
-        analysis = read_json_object(analysis_path)
+        analysis_bytes = analysis_path.read_bytes()
+        if sha256_bytes(analysis_bytes) != pending.get("analysis_hash"):
+            raise ReceiptError("pending analysis bytes are not bound to the reviewed state")
+        analysis = json.loads(analysis_bytes)
+        if not isinstance(analysis, dict):
+            raise ReceiptError("pending analysis must be an object")
         verified_capsules = tuple(
             capsule_from_json(capsule.as_json()) for capsule in proof_capsules
         )
@@ -661,7 +670,8 @@ class FusionEngine:
             degradation.append("active execution exceeded the configured wallclock budget")
         validate_analysis(analysis)
         analysis_path = run_directory / "analysis.json"
-        atomic_write_bytes(analysis_path, canonical_analysis_bytes(analysis))
+        analysis_bytes = canonical_analysis_bytes(analysis)
+        atomic_write_bytes(analysis_path, analysis_bytes)
         result_path = run_directory / "result.json"
         atomic_write_json(result_path, result_payload)
         pending_payload = self._pending_payload(
@@ -671,6 +681,7 @@ class FusionEngine:
             packet=packet,
             results=results,
             analysis_path=analysis_path,
+            analysis_hash=sha256_bytes(analysis_bytes),
             started_at=started_at,
             state=state.state.value,
             self_identity_hash=self_identity_hash,
@@ -1126,6 +1137,7 @@ class FusionEngine:
         packet: Packet,
         results: tuple[ProviderResult, ...],
         analysis_path: Path,
+        analysis_hash: str,
         started_at: str,
         state: str,
         self_identity_hash: str | None,
@@ -1153,6 +1165,7 @@ class FusionEngine:
             },
             "packet_hash": packet.packet_hash,
             "analysis_path": str(analysis_path),
+            "analysis_hash": analysis_hash,
             "calls": [self._result_json(result) for result in results],
             "self_model": request.self_model if "self" in route.participants else None,
             "self_identity_source": (
