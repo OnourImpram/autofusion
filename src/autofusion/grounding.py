@@ -31,6 +31,7 @@ class RunnerOutput:
     stderr: str = ""
     timed_out: bool = False
     failure_class: str | None = None
+    truncated: bool = False
 
 
 class GroundingRunner(Protocol):
@@ -183,6 +184,7 @@ def run_grounding(
     except OSError as exc:
         executed = RunnerOutput(exit_code=None, stderr=str(exc), failure_class="environment")
     output, truncated = bounded_text(f"{executed.stdout}\n{executed.stderr}", max_output_chars)
+    truncated = truncated or executed.truncated
     if executed.timed_out:
         verdict, status, failure_class, matched = "timeout", "timeout", "timeout", False
     elif executed.exit_code == 0:

@@ -108,14 +108,20 @@ def test_cli_prove_executes_supplied_blind_mutation_intent(
     runner = _ProofRunner(
         {
             "base": RunnerOutput(exit_code=0),
-            "head": RunnerOutput(exit_code=1),
-            "mutant": RunnerOutput(exit_code=1),
+            "head": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
+            "mutant": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
         }
     )
+    (tmp_path / ".fusion.json").write_text(json.dumps({
+        "verification": {"profiles": {"python": {"commands": {"pytest": {
+            "expected_failure": "AssertionError: intended regression"
+        }}}}}
+    }), encoding="utf-8")
     monkeypatch.setattr(cli, "detect_proof_runner", lambda _settings: runner)
 
     argv = [
         "prove",
+        "--trust-repo-config",
         "--repo",
         str(tmp_path),
         "--intent",

@@ -76,6 +76,7 @@ def _command() -> VerificationCommand:
         argv=("pytest", "-q"),
         timeout_s=30,
         kind="dynamic",
+        expected_failure=("AssertionError: intended regression",),
     )
 
 
@@ -108,8 +109,8 @@ def test_proof_confirms_declared_relation_and_round_trips_capsule(tmp_path: Path
     runner = FakeProofRunner(
         {
             "base": RunnerOutput(exit_code=0, stdout="1 passed"),
-            "head": RunnerOutput(exit_code=1, stderr="AssertionError: regression"),
-            "mutant": RunnerOutput(exit_code=1, stderr="AssertionError: mutant"),
+            "head": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
+            "mutant": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
         }
     )
     capsule = run_proof(
@@ -146,7 +147,7 @@ def test_mutation_survival_prevents_confirmation(tmp_path: Path) -> None:
     runner = FakeProofRunner(
         {
             "base": RunnerOutput(exit_code=0),
-            "head": RunnerOutput(exit_code=1),
+            "head": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
             "mutant": RunnerOutput(exit_code=0),
         }
     )
@@ -171,7 +172,7 @@ def test_timeout_or_environment_failure_is_inconclusive(tmp_path: Path) -> None:
         {
             "base": RunnerOutput(exit_code=0),
             "head": RunnerOutput(exit_code=None, timed_out=True),
-            "mutant": RunnerOutput(exit_code=1),
+            "mutant": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
         }
     )
     capsule = run_proof(
@@ -582,8 +583,8 @@ def test_capsule_rejects_each_tampered_structural_hash(tmp_path: Path) -> None:
         runner=FakeProofRunner(
             {
                 "base": RunnerOutput(exit_code=0),
-                "head": RunnerOutput(exit_code=1),
-                "mutant": RunnerOutput(exit_code=1),
+                "head": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
+                "mutant": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
             }
         ),
         policy=_policy(),
@@ -611,7 +612,10 @@ def test_capsule_rejects_each_tampered_structural_hash(tmp_path: Path) -> None:
             verdict=ProofVerdict.CONFIRMED,
         )
 
-    forged_base = replace(capsule.observations[0], actual=ProofOutcome.FAIL)
+    forged_base = replace(
+        capsule.observations[1], revision="base", expected=ProofOutcome.PASS,
+        revision_hash=capsule.observations[0].revision_hash,
+    )
     with pytest.raises(ProofError, match="verdict is inconsistent"):
         replace(
             capsule,
@@ -650,8 +654,8 @@ def test_capsule_attestation_rejects_missing_wrong_or_tampered_keys(
         runner=FakeProofRunner(
             {
                 "base": RunnerOutput(exit_code=0),
-                "head": RunnerOutput(exit_code=1),
-                "mutant": RunnerOutput(exit_code=1),
+                "head": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
+                "mutant": RunnerOutput(exit_code=1, stderr="AssertionError: intended regression"),
             }
         ),
         policy=_policy(),

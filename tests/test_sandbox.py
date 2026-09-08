@@ -101,6 +101,30 @@ def test_linux_runner_uses_fixed_unshare_argv(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("runner_kind", ["linux", "wsl", "docker"])
+def test_runner_preserves_upstream_output_truncation(tmp_path: Path, runner_kind: str) -> None:
+    class TruncatingCommandRunner:
+        def run(self, argv: Sequence[str], **kwargs: object) -> CommandOutcome:
+            return CommandOutcome(tuple(argv), 1, "AssertionError", "", 1, False, True)
+
+    command_runner = TruncatingCommandRunner()
+    if runner_kind == "linux":
+        runner = LinuxUnshareGroundingRunner(command_runner)
+        output = runner.run(("pytest", "-q"), tmp_path, 1)
+    elif runner_kind == "wsl":
+        wsl_runner = WslUnshareGroundingRunner(
+            command_runner, path_translator=lambda _: "/mnt/c/snapshot"
+        )
+        output = wsl_runner.run(("pytest", "-q"), tmp_path, 1)
+    else:
+        docker_runner = DockerProofRunner(
+            command_runner, "docker", "proof@sha256:" + "1" * 64,
+            "sha256:" + "2" * 64, "28.0.0",
+        )
+        output = docker_runner.run(("pytest", "-q"), tmp_path, 1)
+    assert output.truncated
+
+
 def test_docker_proof_runner_applies_disposable_security_controls(tmp_path: Path) -> None:
     command_runner = RecordingCommandRunner()
     image_digest = "1" * 64

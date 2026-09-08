@@ -632,7 +632,10 @@ class CapsuleRunner:
 
     def run(self, argv: Sequence[str], cwd: Path, timeout_s: float) -> RunnerOutput:
         del argv, timeout_s
-        return RunnerOutput(exit_code=0 if cwd.name == "base" else 1)
+        return RunnerOutput(
+            exit_code=0 if cwd.name == "base" else 1,
+            stderr="" if cwd.name == "base" else "AssertionError: intended regression",
+        )
 
 
 def test_confirmed_proof_capsule_cannot_be_rejected(
@@ -701,7 +704,8 @@ def test_confirmed_proof_capsule_cannot_be_rejected(
         revisions=revisions,
         overlay_root=tmp_path / "overlay",
         command=VerificationCommand(
-            "python.pytest", ("pytest", "-q"), 30, "dynamic"
+            "python.pytest", ("pytest", "-q"), 30, "dynamic",
+            expected_failure=("AssertionError: intended regression",),
         ),
         runner=CapsuleRunner(),
         policy=ProofPolicy(

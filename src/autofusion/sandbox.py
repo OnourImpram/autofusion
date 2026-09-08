@@ -80,6 +80,7 @@ class LinuxUnshareGroundingRunner(GroundingRunner):
             stdout=outcome.stdout,
             stderr=outcome.stderr,
             timed_out=outcome.timed_out,
+            truncated=outcome.truncated,
         )
 
 
@@ -169,6 +170,7 @@ class WslUnshareGroundingRunner(GroundingRunner):
             stdout=outcome.stdout,
             stderr=outcome.stderr,
             timed_out=outcome.timed_out,
+            truncated=outcome.truncated,
         )
 
 
@@ -321,6 +323,7 @@ class DockerProofRunner:
             stdout=outcome.stdout,
             stderr=outcome.stderr,
             timed_out=outcome.timed_out,
+            truncated=outcome.truncated,
         )
 
 
