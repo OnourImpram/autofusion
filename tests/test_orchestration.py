@@ -10,7 +10,14 @@ from autofusion.analysis import AnalysisInput, build_analysis
 from autofusion.budget import BudgetLedger
 from autofusion.config import load_config
 from autofusion.errors import BudgetExceeded
-from autofusion.models import CallStatus, ProviderRequest, ProviderResult, RunBudget, RunState
+from autofusion.models import (
+    CallStatus,
+    ContextBudget,
+    ProviderRequest,
+    ProviderResult,
+    RunBudget,
+    RunState,
+)
 from autofusion.router import AdaptiveSignals, effective_participant_count, resolve_adaptive_route
 from autofusion.state import RunStateMachine, StateTransitionError
 from autofusion.topologies import run_dual_review, run_panel_rank
@@ -27,6 +34,7 @@ def _request(handle: str, call_id: str, *, packet_hash: str = "a" * 64) -> Provi
         timeout_s=30,
         max_output_chars=100,
         metadata={"packet_hash": packet_hash},
+        context_budget=ContextBudget(10_000, 100, 100),
     )
 
 

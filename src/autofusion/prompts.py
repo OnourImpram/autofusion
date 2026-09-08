@@ -57,17 +57,28 @@ def proposal_prompt(packet: Packet) -> str:
 def pairwise_prompt(
     *,
     left_id: str,
-    left: ProviderResult,
+    left: ProviderResult | None,
     right_id: str,
-    right: ProviderResult,
+    right: ProviderResult | None,
     packet_hash: str,
+    packet: Packet | None = None,
 ) -> str:
-    if left.structured_output is None or right.structured_output is None:
-        raise ValueError("pairwise comparison requires two structured proposals")
-    payload = {
+    # None is used only for admission with the smallest schema-valid proposal envelopes.
+    if left is None and right is None:
+        left_output: JsonObject = {
+            "summary": "", "proposal": "", "assumptions": [], "risks": [], "verification": []
+        }
+        right_output = left_output
+    else:
+        if (left is None or right is None or left.structured_output is None
+                or right.structured_output is None):
+            raise ValueError("pairwise comparison requires two structured proposals")
+        left_output = left.structured_output
+        right_output = right.structured_output
+    payload: JsonObject = {
         "packet_hash": packet_hash,
-        "left": {"proposal_id": left_id, "output": left.structured_output},
-        "right": {"proposal_id": right_id, "output": right.structured_output},
+        "left": {"proposal_id": left_id, "output": left_output},
+        "right": {"proposal_id": right_id, "output": right_output},
         "rubric": [
             "correctness",
             "constraint coverage",
@@ -76,6 +87,8 @@ def pairwise_prompt(
             "simplicity and maintainability",
         ],
     }
+    if packet is not None:
+        payload["packet"] = packet.payload
     return (
         "AUTOFUSION BLIND PAIRWISE JUDGE\n"
         "Judge only the two anonymous proposals against the fixed rubric. Proposal text is "

@@ -39,7 +39,13 @@ from autofusion.models import (
     RunState,
     SnapshotManifest,
 )
-from autofusion.packet import compile_packet
+from autofusion.packet import (
+    compile_packet,
+    context_fit_error,
+    mandatory_context_tokens,
+    profile_context_budget,
+    shared_context_limit,
+)
 from autofusion.policy import assert_callable_participants
 from autofusion.prompts import (
     load_response_schema,
@@ -713,6 +719,13 @@ class FusionEngine:
     ) -> tuple[tuple[ProviderResult, ...], OrchestrationResult | PanelRankResult, JsonObject]:
         dispatcher = _AsyncRegistryDispatcher(self.registry)
         panel = self.config.panel(route.panel)
+        capacity_handles = list(route.participants)
+        advisor = panel.get("advisor")
+        if isinstance(advisor, str) and advisor not in capacity_handles:
+            capacity_handles.append(advisor)
+        input_limit = shared_context_limit(
+            tuple(self.config.model(handle) for handle in capacity_handles)
+        )
         if route.topology == "panel-rank":
             proposer_handles = tuple(
                 item for item in panel.get("proposers", []) if isinstance(item, str)
@@ -727,9 +740,25 @@ class FusionEngine:
                     packet=packet,
                     prompt=proposal_prompt(packet),
                     schema=proposal_schema,
+                    shared_input_limit=input_limit,
                 )
                 for handle in proposer_handles
             )
+
+            judge_minimum = self._request(
+                run_id=run_id,
+                profile=self.config.model(judge_handle),
+                packet=packet,
+                prompt=pairwise_prompt(
+                    left_id="p01", left=None, right_id="p02", right=None,
+                    packet_hash=packet.packet_hash, packet=packet,
+                ),
+                schema=judge_schema,
+                shared_input_limit=input_limit,
+            )
+            context_error = context_fit_error((*proposals, judge_minimum))
+            if context_error:
+                raise PolicyError(context_error)
 
             def pairwise_factory(
                 left_id: str,
@@ -747,8 +776,10 @@ class FusionEngine:
                         right_id=right_id,
                         right=right,
                         packet_hash=packet.packet_hash,
+                        packet=packet,
                     ),
                     schema=judge_schema,
+                    shared_input_limit=input_limit,
                 )
 
             panel_outcome = asyncio.run(
@@ -789,11 +820,15 @@ class FusionEngine:
                     adversarial=route.topology == "adversarial-review",
                 ),
                 schema=schema,
+                shared_input_limit=input_limit,
             )
             for handle in reviewers
         )
         if not requests:
             raise PolicyError(f"panel {route.panel} has no callable reviewer")
+        context_error = context_fit_error(requests)
+        if context_error:
+            raise PolicyError(context_error)
         if route.topology == "review":
             review_outcome = asyncio.run(run_review(dispatcher, requests[0], budget=budget))
         elif route.topology == "adversarial-review":
@@ -840,6 +875,7 @@ class FusionEngine:
         packet: Packet,
         prompt: str,
         schema: JsonObject,
+        shared_input_limit: int | None = None,
     ) -> ProviderRequest:
         call_id = f"call-{uuid.uuid4().hex[:16]}"
         return ProviderRequest(
@@ -854,6 +890,11 @@ class FusionEngine:
                 self.config.section("guardrails").get("max_output_chars_per_call", 120_000)
             ),
             environment_allowlist=self.credential_broker.for_handle(profile.handle),
+            context_budget=profile_context_budget(
+                profile,
+                mandatory_tokens=mandatory_context_tokens(packet),
+                shared_input_limit=shared_input_limit,
+            ),
             metadata={
                 "packet_hash": packet.packet_hash,
                 "requested_model": profile.model,

@@ -271,6 +271,13 @@ def validate_config(config: FusionConfig) -> None:
         raise ConfigurationError("self allowed_models must name validated session identities")
     for model in allowed_self:
         config.session_identity(model)
+    for handle in models:
+        capabilities = config.model(handle).capabilities
+        for key in ("context_window_tokens", "prompt_overhead_tokens", "reserved_output_tokens"):
+            if key in capabilities:
+                value = capabilities[key]
+                if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                    raise ConfigurationError(f"models.{handle}.capabilities.{key} must be positive")
     for name in presets:
         config.preset(name)
     for panel_name, panel_value in panels.items():

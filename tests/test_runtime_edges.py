@@ -18,7 +18,7 @@ from autofusion.credentials import CredentialBroker
 from autofusion.errors import BudgetExceeded, GroundingError, PolicyError, ProviderError
 from autofusion.github_annotations import format_github_annotation
 from autofusion.grounding import GroundingResult
-from autofusion.models import CallStatus, ProviderRequest, ProviderResult, RunBudget
+from autofusion.models import CallStatus, ContextBudget, ProviderRequest, ProviderResult, RunBudget
 from autofusion.providers.http import (
     AnthropicHttpProvider,
     HttpResponse,
@@ -49,6 +49,7 @@ def _request(handle: str = "reviewer", call_id: str = "call-1") -> ProviderReque
         timeout_s=1.0,
         max_output_chars=128,
         metadata={"packet_hash": "a" * 64},
+        context_budget=ContextBudget(10_000, 100, 100),
     )
 
 
