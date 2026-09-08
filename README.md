@@ -1,184 +1,137 @@
 # autofusion
 
-autofusion is a Claude Code first escalation system for serious engineering work. It combines an active Claude Code session with independent model reviewers, evidence grounding, explicit disagreement, and auditable receipts.
+autofusion helps people examine consequential AI-assisted decisions through independent model review, executed checks where applicable, and a traceable record of what changed. Its purpose is to make important work easier to challenge and verify before people rely on it.
 
-The repository is currently an alpha runtime. It includes a typed Python package, deterministic routing, immutable snapshots, packet compilation, provider adapters, grounding, proof capsules, durable run journals, reconciliation, metadata-only receipts, replay and evaluation helpers, and a Claude Code plugin skeleton.
+It is for researchers, engineers, and heavy agent users who work intensely with AI. Run fusion on decisions that matter, where a missed issue would be costly or difficult to reverse. Routine work stays with one model.
 
-The plugin remains skill-first. Installing the plugin does not magically grant model credentials or a live callable route. Successful fusion requires the helper CLI and the configured provider transports to pass runtime checks. If a model, sandbox, DLP gate, budget, or receipt write fails, autofusion records degraded state instead of claiming fused success.
+The active Claude Code session drafts the work and reconciles the findings. Independent reviewers examine the same frozen artifact, trusted verification steps ground eligible claims, and the final record preserves unresolved disagreement. Evaluation should distinguish dated transport checks and executed verification from measured improvements in decision quality. autofusion provides the method; [claude-oauth](https://github.com/OnourImpram/claude-oauth) provides the plumbing for models available through the operator's existing sessions.
 
-## Why autofusion
+## Why fusion, and why not a bigger panel
 
 A larger panel is not automatically a better panel. Models can share blind spots, judges can be biased by answer order, and a polished synthesis can hide unresolved contradictions. autofusion therefore optimizes for four things:
 
-1. Independent review paths.
-2. Executable evidence where the artifact permits it.
-3. Visible contradictions instead of forced consensus.
-4. Honest run accounting, including partial and failed fusion.
+1. Independent review paths, with blind identities and answer-order reversal where a judge compares proposals.
+2. Executable evidence where the artifact permits it: a finding that a trusted verification command confirms outranks a finding that two models merely agree on.
+3. Visible contradictions instead of forced consensus. Agreement is recorded as agreement, never promoted to confidence on its own.
+4. Honest run accounting. A run whose required reviewer failed, whose packet did not fit, or whose grounding could not execute records degraded state and cannot claim fused success.
 
-Fusion remains an escalation. Routine work should stay with one model. Use fusion when the cost of a missed issue is higher than the review latency.
+If you work intensely with AI, the recommendation is simple: keep one model for routine work, and run fusion on the decisions that matter.
 
-## Two execution models
+## The method
 
-### /autofusion:fusion
+1. **Draft.** The active session, called `self`, produces the artifact: a diff, a plan, an answer, a release, a manuscript section.
+2. **Freeze.** The runtime takes an immutable snapshot and compiles one hash-addressed packet. Credential-shaped text is redacted or blocks dispatch under the configured policy.
+3. **Admit.** Every participant passes the same role, model, provider, callable, compound and context-fit checks before any provider is called. The packet must fit the smallest participant, including prompt overhead and reserved output.
+4. **Review independently.** One or more external reviewers examine the same packet without seeing each other. Compound providers whose hidden workers cannot be observed count as one vote.
+5. **Ground.** Checkable findings run through trusted verification IDs whose argument vectors were approved before review. Reviewer text is never executed.
+6. **Reconcile.** `self` reconciles findings against evidence. Unresolved blocker or major findings may receive one challenge and one rebuttal; debate is bounded.
+7. **Record.** A metadata-only receipt links the packet, the calls, the grounding, the analysis and the decision through hashes. A `ship` receipt is valid only when the linked analysis has no blocker or major findings.
 
-The running Claude Code session is self, the drafter and reconciler. self is not a callable transport. External helpers may call Codex, Claude CLI profiles, or configured APIs, but no Python process pretends to invoke the active Claude session.
+`self` is a sentinel, not a transport. No Python path invokes the active Claude Code session, and the current session's model may never appear as a reviewer, judge or delegate. That rule is enforced at configuration load, at admission and at the HTTP boundary, and each enforcement has a test that fails when it is removed.
 
-### /autofusion:fusion-parallel
+## What is measured, and how
 
-Every participant is externally callable. This mode supports batch, CI, independent proposals, and panels outside an active Claude Code session.
+| Claim | Status | Evidence |
+| --- | --- | --- |
+| `self` is non-callable; Fable 5.1 is admitted only as `self` | Implemented and unit-tested | `tests/test_identity_migration.py`, `tests/test_admission.py`; mutation notes in `CHANGELOG.md` |
+| Uniform admission for every dispatched participant, including advisor and direct calls | Implemented and unit-tested | `tests/test_admission.py` |
+| Routing minimums enforced against the actual panel, not its label | Implemented and unit-tested | `tests/test_config_policy.py`, `tests/test_routing_aliases.py` |
+| Cost caps and redaction policy can be tightened by local configuration, never relaxed | Implemented and unit-tested | `tests/test_config_policy.py` |
+| One execution deadline across dispatch, queued work and grounding | Implemented and unit-tested | `tests/test_request_deadlines.py`, `tests/test_engine.py` |
+| Context fit against the smallest participant, with prompt overhead and output reserve | Implemented and unit-tested | `tests/test_context_fit.py`, `tests/test_engine_context.py` |
+| Coverage gaps and reviewer abstention survive analysis, reconciliation and receipts | Implemented and unit-tested | `tests/test_analysis_coverage.py`, `tests/test_pending_binding.py` |
+| Proof capsules bind to the reviewed revision and survive finalization retries | Implemented and unit-tested | `tests/test_proof_binding.py`, `tests/test_finalization_race.py` |
+| Complete credential structures, including PEM blocks, never reach a provider | Implemented and unit-tested | `tests/test_dlp_structures.py` |
+| Codex CLI route for `gpt-5.6-sol` at xhigh and ultra | Measured live, July 2026 | `docs/provider-verification.md` |
+| Codex CLI route for `gpt-6-astra` at ultra | Measured live, 8 September 2026, configured-route identity only | `docs/provider-verification.md`, `docs/provider-astra-smoke-20260908.json` |
+| Claude CLI route for the `opus` alias | Measured live in July 2026 as Opus 4.8; the current `claude-opus-5` contract is unit-tested, not yet live-smoked | `docs/provider-verification.md` |
+| Antigravity `agy` headless transport, `gemini-flash` profile | Implemented and unit-tested; live smoke returned no terminal identity, so the profile ships disabled | `tests/test_agy.py`, `docs/provider-verification.md` |
+| ACP transport, `grok` profile | Implemented and unit-tested; live smoke did not complete initialization, so the profile ships disabled | `tests/test_acp.py`, `tests/test_acp_integration.py` |
+| Session delegates and a Workflow topology inside Claude Code | Planned for 0.6.x; contracts in `docs/roadmap.md` | none yet |
+| Cross-model review improves decision quality over same-model self-review | Not measured | requires the comparative evaluation program in `docs/roadmap.md` |
+
+A test that the author wrote and then passed proves less than it looks. Each repair in this repository carries a mutation note: the repair was reverted once with the test kept, the whole suite was run, and the failing test is named in `CHANGELOG.md`. A repair whose reversal fails nothing is not counted as measured.
 
 ## Built-in model profiles
 
-The target profile contract is:
+| Handle | Model | Transport | Role | Default |
+| --- | --- | --- | --- | --- |
+| `self` | the active session: Opus 5, Sonnet 5, Haiku 4.5 or Fable 5.1 | none | drafter, reconciler | always present, never callable |
+| `gpt-sol` | `gpt-5.6-sol` at xhigh | Codex CLI | reviewer, judge | enabled |
+| `gpt-sol-ultra` | `gpt-5.6-sol` at ultra, declared compound | Codex CLI | reviewer, judge | enabled |
+| `astra-ultra` | `gpt-6-astra` at ultra, declared compound | Codex CLI | reviewer, judge | enabled |
+| `claude-opus` | `claude-opus-5` via the `opus` alias at xhigh | Claude CLI | reviewer, judge | enabled |
+| `gemini-flash` | `gemini-3.8-flash-high` | Antigravity `agy` headless, sandboxed | reviewer | disabled until a dated identity-attested smoke |
+| `grok` | `grok-4.6` | ACP over stdio, read-only, tools denied | reviewer | disabled until a dated smoke |
 
-1. gpt-sol calls gpt-5.6-sol through Codex with xhigh effort.
-2. gpt-sol-ultra calls the same gpt-5.6-sol model with configured Codex reasoning effort `ultra` and declared compound execution.
-3. claude-opus calls Claude CLI with the opus alias, canonically Claude Opus 5 (`claude-opus-5`), at xhigh.
-4. astra-ultra calls `gpt-6-astra` through Codex with configured effort `ultra`, declared compound execution, and opaque workers. It is explicitly admitted as a reviewer or judge.
-5. self represents the active session and is explicitly non-callable. Current default identities are Opus 5, Sonnet 5, Haiku 4.5, and Fable 5.1.
+Ultra is a configured execution mode, not a separate model identity. Hidden workers of compound profiles do not count as independent votes. Sol, Astra and Terra share the `openai-chatgpt` quota group; changing models does not escape quota exhaustion. Fable is permitted only as `self`; callable profiles, aliases, overlays and panel roles cannot execute it, and legacy `claude-fable`, `dual-fable` and `external-council-fable` configurations fail with a migration error naming their replacements.
 
-Ultra effort is a configured execution mode. Hidden workers of gpt-sol-ultra and astra-ultra do not count as independent panel votes. Sol, Astra, and Terra belong to the same `openai-chatgpt` quota group; changing models does not escape quota exhaustion. Terra is quota metadata only here, without a built-in callable profile.
+Every call record keeps `configured_model`, `observed_model`, `identity_evidence` and `quota_group` separate. A Codex turn whose JSONL omits model identity records `identity_evidence=configured-route` and `observed_model=null`; that is routing evidence, not observed identity. There is no silent fallback to another model.
 
-There is no silent fallback to GPT 5.5 or another model. Autofusion rejects canonical model identity mismatches. Fable is permitted only as the active self session; callable profiles, aliases, overlays, and panel roles cannot execute it. If a requested profile is unavailable, the run records degradation and cannot claim successful fusion.
+## Topologies, presets and packs
 
-## Fusion topologies
-
-1. review sends one frozen artifact to an independent reviewer, grounds checkable findings, and reconciles every finding.
-2. adversarial-review asks the reviewer to disprove assumptions, construct counterexamples, and demand a rewrite when a patch would preserve the architectural defect.
-3. dual-review runs two blind reviewers against the same packet and preserves provenance for both.
-4. panel-rank compares independent proposals with blind identities and a fixed rubric. It selects a base proposal. It does not perform a naive merge.
-5. advisor asks one external model a bounded question. Advisor output is consultation, not successful fusion by itself.
-6. adaptive selects a bounded scaffold from approved topologies using task risk, verifiability, reversibility, model availability, latency, and budget.
-
-Unresolved blocker or major findings may receive one challenge and one rebuttal. Debate is not an unbounded topology.
+Topologies: `review`, `adversarial-review`, `dual-review`, `panel-rank`, `advisor`, `adaptive`. Presets: `fast`, `balanced`, `high` (with `quality` as alias), `budget`, `adaptive`. Packs for migration, security, release, incident, API contract, dependency and research evidence add artifact-specific roles and minimum presets; a pack may escalate a route and cannot weaken global policy. Explicit topology and reviewer settings override a preset only inside immutable global policy, privacy, model, recursion and budget limits. Details: [fusion topologies](docs/fusion-topologies.md), [fusion packs](docs/fusion-packs.md), [proof fusion](docs/proof-fusion.md).
 
 ## Proof Fusion
 
-Proof Fusion is a post-review evidence stage, not another model vote. An independently authored test overlay declares a typed relation across immutable revisions such as base, head, fixed, and mutant. The runtime validates the intent, overlay paths, author separation, revision hashes, trusted verification ID, expected outcomes, and mutation gate before it can emit a confirmed proof capsule.
+Proof Fusion is a post-review evidence stage, not another vote. An independently authored test overlay declares a typed relation across immutable revisions (base, head, fixed, mutant). Generated test code runs only in a Docker proof runner pinned by SHA-256 digest with network denied, a read-only root, dropped capabilities and bounded resources; without that runner, proof fails closed. Persisted capsules carry a local HMAC attestation keyed from `AUTOFUSION_PROOF_ATTESTATION_KEY`, which is never written to a capsule or passed into Docker. The current runtime executes supplied intents and overlays; model-driven test authoring is not an advertised capability.
 
-Generated test code never runs through the ordinary host or WSL grounding runner. It requires a Docker image reference pinned by a SHA-256 digest, denied network, a read-only container root, dropped capabilities, no-new-privileges, bounded processes, bounded memory, bounded CPU, and an attested image identity. The runner executes the immutable inspected image ID rather than resolving the configured name again. Without that runner, proof execution fails closed.
+## Install
 
-Every persisted proof capsule also requires a local HMAC attestation. The signing secret is read from `AUTOFUSION_PROOF_ATTESTATION_KEY`, must contain at least 32 bytes, and is never passed into Docker or written to the capsule. This authenticates the capsule to the local Autofusion process. It does not replace managed key custody or an externally attested production runner.
-
-The current alpha executes and verifies supplied proof intents and overlays. Automatic model-driven test generation is not yet an advertised capability.
-
-## Fusion packs
-
-The built-in migration, security, release, incident, API contract, dependency, and research evidence packs add artifact-specific roles, minimum presets, allowed topologies, and proof policy. A pack may escalate a route, but it cannot weaken global policy. See [Proof Fusion](docs/proof-fusion.md) and [fusion packs](docs/fusion-packs.md) for the executable contracts and failure boundaries.
-
-## Presets
-
-1. fast uses one cross-model review round and avoids a second call unless a blocker remains.
-2. balanced uses blind GPT and Claude reviews with bounded concurrency.
-3. high uses the strongest configured profiles and adversarial review.
-4. quality is a compatibility alias for high.
-5. budget minimizes additional paid API usage but never promises universal zero cost.
-6. adaptive chooses only among operator-approved presets and may escalate upward. It cannot silently downgrade a hard safety gate.
-
-Explicit topology and reviewer settings override a preset only inside immutable global policy, privacy, model, recursion, and budget limits.
-
-## Structured panel analysis
-
-The panel analyzer does not simply merge prose. It reports:
-
-1. Agreement.
-2. Contradictions.
-3. Partial coverage.
-4. Reviewer-specific insights.
-5. Blind spots.
-6. Grounding candidates.
-7. Executed grounding results.
-8. Decision impact.
-
-Agreement is not automatically confidence. Correlated models may agree for the same wrong reason. Evidence strength and reviewer independence remain separate fields.
-
-See [the fusion analysis schema](schemas/fusion-analysis.schema.json) and [fusion topologies](docs/fusion-topologies.md).
-
-## Inspiration and differentiation
-
-The adaptive scaffold design is informed by Sakana Fugu, Trinity, and Conductor. The structured panel analysis, presets, selective invocation, cost visibility, and recursion limits are informed by OpenRouter Fusion.
-
-autofusion differs in its operating target. It is repository-aware, Claude Code first, verification-oriented, and explicit about the non-callable self boundary. It also refuses to count opaque hidden workers as independent evidence and refuses to present a degraded single-model answer as fused.
-
-See [competitive research](docs/competitive-research.md) for the source analysis and adoption boundaries. See [product differentiators](docs/product-differentiators.md) for the independently designed proof, routing, evaluation, and fault-testing roadmap.
-
-## Install from Claude Code
-
-Register the marketplace and install the plugin:
+From Claude Code:
 
 ~~~text
 /plugin marketplace add OnourImpram/autofusion
 /plugin install autofusion@autofusion
 ~~~
 
+The plugin is skill-first. Installing the plugin does not magically grant model credentials or a live callable route; a successful fusion needs the helper CLI and the configured transports to pass `autofusion doctor`. When the helper is unavailable the skills say the run is manual and do not claim that transports, grounding or receipts executed.
+
+Helper package, from a checkout:
+
+~~~text
+git clone https://github.com/OnourImpram/autofusion.git
+cd autofusion
+python -m pip install -e ".[dev]"
+autofusion doctor
+autofusion config-validate --config .fusion.example.json
+~~~
+
+Or from a versioned release wheel downloaded from the GitHub release page and checked against its published SHA-256:
+
+~~~text
+python -m pip install ./autofusion-0.6.0-py3-none-any.whl
+~~~
+
 Example invocations:
 
 ~~~text
 /autofusion:fusion diff --preset balanced
-/autofusion:fusion plan --topology adversarial-review --reviewers gpt-sol-ultra,claude-opus
+/autofusion:fusion plan --topology adversarial-review --reviewers astra-ultra,claude-opus
 /autofusion:fusion answer --preset adaptive --focus research-evidence
 /autofusion:fusion release --pack release --preset adaptive
 /autofusion:fusion-parallel --panel external-council
-~~~
-
-If the helper CLI is unavailable, the skills must say that the run is manual and must not claim unavailable transports, grounding, or receipts were executed.
-
-Install the helper package from a checkout or release artifact:
-
-~~~text
-python -m pip install autofusion
-autofusion doctor
-autofusion config-validate --config .fusion.example.json
-autofusion packs
-autofusion proof-hash --root ./snapshot
-autofusion prove --repo . --intent intent.json --overlay proof-overlay --revision base=base-snapshot --revision head=head-snapshot --revision mutant=mutant-snapshot --output proof-capsule.json
 autofusion run-status RUN_ID
 ~~~
 
-Load `AUTOFUSION_PROOF_ATTESTATION_KEY` from operator-controlled secure storage before `autofusion prove`. Do not place the key in `.fusion.json`, shell history, proof overlays, receipts, or repository files.
+Models reachable through your own subscriptions rather than API keys: [claude-oauth](https://github.com/OnourImpram/claude-oauth) runs a loopback router in front of a real Claude Code process and exposes Google, xAI and OpenAI lanes as ordinary subagents. autofusion's `agy` and ACP transports are the same lanes driven directly; the router is the option for people who want the reviewers inside the Claude Code session.
 
 ## Configuration
 
-Start from [.fusion.example.json](.fusion.example.json). Reviewer-supplied command text is never executed. Grounding may invoke only trusted verification IDs whose argv arrays were approved before review.
+Start from [.fusion.example.json](.fusion.example.json). Reviewer-supplied command text is never executed. Grounding invokes only trusted verification IDs whose argv arrays were approved before review. Repository and invocation layers can tighten guardrails and cannot relax them: a lower cost cap wins, a stronger redaction action wins, a null never erases an inherited finite cap.
 
-Fable 5.1 (`claude-fable-5-1`) is self-only. Legacy `claude-fable-5` may be explicitly registered as self with identity metadata, but neither identity may be called externally. Remove legacy `claude-fable` profiles from overlays and use `claude-opus`; replace `dual-fable` with `dual-opus`, and `external-council-fable` with `external-council`. Legacy overlays fail with a migration error. The July Fable call record is retained as historical evidence of the former policy in [provider verification](docs/provider-verification.md).
+Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu are present as disabled comparison profiles. They cannot nest by default and do not expose enough worker provenance to satisfy a cross-model quorum on their own.
 
-Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu can be configured later as optional comparison providers. They are disabled in the example, cannot nest by default, and do not expose enough worker provenance to satisfy a cross-model quorum on their own.
+## Limits
 
-## Current status
+1. This is an alpha runtime. Assurance is limited to the tested invariants listed above and in `SECURITY.md`; the project does not yet claim cryptographic authenticity of external model usage, subscription entitlements or provider bills.
+2. Context admission uses a conservative byte bound over the packet, prompt, schema and mandatory files. Opaque session history, later tool exploration and hidden workers are not measured; see [context accounting](docs/architecture.md).
+3. Two transports ship disabled because their live smokes on 8 September 2026 did not return attested identity. Enabling them locally requires your own dated smoke.
+4. The ownership of orphaned descendants of a provider process is guaranteed on Windows only through Job Objects assigned after a suspended spawn; the window between spawn and assignment is documented in `CHANGELOG.md`.
+5. Whether cross-model review beats same-model self-review on real decisions has not been measured here. Treat any such claim, from this project or another, as a hypothesis until a comparative evaluation with held-out graders exists.
 
-Implemented in the alpha runtime:
+## Documents
 
-1. Typed Python package and CLI entry point.
-2. Non-callable `self` boundary.
-3. Enabled built-in profiles for GPT 5.6 SOL, GPT 5.6 SOL Ultra, and Claude Opus 5, with Fable restricted to self.
-4. Deterministic adaptive routing, hard gates, context fit across the smallest participant window, context quorum, and budget accounting.
-5. Review, adversarial review, dual review, advisor, and panel-rank topologies.
-6. Codex CLI, Claude CLI, OpenAI-compatible HTTP, Anthropic HTTP, and deterministic fake providers.
-7. Immutable repository snapshots and DLP preflight.
-8. Trusted verification IDs, argv-only grounding, and network-denied runner detection.
-9. Finding reconciliation, deadlock handling, metadata-only receipts, replay, policy signing, drift snapshots, telemetry stubs, and GitHub annotations.
-10. Mutation-gated, locally HMAC-attested proof capsules behind disposable Docker isolation.
-11. Hash-chained idempotent run journals and pending reconciliation status.
-12. Metadata-only precedent and downstream outcome records restricted to post-blind review.
-13. Declarative fusion packs and a human-gated GitHub Checks report renderer.
-14. Contract validators, strict mypy, ruff, and coverage-gated tests.
+[Architecture](docs/architecture.md), [safety model](docs/safety-model.md), [fusion topologies](docs/fusion-topologies.md), [proof fusion](docs/proof-fusion.md), [fusion packs](docs/fusion-packs.md), [provider verification](docs/provider-verification.md), [roadmap](docs/roadmap.md), [competitive research](docs/competitive-research.md), [product differentiators](docs/product-differentiators.md). Contribution rules in [CONTRIBUTING.md](CONTRIBUTING.md), reporting path in [SECURITY.md](SECURITY.md), release history in [CHANGELOG.md](CHANGELOG.md).
 
-Still gated before public 1.0 claims:
-
-1. Real smoke evidence for every enabled advertised live profile in each supported operator environment. Optional profiles remain disabled in portable defaults and require a local canonical identity smoke before activation.
-2. External replication showing cross-model gain beyond same-model self-review.
-3. Managed production signing for provider routing, cost, external runner identity, and key rotation.
-4. Stronger disposable isolation beyond WSL or Linux `unshare`.
-5. Repeated installation and provider verification from immutable release artifacts across additional operator environments.
-6. Automatic proof-test authoring and interrupted provider-dispatch resume.
-
-## Alpha Provenance Boundary
-
-Receipts reconcile against the linked analysis artifact. A `ship` receipt is valid only when the linked analysis has no blocker or major findings. The runtime writes structural hashes for packets, snapshots, calls, grounding, and receipts, and the validators reject mismatched summaries.
-
-This is still an alpha provenance system. Validators check linked artifact hashes, participant identity consistency, and receipt summaries. Claude CLI identity comes from provider usage telemetry. A multi-model Claude envelope is accepted only when the canonical model is the dominant output-token contributor. Historical Codex CLI 0.144 compatibility permits omitted model identity in JSONL: the adapter-pinned `--model` argument and a successful `turn.completed` event provide configured routing evidence, without an observed provider identity. See the dated records in [provider verification](docs/provider-verification.md). The project does not yet claim cryptographic authenticity of external model usage, subscription entitlements, or provider bills. Those require captured trusted runtime evidence and release signing.
-
-New call records keep `configured_model`, `observed_model`, `identity_evidence`, and `quota_group` separate. `effective_model` retains its resolved-route meaning for compatibility. A successful Codex turn with no model telemetry has `identity_evidence=configured-route` and `observed_model=null`. Legacy receipts without these additive fields remain legacy evidence, not observed-identity attestations.
-
-Context admission includes prompt/schema overhead, reserved output and mandatory selected file contents, including files accessed through snapshots. It rejects missing capacity and initial overflow before dispatch, and rechecks growing judge prompts. The byte-based bound is conservative; [context accounting and its limits](docs/architecture.md) describe the configured reservations and unmeasured session/tool context.
+The adaptive scaffold is informed by Sakana Fugu, Trinity and Conductor; the structured panel analysis, presets and recursion limits by OpenRouter Fusion. autofusion is independently implemented and differs in its target: repository-aware, Claude Code first, verification-oriented, explicit about the non-callable `self`, and unwilling to count opaque workers as evidence or to present a degraded single-model answer as fused.
