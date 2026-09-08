@@ -6,12 +6,32 @@
       "callable": false,
       "identity_source": "runtime-attested",
       "allowed_models": [
-        "claude-opus-4-8",
-        "claude-fable-5"
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "claude-haiku-4-5-20251001",
+        "claude-fable-5-1"
       ],
       "vendor": "anthropic",
       "family": "active-claude-session",
-      "context": "active-session"
+      "context": "active-session",
+      "identities": {
+        "claude-opus-5": {
+          "vendor": "anthropic",
+          "family": "claude-opus"
+        },
+        "claude-sonnet-5": {
+          "vendor": "anthropic",
+          "family": "claude-sonnet"
+        },
+        "claude-haiku-4-5-20251001": {
+          "vendor": "anthropic",
+          "family": "claude-haiku"
+        },
+        "claude-fable-5-1": {
+          "vendor": "anthropic",
+          "family": "claude-fable"
+        }
+      }
     },
     "gpt-sol": {
       "transport": "codex-exec",
@@ -63,36 +83,9 @@
       "transport": "claude-exec",
       "callable": true,
       "model": "opus",
-      "canonical_model": "claude-opus-4-8",
+      "canonical_model": "claude-opus-5",
       "vendor": "anthropic",
       "family": "claude-opus",
-      "effort": "xhigh",
-      "context": "repo-snapshot",
-      "compound": false,
-      "capabilities": {
-        "repo_access": true,
-        "structured_output": "native-schema",
-        "read_only": true
-      },
-      "params": {
-        "permission_mode": "plan",
-        "no_session_persistence": true,
-        "allowed_tools": [
-          "Read",
-          "Glob",
-          "Grep"
-        ]
-      }
-    },
-    "claude-fable": {
-      "enabled": false,
-      "activation_gate": "usage-credits-and-canonical-identity-smoke",
-      "transport": "claude-exec",
-      "callable": true,
-      "model": "fable",
-      "canonical_model": "claude-fable-5",
-      "vendor": "anthropic",
-      "family": "claude-fable",
       "effort": "xhigh",
       "context": "repo-snapshot",
       "compound": false,
@@ -205,18 +198,6 @@
       "blind": true,
       "arbiter": "escalate-human"
     },
-    "dual-fable": {
-      "enabled": false,
-      "activation_gate": "claude-fable-canonical-identity-smoke",
-      "topology": "dual-review",
-      "drafter": "self",
-      "reviewers": [
-        "gpt-sol",
-        "claude-fable"
-      ],
-      "blind": true,
-      "arbiter": "escalate-human"
-    },
     "quality": {
       "topology": "adversarial-review",
       "drafter": "self",
@@ -237,20 +218,6 @@
       "blind": true,
       "pairwise_order_check": true,
       "arbiter": "escalate-human"
-    },
-    "external-council-fable": {
-      "enabled": false,
-      "activation_gate": "claude-fable-canonical-identity-smoke",
-      "topology": "panel-rank",
-      "proposers": [
-        "gpt-sol",
-        "claude-opus",
-        "claude-fable"
-      ],
-      "judge": "gpt-sol-ultra",
-      "blind": true,
-      "pairwise_order_check": true,
-      "arbiter": "escalate-human"
     }
   },
   "roles": {
@@ -262,52 +229,127 @@
   },
   "packs": {
     "migration": {
-      "artifact_kinds": ["migration", "diff", "plan"],
+      "artifact_kinds": [
+        "migration",
+        "diff",
+        "plan"
+      ],
       "minimum_preset": "high",
-      "allowed_topologies": ["adversarial-review", "dual-review"],
-      "roles": ["data-integrity", "rollback", "compatibility"],
+      "allowed_topologies": [
+        "adversarial-review",
+        "dual-review"
+      ],
+      "roles": [
+        "data-integrity",
+        "rollback",
+        "compatibility"
+      ],
       "proof_policy": "required-for-blocker-major"
     },
     "security": {
-      "artifact_kinds": ["diff", "plan", "incident"],
+      "artifact_kinds": [
+        "diff",
+        "plan",
+        "incident"
+      ],
       "minimum_preset": "high",
-      "allowed_topologies": ["adversarial-review", "dual-review"],
-      "roles": ["threat-model", "exploitability", "mitigation"],
+      "allowed_topologies": [
+        "adversarial-review",
+        "dual-review"
+      ],
+      "roles": [
+        "threat-model",
+        "exploitability",
+        "mitigation"
+      ],
       "proof_policy": "required-for-blocker-major"
     },
     "release": {
-      "artifact_kinds": ["release", "diff"],
+      "artifact_kinds": [
+        "release",
+        "diff"
+      ],
       "minimum_preset": "balanced",
-      "allowed_topologies": ["review", "dual-review"],
-      "roles": ["regression", "observability", "rollback"],
+      "allowed_topologies": [
+        "review",
+        "dual-review"
+      ],
+      "roles": [
+        "regression",
+        "observability",
+        "rollback"
+      ],
       "proof_policy": "preferred"
     },
     "incident": {
-      "artifact_kinds": ["incident"],
+      "artifact_kinds": [
+        "incident"
+      ],
       "minimum_preset": "high",
-      "allowed_topologies": ["adversarial-review", "dual-review"],
-      "roles": ["timeline", "competing-hypotheses", "containment"],
+      "allowed_topologies": [
+        "adversarial-review",
+        "dual-review"
+      ],
+      "roles": [
+        "timeline",
+        "competing-hypotheses",
+        "containment"
+      ],
       "proof_policy": "preferred"
     },
     "api-contract": {
-      "artifact_kinds": ["api-contract", "diff", "plan"],
+      "artifact_kinds": [
+        "api-contract",
+        "diff",
+        "plan"
+      ],
       "minimum_preset": "balanced",
-      "allowed_topologies": ["review", "dual-review"],
-      "roles": ["compatibility", "consumer-impact", "versioning"],
+      "allowed_topologies": [
+        "review",
+        "dual-review"
+      ],
+      "roles": [
+        "compatibility",
+        "consumer-impact",
+        "versioning"
+      ],
       "proof_policy": "required-for-blocker-major"
     },
     "dependency": {
-      "artifact_kinds": ["dependency", "diff"],
+      "artifact_kinds": [
+        "dependency",
+        "diff"
+      ],
       "minimum_preset": "balanced",
-      "allowed_topologies": ["review", "adversarial-review", "dual-review"],
-      "roles": ["license", "vulnerability", "supply-chain"],
+      "allowed_topologies": [
+        "review",
+        "adversarial-review",
+        "dual-review"
+      ],
+      "roles": [
+        "license",
+        "vulnerability",
+        "supply-chain"
+      ],
       "proof_policy": "preferred"
     },
     "research-evidence": {
-      "artifact_kinds": ["research-synthesis", "answer", "plan"],
+      "artifact_kinds": [
+        "research-synthesis",
+        "answer",
+        "plan"
+      ],
       "minimum_preset": "balanced",
-      "allowed_topologies": ["review", "dual-review", "panel-rank"],
-      "roles": ["source-quality", "claim-traceability", "contradiction"],
+      "allowed_topologies": [
+        "review",
+        "dual-review",
+        "panel-rank"
+      ],
+      "roles": [
+        "source-quality",
+        "claim-traceability",
+        "contradiction"
+      ],
       "proof_policy": "not-applicable"
     }
   },
@@ -492,8 +534,7 @@
     "model_allowlist": [
       "gpt-sol",
       "gpt-sol-ultra",
-      "claude-opus",
-      "claude-fable"
+      "claude-opus"
     ],
     "provider_denylist": [],
     "max_panel_size": 4,

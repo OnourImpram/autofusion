@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from autofusion.config import FusionConfig
 from autofusion.errors import ConfigurationError, ProviderError
+from autofusion.identity import assert_executable_identity
 from autofusion.models import ProviderRequest, ProviderResult
 from autofusion.providers import (
     AnthropicHttpProvider,
@@ -37,6 +38,8 @@ class ProviderRegistry:
             provider = self.providers[handle]
         except KeyError as exc:
             raise ProviderError(f"unknown provider handle: {handle}") from exc
+        if not isinstance(provider, SelfProvider):
+            assert_executable_identity(provider.profile)
         if not provider.profile.enabled:
             raise ProviderError(f"provider handle is disabled by config: {handle}")
         return provider

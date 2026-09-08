@@ -31,7 +31,7 @@ Supported topologies are review, adversarial-review, dual-review, panel-rank, an
 
 Explicit topology and reviewer arguments override preset choices only when policy permits them.
 
-The claude-fable profile is opt-in. Keep it disabled until the operator has usage credits and a live helper call reports canonical `claude-fable-5` identity. A Claude CLI fallback to Opus is not a successful Fable call.
+Fable is self-only: neither `claude-fable-5-1` nor legacy `claude-fable-5` may be called through a profile, alias, overlay, or external role. Replace legacy `claude-fable` profiles with `claude-opus`, `dual-fable` with `dual-opus`, and `external-council-fable` with `external-council`. Current self defaults include Opus 5, Sonnet 5, Haiku 4.5, and Fable 5.1; identity must remain bound to the frozen run.
 
 ## Operating contract
 

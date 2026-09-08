@@ -6,14 +6,14 @@
   "participants": [
     {
       "source_id": "self",
-      "effective_model": "claude-opus-4-8",
+      "effective_model": "claude-opus-5",
       "family": "claude-opus",
       "compound": false,
       "worker_visibility": "not-applicable",
       "status": "completed",
       "call_id": null,
       "output_hash": "2222222222222222222222222222222222222222222222222222222222222222",
-      "identity_hash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      "identity_hash": "871f29dccd733a7c04e082161c49c89a7fbe00c6a55587c7195f94f3d6671369"
     },
     {
       "source_id": "gpt-sol",

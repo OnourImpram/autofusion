@@ -385,7 +385,7 @@ def test_claude_cli_rejects_ambiguous_auxiliary_usage(tmp_path: Path) -> None:
     envelope = {
         "modelUsage": {
             "claude-haiku-helper": {"inputTokens": 1},
-            "claude-opus-4-8": {"inputTokens": 10},
+            "claude-opus-5": {"inputTokens": 10},
         },
         "structured_output": {"answer": "ok"},
         "usage": {"input_tokens": 11, "output_tokens": 2},
@@ -394,7 +394,7 @@ def test_claude_cli_rejects_ambiguous_auxiliary_usage(tmp_path: Path) -> None:
         _profile(
             transport="claude-exec",
             model="opus",
-            canonical_model="claude-opus-4-8",
+            canonical_model="claude-opus-5",
         ),
         ClaudeCliAdapter(executable="fake-claude"),
         RecordingRunner(_outcome(json.dumps(envelope))),
@@ -408,9 +408,53 @@ def test_claude_cli_accepts_dominant_canonical_model_usage(tmp_path: Path) -> No
     envelope = {
         "modelUsage": {
             "claude-haiku-helper": {"outputTokens": 3},
-            "claude-opus-4-8": {"outputTokens": 300},
+            "claude-opus-5": {"outputTokens": 300},
         },
         "structured_output": {"answer": "ok"},
+    }
+    provider = CliTransportProvider(
+        _profile(
+            transport="claude-exec",
+            model="opus",
+            canonical_model="claude-opus-5",
+        ),
+        ClaudeCliAdapter(executable="fake-claude"),
+        RecordingRunner(_outcome(json.dumps(envelope))),
+    )
+
+    result = provider.invoke(_request(tmp_path))
+
+    assert result.status is CallStatus.COMPLETED
+    assert result.effective_model == "claude-opus-5"
+
+
+def test_claude_cli_rejects_unexpected_auxiliary_models(tmp_path: Path) -> None:
+    envelope = {
+        "modelUsage": {
+            "claude-haiku-helper": {},
+            "claude-sonnet-helper": {},
+        },
+        "structured_output": {"answer": "ok"},
+    }
+    provider = CliTransportProvider(
+        _profile(
+            transport="claude-exec",
+            model="opus",
+            canonical_model="claude-opus-5",
+        ),
+        ClaudeCliAdapter(executable="fake-claude"),
+        RecordingRunner(_outcome(json.dumps(envelope))),
+    )
+
+    with pytest.raises(ProviderError, match="omitted effective model identity"):
+        provider.invoke(_request(tmp_path))
+
+
+def test_claude_cli_historical_opus_4_8_envelope_remains_parseable(tmp_path: Path) -> None:
+    # Legacy July transport envelope, not an identity advertised by current defaults.
+    envelope = {
+        "modelUsage": {"claude-opus-4-8": {"outputTokens": 300}},
+        "structured_output": {"answer": "historical"},
     }
     provider = CliTransportProvider(
         _profile(
@@ -426,28 +470,6 @@ def test_claude_cli_accepts_dominant_canonical_model_usage(tmp_path: Path) -> No
 
     assert result.status is CallStatus.COMPLETED
     assert result.effective_model == "claude-opus-4-8"
-
-
-def test_claude_cli_rejects_unexpected_auxiliary_models(tmp_path: Path) -> None:
-    envelope = {
-        "modelUsage": {
-            "claude-haiku-helper": {},
-            "claude-sonnet-helper": {},
-        },
-        "structured_output": {"answer": "ok"},
-    }
-    provider = CliTransportProvider(
-        _profile(
-            transport="claude-exec",
-            model="opus",
-            canonical_model="claude-opus-4-8",
-        ),
-        ClaudeCliAdapter(executable="fake-claude"),
-        RecordingRunner(_outcome(json.dumps(envelope))),
-    )
-
-    with pytest.raises(ProviderError, match="omitted effective model identity"):
-        provider.invoke(_request(tmp_path))
 
 
 def test_codex_ultra_fails_closed_without_runtime_capability_proof(tmp_path: Path) -> None:

@@ -43,7 +43,6 @@ REQUIRED_MODELS = {
     "gpt-sol",
     "gpt-sol-ultra",
     "claude-opus",
-    "claude-fable",
 }
 
 REQUIRED_PRESETS = {
@@ -627,6 +626,30 @@ def validate_extended_orchestration(config: dict[str, Any]) -> None:
         "precedent cannot become authority or enter blind review",
     )
 
+def validate_identity_policy(
+    models: dict[str, Any], panels: dict[str, Any]
+) -> None:
+    for handle, raw_model in models.items():
+        if handle == "self":
+            continue
+        model = as_object(raw_model, f"model {handle} must be an object")
+        identities = [handle, *(model.get(key) for key in ("model", "canonical_model", "family"))]
+        aliases = model.get("aliases", [])
+        identities.extend(aliases if isinstance(aliases, list) else [aliases])
+        require(
+            not any(isinstance(value, str) and "fable" in value.lower() for value in identities),
+            f"migration required: {handle} names self-only Fable; use claude-opus externally",
+        )
+    for legacy, replacement in (
+        ("dual-fable", "dual-opus"),
+        ("external-council-fable", "external-council"),
+    ):
+        require(
+            legacy not in panels,
+            f"migration required: remove {legacy}; use {replacement}",
+        )
+
+
 def validate_config() -> None:
     config = load_json(ROOT / ".fusion.example.json")
     models = as_object(config.get("models"), "models must be an object")
@@ -653,10 +676,7 @@ def validate_config() -> None:
         models.get("claude-opus"),
         "claude-opus must be an object",
     )
-    claude_fable = as_object(
-        models.get("claude-fable"),
-        "claude-fable must be an object",
-    )
+    validate_identity_policy(models, panels)
 
     require(self_model.get("callable") is False, "self must be non-callable")
     require(
@@ -670,7 +690,7 @@ def validate_config() -> None:
                 "self.allowed_models must be a string array",
             )
         )
-        == {"claude-opus-4-8", "claude-fable-5"},
+        == {"claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001", "claude-fable-5-1"},
         "self allowed model identities must remain explicit",
     )
     require(
@@ -690,33 +710,10 @@ def validate_config() -> None:
     )
     require(
         claude_opus.get("model") == "opus"
-        and claude_opus.get("canonical_model") == "claude-opus-4-8"
+        and claude_opus.get("canonical_model") == "claude-opus-5"
         and claude_opus.get("callable") is True,
         "claude-opus mapping mismatch",
     )
-    require(
-        claude_fable.get("model") == "fable"
-        and claude_fable.get("canonical_model") == "claude-fable-5"
-        and claude_fable.get("callable") is True,
-        "claude-fable mapping mismatch",
-    )
-    require(
-        claude_fable.get("enabled") is False
-        and claude_fable.get("activation_gate")
-        == "usage-credits-and-canonical-identity-smoke",
-        "claude-fable must remain opt-in in portable defaults",
-    )
-    for panel_name in ("dual-fable", "external-council-fable"):
-        fable_panel = as_object(
-            panels.get(panel_name),
-            f"{panel_name} panel must be an object",
-        )
-        require(
-            fable_panel.get("enabled") is False
-            and fable_panel.get("activation_gate")
-            == "claude-fable-canonical-identity-smoke",
-            f"{panel_name} must remain disabled in portable defaults",
-        )
     require("gpt-5.5" not in models, "obsolete gpt-5.5 handle must not return")
     require(
         "opus-4.7" not in models,
@@ -745,6 +742,7 @@ def validate_config_candidate(config: dict[str, Any]) -> None:
     models = as_object(config.get("models"), "models must be an object")
     presets = as_object(config.get("presets"), "presets must be an object")
     panels = as_object(config.get("panels"), "panels must be an object")
+    validate_identity_policy(models, panels)
     validate_config_graph(config, models, presets, panels)
     validate_extended_orchestration(config)
 
@@ -763,6 +761,18 @@ def require_config_rejected(
 
 def validate_negative_config_guards() -> None:
     valid = load_json(ROOT / ".fusion.example.json")
+
+    # Deliberately disallowed external Fable identity, even under an unrelated handle.
+    candidate = copy.deepcopy(valid)
+    models = as_object(candidate.get("models"), "models must be an object")
+    models["legacy-reviewer"] = {
+        "transport": "claude-exec",
+        "model": "fable",
+        "canonical_model": "claude-fable-5-1",
+        "callable": True,
+        "enabled": False,
+    }
+    require_config_rejected("disallowed Fable callable alias", candidate)
 
     candidate = copy.deepcopy(valid)
     panels = as_object(candidate.get("panels"), "panels must be an object")

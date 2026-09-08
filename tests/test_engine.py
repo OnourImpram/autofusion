@@ -46,7 +46,6 @@ def _registry(output: dict[str, object]) -> ProviderRegistry:
                 config.model("gpt-sol-ultra"), output
             ),
             "claude-opus": DeterministicFakeProvider(config.model("claude-opus"), output),
-            "claude-fable": DeterministicFakeProvider(config.model("claude-fable"), output),
         }
     )
 
@@ -70,7 +69,7 @@ def test_self_driven_run_stops_for_reconciliation_then_writes_linked_receipt(
             artifact_kind="plan",
             artifact_paths=("app.py",),
             preset="fast",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
             run_grounding=False,
         )
     )
@@ -79,7 +78,7 @@ def test_self_driven_run_stops_for_reconciliation_then_writes_linked_receipt(
     artifacts = engine.finalize(pending.run_id, dispositions=())
     assert artifacts.receipt["fused"] is True
     assert artifacts.receipt["verdict"] == "ship"
-    assert artifacts.receipt["self_model"] == "claude-opus-4-8"
+    assert artifacts.receipt["self_model"] == "claude-opus-5"
     assert artifacts.receipt["analysis_hash"]
     assert artifacts.receipt["receipt_hash"]
     assert artifacts.receipt_path.is_file()
@@ -126,7 +125,7 @@ def test_required_provider_failure_writes_honest_degraded_receipt(tmp_path: Path
             artifact_kind="plan",
             artifact_paths=("app.py",),
             preset="fast",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
             run_grounding=False,
         )
     )
@@ -188,7 +187,7 @@ def test_execution_confirmed_finding_cannot_be_rejected(tmp_path: Path) -> None:
             artifact_kind="diff",
             artifact_paths=("app.py",),
             preset="fast",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
         )
     )
     assert isinstance(pending, PendingRun)
@@ -232,7 +231,7 @@ def test_engine_never_invokes_self_provider(tmp_path: Path) -> None:
             artifact_kind="plan",
             artifact_paths=("app.py",),
             preset="fast",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
             run_grounding=False,
         )
     )
@@ -266,7 +265,7 @@ def test_repo_secret_blocks_cli_dispatch_and_writes_degraded_receipt(tmp_path: P
             artifact_kind="plan",
             artifact_paths=("app.py",),
             preset="fast",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
             run_grounding=False,
         )
     )
@@ -299,7 +298,7 @@ def test_wallclock_overrun_degrades_without_claiming_fusion(
             artifact_kind="plan",
             artifact_paths=("app.py",),
             preset="fast",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
             run_grounding=False,
         )
     )
@@ -385,7 +384,7 @@ def test_release_pack_escalates_fast_request_and_records_pack(tmp_path: Path) ->
             artifact_paths=("app.py",),
             preset="fast",
             pack="release",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
             run_grounding=False,
         )
     )
@@ -408,7 +407,7 @@ def test_migration_pack_dispatches_every_adversarial_reviewer(tmp_path: Path) ->
             artifact_paths=("app.py",),
             preset="fast",
             pack="migration",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
             run_grounding=False,
         )
     )
@@ -432,7 +431,7 @@ def test_pack_rejects_incompatible_artifact(tmp_path: Path) -> None:
                 repo_root=_repo(tmp_path),
                 artifact_kind="answer",
                 pack="migration",
-                self_model="claude-opus-4-8",
+                self_model="claude-opus-5",
                 run_grounding=False,
             )
         )
@@ -478,7 +477,7 @@ def test_confirmed_proof_capsule_cannot_be_rejected(
             artifact_kind="diff",
             artifact_paths=("app.py",),
             preset="fast",
-            self_model="claude-opus-4-8",
+            self_model="claude-opus-5",
             run_grounding=False,
         )
     )

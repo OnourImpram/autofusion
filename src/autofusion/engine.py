@@ -26,6 +26,7 @@ from autofusion.grounding import (
     resolve_verification,
     run_grounding,
 )
+from autofusion.identity import SessionIdentity
 from autofusion.journal import RunJournal
 from autofusion.models import (
     CallStatus,
@@ -480,9 +481,9 @@ class FusionEngine:
             },
         )
         self_identity_hash: str | None = None
-        self_family: str | None = None
+        self_identity: SessionIdentity | None = None
         if "self" in route.participants:
-            self_identity_hash, self_family = self._attest_self(request, ledger)
+            self_identity_hash, self_identity = self._attest_self(request, ledger)
         snapshot = build_snapshot(repo_root, run_directory / "snapshots")
         state.transition(RunState.FROZEN, reason="content-addressed snapshot created")
         journal.record(
@@ -606,7 +607,7 @@ class FusionEngine:
             packet=packet,
             results=results,
             self_identity_hash=self_identity_hash,
-            self_family=self_family,
+            self_identity=self_identity,
         )
         analysis = build_analysis(
             run_id=run_id,
@@ -666,7 +667,7 @@ class FusionEngine:
             started_at=started_at,
             state=state.state.value,
             self_identity_hash=self_identity_hash,
-            self_family=self_family,
+            self_identity=self_identity,
             degradation=tuple(dict.fromkeys(degradation)),
             active_wallclock_s=active_wallclock_s,
             journal_head_hash=journal.summary().journal_head_hash,
@@ -896,14 +897,14 @@ class FusionEngine:
 
     def _attest_self(
         self, request: FusionRunRequest, ledger: EvidenceLedger
-    ) -> tuple[str, str]:
+    ) -> tuple[str, SessionIdentity]:
         if request.self_model is None:
-            raise PolicyError("a self-driven panel requires the active Claude model identity")
+            raise PolicyError("a self-driven panel requires the active session model identity")
         raw_self = self.config.section("models").get("self")
         allowed = raw_self.get("allowed_models", []) if isinstance(raw_self, dict) else []
         if request.self_model not in allowed:
             raise PolicyError(f"active self model is not allowed: {request.self_model}")
-        family = "claude-fable" if "fable" in request.self_model else "claude-opus"
+        identity = self.config.session_identity(request.self_model)
         fingerprint_hash = (
             sha256_bytes(request.self_session_fingerprint.encode("utf-8"))
             if request.self_session_fingerprint
@@ -913,12 +914,13 @@ class FusionEngine:
             "self-identity",
             {
                 "model": request.self_model,
-                "family": family,
+                "family": identity.family,
+                "vendor": identity.vendor,
                 "source": request.self_identity_source,
                 "session_fingerprint_hash": fingerprint_hash,
             },
         )
-        return record.record_hash, family
+        return record.record_hash, identity
 
     def _attest_calls(
         self, results: tuple[ProviderResult, ...], ledger: EvidenceLedger
@@ -968,18 +970,18 @@ class FusionEngine:
         packet: Packet,
         results: tuple[ProviderResult, ...],
         self_identity_hash: str | None,
-        self_family: str | None,
+        self_identity: SessionIdentity | None,
     ) -> tuple[AnalysisInput, ...]:
         inputs: list[AnalysisInput] = []
         if "self" in route.participants:
-            assert request.self_model is not None
+            assert request.self_model is not None and self_identity is not None
             self_result = ProviderResult(
                 call_id="self",
                 handle="self",
                 requested_model="self",
                 effective_model=request.self_model,
-                vendor="anthropic",
-                family=self_family or "active-claude-session",
+                vendor=self_identity.vendor,
+                family=self_identity.family,
                 mode="active-session",
                 compound=False,
                 worker_visibility="not-applicable",
@@ -1112,7 +1114,7 @@ class FusionEngine:
         started_at: str,
         state: str,
         self_identity_hash: str | None,
-        self_family: str | None,
+        self_identity: SessionIdentity | None,
         degradation: tuple[str, ...],
         active_wallclock_s: int,
         journal_head_hash: str | None,
@@ -1142,7 +1144,8 @@ class FusionEngine:
                 request.self_identity_source if "self" in route.participants else None
             ),
             "self_identity_hash": self_identity_hash,
-            "self_family": self_family,
+            "self_family": self_identity.family if self_identity else None,
+            "self_vendor": self_identity.vendor if self_identity else None,
             "requires_reconciliation": "self" in route.participants,
             "degradation_reasons": list(degradation),
             "active_wallclock_s": active_wallclock_s,

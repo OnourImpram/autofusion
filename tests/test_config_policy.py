@@ -16,9 +16,8 @@ def test_builtin_profiles_and_quality_alias() -> None:
     assert config.model("self").callable is False
     assert config.model("gpt-sol").canonical_model == "gpt-5.6-sol"
     assert config.model("gpt-sol-ultra").compound is True
-    assert config.model("claude-opus").canonical_model == "claude-opus-4-8"
-    assert config.model("claude-fable").canonical_model == "claude-fable-5"
-    assert config.model("claude-fable").enabled is False
+    assert config.model("claude-opus").canonical_model == "claude-opus-5"
+    assert "claude-fable" not in config.section("models")
     assert config.preset("quality")[0] == "high"
 
 
@@ -30,7 +29,6 @@ def test_overlay_cannot_expand_allowlist_or_execution_limits() -> None:
                 "gpt-sol",
                 "gpt-sol-ultra",
                 "claude-opus",
-                "claude-fable",
                 "untrusted",
             ],
             "provider_denylist": ["openrouter"],
@@ -110,8 +108,8 @@ def test_parallel_preset_remains_external_under_hard_gate_ranking() -> None:
     assert "self" not in route.participants
 
 
-def test_fable_panel_is_disabled_until_identity_gate_passes() -> None:
-    with pytest.raises(PolicyError, match="panel is disabled"):
+def test_legacy_fable_panel_requires_migration() -> None:
+    with pytest.raises(ConfigurationError, match="external-council"):
         resolve_route(
             load_config(),
             requested_preset="parallel",
@@ -123,6 +121,6 @@ def test_fable_panel_is_disabled_until_identity_gate_passes() -> None:
 
 def test_enabled_panel_cannot_reference_disabled_model() -> None:
     data = json.loads(json.dumps(load_config().data))
-    data["panels"]["dual-fable"]["enabled"] = True
+    data["models"]["claude-opus"]["enabled"] = False
     with pytest.raises(ConfigurationError, match="uses disabled model"):
         validate_config(FusionConfig(data=data, source_paths=()))

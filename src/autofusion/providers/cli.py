@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from typing import Protocol
 
 from autofusion.errors import OutputValidationError, ProviderError
+from autofusion.identity import assert_executable_identity
 from autofusion.models import CallStatus, ModelProfile, ProviderRequest, ProviderResult
 from autofusion.providers.base import (
     CostResolver,
@@ -349,6 +350,7 @@ class CliTransportProvider:
     cost_resolver: CostResolver = no_cost_evidence
 
     def invoke(self, request: ProviderRequest) -> ProviderResult:
+        assert_executable_identity(self.profile)
         if not self.profile.callable:
             raise ProviderError(f"provider {self.profile.handle} is marked non-callable")
         with TemporaryDirectory(prefix="autofusion-provider-") as directory:
