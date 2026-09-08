@@ -68,6 +68,17 @@ class ModelProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class ContextBudget:
+    """Configured capacity for conservative pre-dispatch context admission."""
+
+    window_tokens: int
+    prompt_overhead_tokens: int
+    reserved_output_tokens: int
+    mandatory_tokens: int = 0
+    shared_input_limit: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderRequest:
     run_id: str
     call_id: str
@@ -79,6 +90,7 @@ class ProviderRequest:
     max_output_chars: int
     environment_allowlist: tuple[str, ...] = ()
     metadata: JsonObject = field(default_factory=dict)
+    context_budget: ContextBudget | None = None
 
     @property
     def prompt_hash(self) -> str:

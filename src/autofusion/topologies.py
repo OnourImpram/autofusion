@@ -9,8 +9,9 @@ from dataclasses import dataclass, replace
 from typing import Protocol
 
 from autofusion.budget import BudgetLedger
-from autofusion.errors import BudgetExceeded, ProviderError
+from autofusion.errors import BudgetExceeded, PolicyError, ProviderError
 from autofusion.models import CallStatus, ProviderRequest, ProviderResult
+from autofusion.packet import context_fit_error
 
 
 class ProviderDispatcher(Protocol):
@@ -51,8 +52,10 @@ class PanelRankResult:
 def context_quorum(
     requests: Sequence[ProviderRequest], *, required_handles: Sequence[str]
 ) -> bool:
-    """Require all required first passes to reference one frozen packet."""
+    """Require one frozen packet and verified fit for the required first passes."""
 
+    if context_fit_error(requests) is not None:
+        return False
     if len({request.handle for request in requests}) != len(requests):
         return False
     by_handle = {request.handle: request for request in requests}
@@ -73,6 +76,15 @@ async def dispatch_blind_first_passes(
 
     if max_concurrency < 1:
         raise ValueError("max_concurrency must be at least one")
+    fit_error = context_fit_error(requests)
+    if fit_error is not None:
+        return tuple(
+            replace(
+                _failed_result(request, PolicyError(fit_error)),
+                status=CallStatus.POLICY_BLOCKED,
+            )
+            for request in requests
+        )
     semaphore = asyncio.Semaphore(max_concurrency)
 
     async def dispatch_one(request: ProviderRequest) -> ProviderResult:

@@ -134,7 +134,15 @@ The packet includes:
 
 Repository access is implemented against an immutable snapshot rather than the live working tree. API-only models receive a packet derived from the same snapshot.
 
-Context limits are evaluated across all required participants. If the complete mandatory packet does not fit every member, the run fails context quorum or selects a policy-approved smaller scaffold.
+Context admission checks the smallest usable capacity across every selected participant, including self, advisors, and panel judges. Each profile declares `context_window_tokens`, `prompt_overhead_tokens`, and `reserved_output_tokens`. Missing or invalid capacity fails closed. Matching packet hashes only establishes packet identity; `context_quorum` also checks fit.
+
+For each request, input accounting includes the actual rendered prompt, canonical response schema, and mandatory selected artifact text that is available through the snapshot but absent from the inline packet. UTF-8 byte length provides a conservative token bound, not a tokenizer-exact measurement. Inline text is counted once. Selected binary artifacts cannot certify complete text context. Required files are never dropped or truncated to fit. The admission bound is the minimum of each participant's window minus its configured overhead and output reserve.
+
+Initial overflow raises `PolicyError` before provider dispatch. Initial panel admission also measures the judge prompt and schema with minimum schema-valid proposal envelopes, so a known fixed judge overflow blocks proposers. Every dispatch batch also recomputes fit, so enlarged pairwise judge prompts are checked after proposals arrive. A blocked judge keeps the completed proposals and records a policy-blocked call; panel ranking abstains. Judges receive the frozen packet along with the proposals.
+
+Portable defaults reserve 32,768 tokens of prompt/system overhead and 128,000 tokens of output capacity. These are policy reservations, not measurements or a new provider generation-token cap. Self uses a conservative 200,000-token admission ceiling across its permitted identities; an operator can configure a smaller available capacity for an occupied session. Sol uses the [documented 1,050,000-token window](https://developers.openai.com/api/docs/models/gpt-5.6-sol), Opus uses its [documented 1,000,000-token window](https://platform.claude.com/docs/en/models/opus-5/whats-new-opus-5), and Astra uses the operator-supplied 1,000,000-token limit from 8 September 2026. Capability configuration remains an explicit trusted input.
+
+This check covers the supplied packet and selected mandatory artifacts. Opaque CLI system context, existing session history, later tool exploration, hidden workers and provider generation beyond the reserved output are not measured by this estimator.
 
 ## Structured panel analyzer
 

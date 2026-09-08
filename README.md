@@ -152,7 +152,7 @@ Implemented in the alpha runtime:
 1. Typed Python package and CLI entry point.
 2. Non-callable `self` boundary.
 3. Enabled built-in profiles for GPT 5.6 SOL, GPT 5.6 SOL Ultra, and Claude Opus 5, with Fable restricted to self.
-4. Deterministic adaptive routing, hard gates, context quorum, and budget accounting.
+4. Deterministic adaptive routing, hard gates, context fit across the smallest participant window, context quorum, and budget accounting.
 5. Review, adversarial review, dual review, advisor, and panel-rank topologies.
 6. Codex CLI, Claude CLI, OpenAI-compatible HTTP, Anthropic HTTP, and deterministic fake providers.
 7. Immutable repository snapshots and DLP preflight.
@@ -180,3 +180,5 @@ Receipts reconcile against the linked analysis artifact. A `ship` receipt is val
 This is still an alpha provenance system. Validators check linked artifact hashes, participant identity consistency, and receipt summaries. Claude CLI identity comes from provider usage telemetry. A multi-model Claude envelope is accepted only when the canonical model is the dominant output-token contributor. Historical Codex CLI 0.144 compatibility permits omitted model identity in JSONL: the adapter-pinned `--model` argument and a successful `turn.completed` event provide configured routing evidence, without an observed provider identity. See the dated records in [provider verification](docs/provider-verification.md). The project does not yet claim cryptographic authenticity of external model usage, subscription entitlements, or provider bills. Those require captured trusted runtime evidence and release signing.
 
 New call records keep `configured_model`, `observed_model`, `identity_evidence`, and `quota_group` separate. `effective_model` retains its resolved-route meaning for compatibility. A successful Codex turn with no model telemetry has `identity_evidence=configured-route` and `observed_model=null`. Legacy receipts without these additive fields remain legacy evidence, not observed-identity attestations.
+
+Context admission includes prompt/schema overhead, reserved output and mandatory selected file contents, including files accessed through snapshots. It rejects missing capacity and initial overflow before dispatch, and rechecks growing judge prompts. The byte-based bound is conservative; [context accounting and its limits](docs/architecture.md) describe the configured reservations and unmeasured session/tool context.

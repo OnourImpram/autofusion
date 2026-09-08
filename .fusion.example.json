@@ -31,6 +31,12 @@
           "vendor": "anthropic",
           "family": "claude-fable"
         }
+      },
+      "capabilities": {
+        "context_window_tokens": 200000,
+        "context_window_source": "portable-self-admission-ceiling",
+        "prompt_overhead_tokens": 32768,
+        "reserved_output_tokens": 128000
       }
     },
     "gpt-sol": {
@@ -45,7 +51,11 @@
       "capabilities": {
         "repo_access": true,
         "structured_output": "prompt-and-schema",
-        "read_only": true
+        "read_only": true,
+        "context_window_tokens": 1050000,
+        "context_window_source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        "prompt_overhead_tokens": 32768,
+        "reserved_output_tokens": 128000
       },
       "params": {
         "sandbox": "read-only",
@@ -69,7 +79,11 @@
       "capabilities": {
         "repo_access": true,
         "structured_output": "prompt-and-schema",
-        "read_only": true
+        "read_only": true,
+        "context_window_tokens": 1050000,
+        "context_window_source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        "prompt_overhead_tokens": 32768,
+        "reserved_output_tokens": 128000
       },
       "params": {
         "sandbox": "read-only",
@@ -94,7 +108,11 @@
       "capabilities": {
         "repo_access": true,
         "structured_output": "native-schema",
-        "read_only": true
+        "read_only": true,
+        "context_window_tokens": 1000000,
+        "context_window_source": "https://platform.claude.com/docs/en/models/opus-5/whats-new-opus-5",
+        "prompt_overhead_tokens": 32768,
+        "reserved_output_tokens": 128000
       },
       "params": {
         "permission_mode": "plan",
@@ -147,7 +165,9 @@
         "structured_output": "prompt-and-schema",
         "read_only": true,
         "context_window_tokens": 1000000,
-        "context_window_source": "operator-measured-2026-09-08"
+        "context_window_source": "operator-measured-2026-09-08",
+        "prompt_overhead_tokens": 32768,
+        "reserved_output_tokens": 128000
       },
       "params": {
         "sandbox": "read-only",
