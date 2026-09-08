@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from autofusion.analysis import unsettled_review_recommendations
 from autofusion.errors import PolicyError
 from autofusion.grounding import GroundingResult
 from autofusion.proof import ProofCapsule, ProofVerdict
@@ -200,6 +201,9 @@ def reconcile_analysis(
     if updated.get("context_complete") is False:
         effect = "human-required"
         rationale = "required participant or frozen context quorum was incomplete"
+    elif unsettled_review_recommendations(updated.get("participants", []), findings):
+        effect = "human-required"
+        rationale = "a reviewer recommendation still requires explicit reconciliation"
     elif blocking_deadlock:
         effect = "human-required"
         rationale = "unresolved blocker or major finding requires operator judgment"

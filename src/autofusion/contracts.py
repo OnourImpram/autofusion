@@ -9,6 +9,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+from autofusion.analysis import participant_context_complete, unsettled_review_recommendations
 from autofusion.config import FusionConfig
 from autofusion.errors import ReceiptError
 from autofusion.policy import panel_participants
@@ -66,8 +67,9 @@ def validate_analysis(analysis: JsonObject) -> None:
         str(item["source_id"]) for item in participants if item.get("status") == "completed"
     }
     _require(
-        bool(analysis.get("context_complete")) == (len(completed) == len(participants)),
-        "context_complete must match completed participant quorum",
+        bool(analysis.get("context_complete"))
+        == all(participant_context_complete(item) for item in participants),
+        "context_complete must match participant coverage and completion",
     )
     for item in _objects(analysis.get("consensus"), "consensus must contain objects"):
         supporters = _strings(item.get("supporters"), "consensus supporters must be strings")
@@ -134,6 +136,11 @@ def validate_analysis(analysis: JsonObject) -> None:
         _require(
             decision.get("effect") in {"blocked", "human-required"},
             "incomplete context must block or require a human",
+        )
+    if unsettled_review_recommendations(participants, findings):
+        _require(
+            decision.get("effect") in {"blocked", "human-required"},
+            "unsettled reviewer recommendation requires human reconciliation",
         )
 
 
@@ -264,7 +271,7 @@ def validate_linked(
 ) -> None:
     validate_analysis(analysis)
     validate_receipt(receipt, config)
-    for key in ("run_id", "packet_hash", "panel", "topology"):
+    for key in ("run_id", "packet_hash", "panel", "topology", "context_complete"):
         _require(receipt.get(key) == analysis.get(key), f"linked {key} mismatch")
     _require(
         receipt.get("analysis_hash") == sha256_bytes(analysis_bytes),
