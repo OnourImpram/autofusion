@@ -2,6 +2,24 @@
 
 All notable changes to autofusion are recorded here.
 
+## Unreleased
+
+### Added
+
+1. OpenAI-compatible transport option `params.structured_output: "prompt"`: the response
+   schema travels inside the prompt instead of `response_format`, for endpoints that refuse
+   API-level output contracts. Local schema validation is unchanged, so an ignored
+   instruction fails output validation rather than being trusted. `params.session_header`
+   sends a fresh per-call identity in the named header. Written for Agent Web Bridge, a
+   loopback daemon that drives the operator's signed-in ChatGPT tab; two disabled profiles
+   `chatgpt-web-high` and `chatgpt-web-xhigh` ship behind the activation gate
+   `main-session-verified-web-bridge-identity-smoke`, in their own `openai-chatgpt-web`
+   quota group because the ChatGPT web session is not the Codex CLI quota. Tests: the prompt
+   carries the schema and no `response_format`; the session header differs per call; output
+   that violates the schema is rejected; an unknown mode is a configuration error.
+   Live: one `call` through the bridge returned schema-valid output in 14,216 ms
+   (`docs/provider-verification.md`).
+
 ## 0.6.0
 
 Released 8 September 2026. This release moves the active contracts from the July 2026 model

@@ -167,6 +167,70 @@
         "verification": "NOT_RUN: portable defaults require main-session smoke verification"
       }
     },
+    "chatgpt-web-high": {
+      "enabled": false,
+      "activation_gate": "main-session-verified-web-bridge-identity-smoke",
+      "transport": "openai-compatible",
+      "callable": true,
+      "base_url": "http://127.0.0.1:8765/v1",
+      "key_env": "HWB_API_KEY",
+      "model": "chatgpt-web-high",
+      "canonical_model": "chatgpt-web-high",
+      "vendor": "openai",
+      "family": "chatgpt-web",
+      "effort": "high",
+      "context": "packet",
+      "compound": false,
+      "capabilities": {
+        "repo_access": false,
+        "structured_output": "prompt-and-schema",
+        "read_only": true,
+        "context_window_tokens": 111193,
+        "context_window_source": "codex-chatgpt-web reference source, chatgpt-web-models.ts (Pro account, read 2026-09-13)",
+        "prompt_overhead_tokens": 2048,
+        "reserved_output_tokens": 8192,
+        "identity_source": "configured-route",
+        "usage_source": "none",
+        "verification": "NOT_RUN: enable only after a main-session smoke through the local Agent Web Bridge"
+      },
+      "params": {
+        "structured_output": "prompt",
+        "session_header": "X-HWB-Session"
+      },
+      "quota_group": "openai-chatgpt-web"
+    },
+    "chatgpt-web-xhigh": {
+      "enabled": false,
+      "activation_gate": "main-session-verified-web-bridge-identity-smoke",
+      "transport": "openai-compatible",
+      "callable": true,
+      "base_url": "http://127.0.0.1:8765/v1",
+      "key_env": "HWB_API_KEY",
+      "model": "chatgpt-web-xhigh",
+      "canonical_model": "chatgpt-web-xhigh",
+      "vendor": "openai",
+      "family": "chatgpt-web",
+      "effort": "xhigh",
+      "context": "packet",
+      "compound": false,
+      "capabilities": {
+        "repo_access": false,
+        "structured_output": "prompt-and-schema",
+        "read_only": true,
+        "context_window_tokens": 111193,
+        "context_window_source": "codex-chatgpt-web reference source, chatgpt-web-models.ts (Pro account, read 2026-09-13)",
+        "prompt_overhead_tokens": 2048,
+        "reserved_output_tokens": 8192,
+        "identity_source": "configured-route",
+        "usage_source": "none",
+        "verification": "NOT_RUN: enable only after a main-session smoke through the local Agent Web Bridge"
+      },
+      "params": {
+        "structured_output": "prompt",
+        "session_header": "X-HWB-Session"
+      },
+      "quota_group": "openai-chatgpt-web"
+    },
     "openrouter-fusion-reference": {
       "enabled": false,
       "transport": "openai-compatible",
@@ -633,7 +697,9 @@
       "gpt-sol",
       "gpt-sol-ultra",
       "claude-opus",
-      "astra-ultra"
+      "astra-ultra",
+      "chatgpt-web-high",
+      "chatgpt-web-xhigh"
     ],
     "provider_denylist": [],
     "max_panel_size": 4,
@@ -663,6 +729,14 @@
         "gpt-5.6-terra"
       ],
       "source": "operator-measured-2026-09-08",
+      "shared_exhaustion": true
+    },
+    "openai-chatgpt-web": {
+      "models": [
+        "chatgpt-web-high",
+        "chatgpt-web-xhigh"
+      ],
+      "source": "operator-measured-2026-09-13: ChatGPT Pro web session, separate from the Codex CLI quota",
       "shared_exhaustion": true
     }
   }
