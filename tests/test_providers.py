@@ -696,6 +696,7 @@ def test_openai_compatible_structured_output_prompt_mode_and_session_header(
     assert "exactly one JSON object" in prompt
     assert '"answer"' in prompt
     assert headers["X-HWB-Session"].startswith("autofusion-")
+    second_client = FakeHttpClient(HttpResponse(200, json.dumps(response).encode("utf-8")))
     second = OpenAICompatibleHttpProvider(
         _profile(
             transport="openai-compatible",
@@ -704,10 +705,10 @@ def test_openai_compatible_structured_output_prompt_mode_and_session_header(
         ),
         "http://127.0.0.1:8765/v1",
         "TEST_OPENAI_KEY",
-        FakeHttpClient(HttpResponse(200, json.dumps(response).encode("utf-8"))),
+        second_client,
     )
     second.invoke(_request(tmp_path))
-    assert headers["X-HWB-Session"] != second.http_client.calls[0][1]["X-HWB-Session"]
+    assert headers["X-HWB-Session"] != second_client.calls[0][1]["X-HWB-Session"]
 
 
 def test_openai_compatible_prompt_mode_still_validates_output(
