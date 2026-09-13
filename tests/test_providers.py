@@ -666,6 +666,87 @@ def test_openai_compatible_transport_validates_identity_usage_and_cost(
     assert json.loads(body)["response_format"]["type"] == "json_schema"
 
 
+def test_openai_compatible_structured_output_prompt_mode_and_session_header(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Agent Web Bridge refuses response_format other than text and requires a session header;
+    # the schema then rides in the prompt and the reply is still validated locally.
+    monkeypatch.setenv("TEST_OPENAI_KEY", "secret-value")
+    response = {
+        "model": "chatgpt-web-high",
+        "choices": [{"message": {"content": '{"answer":"ok"}'}}],
+    }
+    client = FakeHttpClient(HttpResponse(200, json.dumps(response).encode("utf-8")))
+    provider = OpenAICompatibleHttpProvider(
+        _profile(
+            transport="openai-compatible",
+            model="chatgpt-web-high",
+            params={"structured_output": "prompt", "session_header": "X-HWB-Session"},
+        ),
+        "http://127.0.0.1:8765/v1",
+        "TEST_OPENAI_KEY",
+        client,
+    )
+    result = provider.invoke(_request(tmp_path))
+    assert result.effective_model == "chatgpt-web-high"
+    _, headers, body, _, _ = client.calls[0]
+    decoded = json.loads(body)
+    assert "response_format" not in decoded
+    prompt = decoded["messages"][0]["content"]
+    assert "exactly one JSON object" in prompt
+    assert '"answer"' in prompt
+    assert headers["X-HWB-Session"].startswith("autofusion-")
+    second_client = FakeHttpClient(HttpResponse(200, json.dumps(response).encode("utf-8")))
+    second = OpenAICompatibleHttpProvider(
+        _profile(
+            transport="openai-compatible",
+            model="chatgpt-web-high",
+            params={"structured_output": "prompt", "session_header": "X-HWB-Session"},
+        ),
+        "http://127.0.0.1:8765/v1",
+        "TEST_OPENAI_KEY",
+        second_client,
+    )
+    second.invoke(_request(tmp_path))
+    assert headers["X-HWB-Session"] != second_client.calls[0][1]["X-HWB-Session"]
+
+
+def test_openai_compatible_prompt_mode_still_validates_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TEST_OPENAI_KEY", "secret-value")
+    response = {
+        "model": "chatgpt-web-high",
+        "choices": [{"message": {"content": '{"unexpected":"field"}'}}],
+    }
+    provider = OpenAICompatibleHttpProvider(
+        _profile(
+            transport="openai-compatible",
+            model="chatgpt-web-high",
+            params={"structured_output": "prompt"},
+        ),
+        "http://127.0.0.1:8765/v1",
+        "TEST_OPENAI_KEY",
+        FakeHttpClient(HttpResponse(200, json.dumps(response).encode("utf-8"))),
+    )
+    with pytest.raises(OutputValidationError):
+        provider.invoke(_request(tmp_path))
+
+
+def test_openai_compatible_rejects_unknown_structured_output_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TEST_OPENAI_KEY", "secret-value")
+    provider = OpenAICompatibleHttpProvider(
+        _profile(transport="openai-compatible", params={"structured_output": "hope"}),
+        "https://provider.example/v1",
+        "TEST_OPENAI_KEY",
+        FakeHttpClient(HttpResponse(200, b"{}")),
+    )
+    with pytest.raises(ProviderError):
+        provider.invoke(_request(tmp_path))
+
+
 def test_anthropic_transport_is_injectable_and_requires_json_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

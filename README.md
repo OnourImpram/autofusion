@@ -47,6 +47,7 @@ If you work intensely with AI, the recommendation is simple: keep one model for 
 | Claude CLI route for the `opus` alias | Measured live in July 2026 as Opus 4.8; the current `claude-opus-5` contract is unit-tested, not yet live-smoked | `docs/provider-verification.md` |
 | Antigravity `agy` headless transport, `gemini-flash` profile | Implemented and unit-tested; live smoke returned no terminal identity, so the profile ships disabled | `tests/test_agy.py`, `docs/provider-verification.md` |
 | ACP transport, `grok` profile | Implemented and unit-tested; live smoke did not complete initialization, so the profile ships disabled | `tests/test_acp.py`, `tests/test_acp_integration.py` |
+| OpenAI-compatible route with the output contract in the prompt, `chatgpt-web-high` and `chatgpt-web-xhigh` profiles through a local Agent Web Bridge | Measured live, 13 September 2026, configured-route identity only; the profiles ship disabled behind an activation gate | `tests/test_providers.py`, `docs/provider-verification.md` |
 | Session delegates and a Workflow topology inside Claude Code | Planned for 0.6.x; contracts in `docs/roadmap.md` | none yet |
 | Cross-model review improves decision quality over same-model self-review | Not measured | requires the comparative evaluation program in `docs/roadmap.md` |
 
@@ -63,6 +64,7 @@ A test that the author wrote and then passed proves less than it looks. Each rep
 | `claude-opus` | `claude-opus-5` via the `opus` alias at xhigh | Claude CLI | reviewer, judge | enabled |
 | `gemini-flash` | `gemini-3.8-flash-high` | Antigravity `agy` headless, sandboxed | reviewer | disabled until a dated identity-attested smoke |
 | `grok` | `grok-4.6` | ACP over stdio, read-only, tools denied | reviewer | disabled until a dated smoke |
+| `chatgpt-web-high`, `chatgpt-web-xhigh` | ChatGPT Web at the high and extra-high reasoning efforts, browser session | OpenAI-compatible HTTP to a loopback Agent Web Bridge (same author, not public yet), schema in the prompt, `HWB_API_KEY` | reviewer | disabled until the operator's own bridge smoke; separate `openai-chatgpt-web` quota group |
 
 Ultra is a configured execution mode, not a separate model identity. Hidden workers of compound profiles do not count as independent votes. Sol, Astra and Terra share the `openai-chatgpt` quota group; changing models does not escape quota exhaustion. Fable is permitted only as `self`; callable profiles, aliases, overlays and panel roles cannot execute it, and legacy `claude-fable`, `dual-fable` and `external-council-fable` configurations fail with a migration error naming their replacements.
 
