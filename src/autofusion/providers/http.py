@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import time
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
@@ -109,6 +110,21 @@ def _object(value: object, *, name: str) -> JsonObject:
     return dict(value)
 
 
+def _prompt_with_schema(prompt: str, schema: JsonObject) -> str:
+    """Carry the output contract inside the prompt for endpoints that refuse response_format.
+
+    The reply is still validated locally against the same schema, so a provider that ignores
+    the instruction fails output validation instead of being trusted.
+    """
+
+    return (
+        f"{prompt}\n\n"
+        "Respond with exactly one JSON object and nothing else: no prose, no code fence. "
+        "The object must validate against this JSON Schema:\n"
+        f"{canonical_json_bytes(schema).decode('utf-8')}"
+    )
+
+
 def _api_key(key_env: str) -> str:
     key = os.environ.get(key_env)
     if not key:
@@ -154,24 +170,52 @@ class OpenAICompatibleHttpProvider:
         assert_executable_identity(self.profile)
         _admit_deadline(self.http_client, request)
         started = time.monotonic()
-        payload: JsonObject = {
-            "model": self.profile.model,
-            "messages": [{"role": "user", "content": request.prompt}],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "reviewer_output",
-                    "strict": True,
-                    "schema": request.response_schema,
+        structured_output = self.profile.params.get("structured_output", "response_format")
+        if structured_output not in {"response_format", "prompt"}:
+            raise ProviderError(
+                "OpenAI-compatible structured_output must be response_format or prompt"
+            )
+        payload: JsonObject
+        if structured_output == "prompt":
+            # Endpoints that cannot guarantee an API-level output contract (a browser-driven
+            # ChatGPT session behind Agent Web Bridge, for one) refuse response_format outright.
+            # The contract travels in the prompt; validation below is the same either way.
+            payload = {
+                "model": self.profile.model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": _prompt_with_schema(request.prompt, request.response_schema),
+                    }
+                ],
+            }
+        else:
+            payload = {
+                "model": self.profile.model,
+                "messages": [{"role": "user", "content": request.prompt}],
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "reviewer_output",
+                        "strict": True,
+                        "schema": request.response_schema,
+                    },
                 },
-            },
+            }
+        headers = {
+            "Authorization": f"Bearer {_api_key(self.key_env)}",
+            "Content-Type": "application/json",
         }
+        session_header = self.profile.params.get("session_header")
+        if session_header is not None:
+            # A fresh identity per call: the endpoint keys its ledger on it, and reusing one
+            # across calls would let it replay an earlier answer.
+            if not isinstance(session_header, str) or not session_header.strip():
+                raise ProviderError("OpenAI-compatible session_header must be a non-empty string")
+            headers[session_header] = f"autofusion-{uuid.uuid4().hex}"
         response = self.http_client.post(
             f"{self.base_url.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {_api_key(self.key_env)}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             body=canonical_json_bytes(payload),
             timeout_s=request.remaining_timeout_s(),
             max_bytes=max(4096, request.max_output_chars * 4),
