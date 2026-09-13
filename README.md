@@ -64,7 +64,7 @@ A test that the author wrote and then passed proves less than it looks. Each rep
 | `claude-opus` | `claude-opus-5` via the `opus` alias at xhigh | Claude CLI | reviewer, judge | enabled |
 | `gemini-flash` | `gemini-3.8-flash-high` | Antigravity `agy` headless, sandboxed | reviewer | disabled until a dated identity-attested smoke |
 | `grok` | `grok-4.6` | ACP over stdio, read-only, tools denied | reviewer | disabled until a dated smoke |
-| `chatgpt-web-high`, `chatgpt-web-xhigh` | ChatGPT Web at the high and extra-high reasoning efforts, browser session | OpenAI-compatible HTTP to a loopback [Agent Web Bridge](https://github.com/OnourImpram/Agent-Web-Bridge), schema in the prompt, `HWB_API_KEY` | reviewer | disabled until the operator's own bridge smoke; separate `openai-chatgpt-web` quota group |
+| `chatgpt-web-high`, `chatgpt-web-xhigh` | ChatGPT Web at the high and extra-high reasoning efforts, browser session | OpenAI-compatible HTTP to a loopback Agent Web Bridge (same author, not public yet), schema in the prompt, `HWB_API_KEY` | reviewer | disabled until the operator's own bridge smoke; separate `openai-chatgpt-web` quota group |
 
 Ultra is a configured execution mode, not a separate model identity. Hidden workers of compound profiles do not count as independent votes. Sol, Astra and Terra share the `openai-chatgpt` quota group; changing models does not escape quota exhaustion. Fable is permitted only as `self`; callable profiles, aliases, overlays and panel roles cannot execute it, and legacy `claude-fable`, `dual-fable` and `external-council-fable` configurations fail with a migration error naming their replacements.
 
