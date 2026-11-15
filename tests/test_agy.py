@@ -409,15 +409,16 @@ def test_agy_thread_start_failure_cleans_process(
             process.wait(timeout=2)
 
 
-def test_agy_default_disabled_and_registered(tmp_path: Path) -> None:
+def test_agy_default_enabled_and_registered(tmp_path: Path) -> None:
     from autofusion.config import load_config
     from autofusion.registry import ProviderRegistry
 
     config = load_config(repo_root=tmp_path)
     configured = config.model("gemini-flash")
-    assert not configured.enabled
+    assert configured.enabled
+    assert "gemini-flash" in config.section("guardrails")["model_allowlist"]
     assert configured.capabilities["read_only"] is True
-    assert configured.capabilities["identity_source"] == "terminal-result"
+    assert configured.capabilities["identity_source"] == "session-init-model"
     assert "gemini-flash" in ProviderRegistry.from_config(config).providers
 
 

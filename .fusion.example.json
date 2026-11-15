@@ -150,8 +150,6 @@
       }
     },
     "gemini-flash": {
-      "enabled": false,
-      "activation_gate": "main-session-verified-sandbox-and-terminal-identity-smoke",
       "transport": "agy-headless",
       "callable": true,
       "model": "gemini-3.8-flash-high",
@@ -165,9 +163,9 @@
         "repo_access": false,
         "structured_output": "prompt-and-schema",
         "read_only": true,
-        "identity_source": "terminal-result",
+        "identity_source": "session-init-model",
         "usage_source": "terminal-result",
-        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+        "verification": "live route smoke 2026-11-15: completed with schema-valid output (docs/provider-verification.md)"
       }
     },
     "grok": {
@@ -658,7 +656,8 @@
       "gpt-sol",
       "gpt-sol-ultra",
       "claude-opus",
-      "astra-ultra"
+      "astra-ultra",
+      "gemini-flash"
     ],
     "provider_denylist": [],
     "max_panel_size": 4,

@@ -46,15 +46,33 @@ reproduction tests.
    `src/autofusion/__init__.py` to carry the same version as the marketplace and plugin
    manifests. Mutation: 2 failed with the check reverted (the pyproject and package arms; the
    marketplace and plugin arms were already covered by the earlier check).
+8. `agy` session identity and Gemini profiles. `agy` 1.5.9 in print mode with `--output-format
+   stream-json` emits `init`, `step_update` and one `result` event with a matching
+   `conversation_id` and no model field on `result`. `src/autofusion/providers/agy.py` now
+   accepts `init.model` as observed identity (`provider-response` evidence class) only when one
+   `init` event and the terminal `result` share a non-empty string `conversation_id` and
+   `init.model` is a non-empty string, comparing it with the profile's canonical model as
+   before. It refuses missing `init`, `init` without a model, `init` or `result` without
+   `conversation_id`, different `conversation_id` values, multiple `init` events, non-string or
+   empty `init.model` or `conversation_id`, or a terminal `result` naming a model different from
+   the session model; a terminal `result` naming the model itself still identifies the call.
+   `gemini-flash`, `gemini-argon`, `gemini-carbon` and `gemini-hydrogen` are enabled with no
+   activation gate, in `guardrails.model_allowlist`, and state
+   `identity_source: session-init-model`; `.fusion.example.json` follows for `gemini-flash`.
+   Mutation: in `tests/test_agy_session_identity.py` (14 tests), 8 failed and 6 passed before
+   the adapter change; 17 failed in the profile tables of `tests/test_model_generation.py` and
+   `tests/test_agy.py` before the configuration change.
 
 ### Added
 
 1. Five profiles. `gpt-terra` (`gpt-6.1-terra`) and `gpt-luna` (`gpt-6-luna`) over the Codex
    CLI route are enabled and admitted to the model allowlist after their live route smoke.
    `gemini-argon` (`gemini-4-argon-high`), `gemini-carbon` (`gemini-4-carbon-high`) and
-   `gemini-hydrogen` (`gemini-4-hydrogen-xhigh`) over the `agy` headless transport ship
-   disabled behind an activation gate with `NOT_RUN` verification: their smoke returned no
-   terminal model identity.
+   `gemini-hydrogen` (`gemini-4-hydrogen-xhigh`) over the `agy` headless transport were
+   rejected in their first smoke because the terminal result carried no model identity, and now
+   ship enabled in `guardrails.model_allowlist` with no activation gate and
+   `identity_source: session-init-model` after the `agy` session-init identity update and their
+   dated live smokes.
 2. The naming rule. `autofusion.model_naming` holds two pure functions, and
    `tests/test_model_generation.py` pins the shipped profiles to their ids and holds the rule on
    both the built-in defaults and `.fusion.example.json`: a digit in a handle is a violation,
@@ -85,10 +103,22 @@ reproduction tests.
    (11,338 ms), `astra-ultra` (17,314 ms) on Codex CLI 0.169.0, and `claude-opus` (24,264 ms,
    effective model `claude-opus-5-5`) on Claude Code 2.1.325. Metadata only, in
    `docs/provider-smoke-20261115.json`.
-2. `agy` live smoke, 15 November 2026, `agy` 1.5.9, against a scratch configuration with the
-   three Gemini profiles enabled: the adapter rejected each result because the terminal
-   result carries no model identity (`agy` names the model in its session `init` event only).
-   The profiles ship disabled. `agy` 1.1.27 does not know the Gemini 4 ids at all.
+2. `agy` live smoke, 15 November 2026, `agy` 1.5.9. On the first smoke against a scratch
+   configuration with the three Gemini 4 profiles enabled, the adapter of that moment rejected
+   each result because the terminal result carries no model identity (`agy` names the model in
+   its session `init` event only); `agy` 1.1.27 does not know the Gemini 4 ids at all. Before
+   changing the shipped defaults, all four Gemini profiles passed a bounded smoke from a scratch
+   copy with the changed adapter (`gemini-hydrogen` 15,937 ms, `gemini-carbon` 33,541 ms,
+   `gemini-argon` 10,772 ms, `gemini-flash` 21,956 ms, all schema-valid), and a live negative
+   control on a scratch copy claiming `gemini-4-carbon-high` for a call served with
+   `gemini-4-hydrogen-xhigh` was refused with
+   `provider identity mismatch: expected gemini-4-carbon-high, received gemini-4-hydrogen-xhigh`.
+   With the shipped defaults enabled, one bounded `autofusion call` per profile on `agy` 1.5.9
+   completed with schema-valid output and effective model equal to the canonical model:
+   `gemini-hydrogen` (16,816 ms, `gemini-4-hydrogen-xhigh`), `gemini-carbon` (35,534 ms,
+   `gemini-4-carbon-high`), `gemini-argon` (12,775 ms, `gemini-4-argon-high`) and
+   `gemini-flash` (8,710 ms, `gemini-3.8-flash-high`), recorded in
+   `docs/provider-smoke-20261115.json`.
 3. Grok ACP smoke, 15 November 2026, grok CLI 1.0.40: the ACP preflight refused to start
    because a user-level MCP configuration file existed on the smoke machine. No model call
    was made; the profile ships disabled.

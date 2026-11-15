@@ -75,9 +75,34 @@ def _failure_kind(signal: str) -> str:
     return "terminal_failure"
 
 
-def _terminal(stdout: str) -> tuple[JsonObject, str | None]:
+def _init_identifier(value: object, field: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise OutputValidationError(f"agy invalid init {field}")
+    return value
+
+
+def _session_model(session: tuple[str | None, str | None] | None, result: JsonObject) -> str | None:
+    """The model agy states for the session, when it is bound to this terminal result.
+
+    Measured on agy 1.5.9 (print mode, stream-json): the terminal result carries no
+    model field. The init event names the model, and the init event and the result
+    carry the same conversation id. The session model counts as the identity of this
+    result only when both ids are present and equal; anything less is no identity.
+    """
+    if session is None:
+        return None
+    model, conversation = session
+    if model is None or conversation is None or result.get("conversation_id") != conversation:
+        return None
+    return model
+
+
+def _terminal(stdout: str) -> tuple[JsonObject, str | None, str | None]:
     result: JsonObject | None = None
     failure: str | None = None
+    session: tuple[str | None, str | None] | None = None
     for line in stdout.split("\n"):
         if not line.strip():
             continue
@@ -93,6 +118,13 @@ def _terminal(stdout: str) -> tuple[JsonObject, str | None]:
                 raise OutputValidationError(f"agy invalid {name} event")
             if name == "result":
                 result = dict(payload)
+            elif name == "init":
+                if session is not None:
+                    raise OutputValidationError("agy emitted more than one init event")
+                session = (
+                    _init_identifier(payload.get("model"), "model"),
+                    _init_identifier(event.get("conversation_id"), "conversation_id"),
+                )
             elif name == "step_update":
                 if "step_index" in payload and (
                     type(payload["step_index"]) is not int or payload["step_index"] < 0
@@ -117,13 +149,13 @@ def _terminal(stdout: str) -> tuple[JsonObject, str | None]:
             raise OutputValidationError("agy unknown stream event")
     if result is None:
         if failure is not None:
-            return {"status": "ERROR", "response": ""}, failure
+            return {"status": "ERROR", "response": ""}, failure, None
         raise OutputValidationError("agy stream omitted terminal result")
     if not isinstance(result.get("status"), str) or not isinstance(result.get("response"), str):
         raise OutputValidationError("agy invalid terminal result")
     if "error" in result and not isinstance(result["error"], str):
         raise OutputValidationError("agy invalid terminal error")
-    return result, failure
+    return result, failure, _session_model(session, result)
 
 
 def _usage(value: object) -> JsonObject | None:
@@ -234,7 +266,7 @@ class AgyProvider:
             if kind == "terminal_failure":
                 kind = f"process_exit:{outcome.returncode}"
             return self._failed(request, outcome, CallStatus.FAILED, kind)
-        terminal, failure = _terminal(outcome.stdout)
+        terminal, failure, session_model = _terminal(outcome.stdout)
         status = str(terminal["status"]).upper()
         if status in {"CANCELED", "CANCELLED", "INTERRUPTED"}:
             return self._failed(request, outcome, CallStatus.CANCELLED, "cancelled")
@@ -249,8 +281,12 @@ class AgyProvider:
             return self._failed(
                 request, outcome, CallStatus.FAILED, f"process_exit:{outcome.returncode}"
             )
+        stated = terminal.get("model")
+        if stated is not None and session_model is not None and stated != session_model:
+            raise OutputValidationError("agy session and terminal model identity disagree")
         actual = assert_effective_identity(
-            expected=self.profile.canonical_model, actual=terminal.get("model")
+            expected=self.profile.canonical_model,
+            actual=stated if stated is not None else session_model,
         )
         response = str(terminal["response"])
         if not response.strip():

@@ -206,8 +206,6 @@
       }
     },
     "gemini-flash": {
-      "enabled": false,
-      "activation_gate": "main-session-verified-sandbox-and-terminal-identity-smoke",
       "transport": "agy-headless",
       "callable": true,
       "model": "gemini-3.8-flash-high",
@@ -221,14 +219,12 @@
         "repo_access": false,
         "structured_output": "prompt-and-schema",
         "read_only": true,
-        "identity_source": "terminal-result",
+        "identity_source": "session-init-model",
         "usage_source": "terminal-result",
-        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+        "verification": "live route smoke 2026-11-15: completed with schema-valid output (docs/provider-verification.md)"
       }
     },
     "gemini-argon": {
-      "enabled": false,
-      "activation_gate": "main-session-verified-sandbox-and-terminal-identity-smoke",
       "transport": "agy-headless",
       "callable": true,
       "model": "gemini-4-argon-high",
@@ -242,14 +238,12 @@
         "repo_access": false,
         "structured_output": "prompt-and-schema",
         "read_only": true,
-        "identity_source": "terminal-result",
+        "identity_source": "session-init-model",
         "usage_source": "terminal-result",
-        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+        "verification": "live route smoke 2026-11-15: completed with schema-valid output (docs/provider-verification.md)"
       }
     },
     "gemini-carbon": {
-      "enabled": false,
-      "activation_gate": "main-session-verified-sandbox-and-terminal-identity-smoke",
       "transport": "agy-headless",
       "callable": true,
       "model": "gemini-4-carbon-high",
@@ -263,14 +257,12 @@
         "repo_access": false,
         "structured_output": "prompt-and-schema",
         "read_only": true,
-        "identity_source": "terminal-result",
+        "identity_source": "session-init-model",
         "usage_source": "terminal-result",
-        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+        "verification": "live route smoke 2026-11-15: completed with schema-valid output (docs/provider-verification.md)"
       }
     },
     "gemini-hydrogen": {
-      "enabled": false,
-      "activation_gate": "main-session-verified-sandbox-and-terminal-identity-smoke",
       "transport": "agy-headless",
       "callable": true,
       "model": "gemini-4-hydrogen-xhigh",
@@ -284,9 +276,9 @@
         "repo_access": false,
         "structured_output": "prompt-and-schema",
         "read_only": true,
-        "identity_source": "terminal-result",
+        "identity_source": "session-init-model",
         "usage_source": "terminal-result",
-        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+        "verification": "live route smoke 2026-11-15: completed with schema-valid output (docs/provider-verification.md)"
       }
     },
     "grok": {
@@ -844,6 +836,10 @@
       "gpt-luna",
       "claude-opus",
       "astra-ultra",
+      "gemini-flash",
+      "gemini-argon",
+      "gemini-carbon",
+      "gemini-hydrogen",
       "chatgpt-web-high",
       "chatgpt-web-xhigh"
     ],

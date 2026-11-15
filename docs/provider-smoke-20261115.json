@@ -80,7 +80,7 @@
     {
       "handle": "gemini-argon",
       "cli": "agy 1.5.9",
-      "configuration": "scratch configuration with the profile enabled",
+      "configuration": "scratch configuration with the profile enabled; adapter before the session-init identity change",
       "requested_model": null,
       "effective_model": null,
       "status": "rejected",
@@ -92,7 +92,7 @@
     {
       "handle": "gemini-carbon",
       "cli": "agy 1.5.9",
-      "configuration": "scratch configuration with the profile enabled",
+      "configuration": "scratch configuration with the profile enabled; adapter before the session-init identity change",
       "requested_model": null,
       "effective_model": null,
       "status": "rejected",
@@ -104,7 +104,7 @@
     {
       "handle": "gemini-hydrogen",
       "cli": "agy 1.5.9",
-      "configuration": "scratch configuration with the profile enabled",
+      "configuration": "scratch configuration with the profile enabled; adapter before the session-init identity change",
       "requested_model": null,
       "effective_model": null,
       "status": "rejected",
@@ -124,6 +124,54 @@
       "structured_output_valid": null,
       "output_hash": null,
       "error_class": "ACP preflight refused to spawn: user-level MCP configuration present; no model call"
+    },
+    {
+      "handle": "gemini-hydrogen",
+      "cli": "agy 1.5.9",
+      "configuration": "shipped defaults; adapter reads the session init model bound by conversation id",
+      "requested_model": "gemini-4-hydrogen-xhigh",
+      "effective_model": "gemini-4-hydrogen-xhigh",
+      "status": "completed",
+      "duration_ms": 16816,
+      "structured_output_valid": true,
+      "output_hash": "decd6b7e78554ef027157fc87364bc4c026cd9f97e4c03c7c575fc2a1135b291",
+      "error_class": null
+    },
+    {
+      "handle": "gemini-carbon",
+      "cli": "agy 1.5.9",
+      "configuration": "shipped defaults; adapter reads the session init model bound by conversation id",
+      "requested_model": "gemini-4-carbon-high",
+      "effective_model": "gemini-4-carbon-high",
+      "status": "completed",
+      "duration_ms": 35534,
+      "structured_output_valid": true,
+      "output_hash": "591b550c0007d2de6007a7cda8ccb6ab99e1decf3b95d6222be7f4654214bac7",
+      "error_class": null
+    },
+    {
+      "handle": "gemini-argon",
+      "cli": "agy 1.5.9",
+      "configuration": "shipped defaults; adapter reads the session init model bound by conversation id",
+      "requested_model": "gemini-4-argon-high",
+      "effective_model": "gemini-4-argon-high",
+      "status": "completed",
+      "duration_ms": 12775,
+      "structured_output_valid": true,
+      "output_hash": "cac8aa7f249eb765fb33ae0eecb7352812bc77f9f09783f4e2c8002bec3a8f35",
+      "error_class": null
+    },
+    {
+      "handle": "gemini-flash",
+      "cli": "agy 1.5.9",
+      "configuration": "shipped defaults; adapter reads the session init model bound by conversation id",
+      "requested_model": "gemini-3.8-flash-high",
+      "effective_model": "gemini-3.8-flash-high",
+      "status": "completed",
+      "duration_ms": 8710,
+      "structured_output_valid": true,
+      "output_hash": "8a739b07a04dbd0bf48887f74974962bd68215c85526fe5978705632b74c5077",
+      "error_class": null
     }
   ]
 }
