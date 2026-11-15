@@ -42,10 +42,10 @@ TABLE: dict[str, Row] = {
         "gpt-6.1-sol", "gpt-6.1-sol", "gpt-6.1", "codex-exec", "ultra", True, True, "sol"
     ),
     "gpt-terra": Row(
-        "gpt-6.1-terra", "gpt-6.1-terra", "gpt-6.1", "codex-exec", "xhigh", False, False, "terra"
+        "gpt-6.1-terra", "gpt-6.1-terra", "gpt-6.1", "codex-exec", "xhigh", False, True, "terra"
     ),
     "gpt-luna": Row(
-        "gpt-6-luna", "gpt-6-luna", "gpt-6", "codex-exec", "xhigh", False, False, "luna"
+        "gpt-6-luna", "gpt-6-luna", "gpt-6", "codex-exec", "xhigh", False, True, "luna"
     ),
     "astra-ultra": Row(
         "gpt-6-astra", "gpt-6-astra", "gpt-6", "codex-exec", "ultra", True, True, "astra"
@@ -97,6 +97,14 @@ TABLE: dict[str, Row] = {
 }
 NEW_HANDLES = ("gpt-terra", "gpt-luna", "gemini-argon", "gemini-carbon", "gemini-hydrogen")
 DISABLED = tuple(handle for handle, row in TABLE.items() if not row.enabled)
+ENABLED = tuple(handle for handle, row in TABLE.items() if row.enabled)
+# Activated on 2026-11-15 after a live route smoke each; the three Gemini profiles failed theirs
+# (no terminal identity) and stay disabled with the NOT_RUN text.
+ACTIVATED = ("gpt-terra", "gpt-luna")
+SMOKED = (
+    "live route smoke 2026-11-15: completed with schema-valid output "
+    "(docs/provider-verification.md)"
+)
 CARRIED_WINDOW = {
     "gpt-sol": ("gpt-5.6-sol", 1050000),
     "gpt-sol-ultra": ("gpt-5.6-sol", 1050000),
@@ -184,9 +192,33 @@ def test_new_openai_profiles_have_the_shape_of_gpt_sol(handle: str) -> None:
     assert set(profile["capabilities"]) == set(sol["capabilities"]) | {"verification"}
 
 
-@pytest.mark.parametrize("handle", NEW_HANDLES)
-def test_new_profiles_state_that_no_smoke_has_run(handle: str) -> None:
+@pytest.mark.parametrize("handle", [h for h in NEW_HANDLES if h not in ACTIVATED])
+def test_new_profiles_without_a_passing_smoke_say_so(handle: str) -> None:
     assert _models(DEFAULT_CONFIG)[handle]["capabilities"]["verification"] == NOT_RUN
+
+
+@pytest.mark.parametrize("handle", ACTIVATED)
+def test_activated_profiles_name_their_dated_smoke(handle: str) -> None:
+    assert _models(DEFAULT_CONFIG)[handle]["capabilities"]["verification"] == SMOKED
+
+
+@pytest.mark.parametrize("handle", ENABLED)
+def test_enabled_profiles_carry_no_gate_and_are_admitted(handle: str) -> None:
+    data = _load(DEFAULT_CONFIG)
+    raw = data["models"][handle]
+    assert raw.get("enabled", True) is True
+    assert "activation_gate" not in raw
+    assert handle in data["guardrails"]["model_allowlist"]
+
+
+NOT_ACTIVATED = ("gemini-flash", "gemini-argon", "gemini-carbon", "gemini-hydrogen", "grok")
+
+
+@pytest.mark.parametrize("handle", NOT_ACTIVATED)
+def test_profiles_that_failed_their_smoke_stay_outside_the_allowlist(handle: str) -> None:
+    data = _load(DEFAULT_CONFIG)
+    assert data["models"][handle]["enabled"] is False
+    assert handle not in data["guardrails"]["model_allowlist"]
 
 
 @pytest.mark.parametrize("handle", sorted(CARRIED_WINDOW))

@@ -43,12 +43,12 @@ If you work intensely with AI, the recommendation is simple: keep one model for 
 | Proof capsules bind to the reviewed revision and survive finalization retries | Implemented and unit-tested | `tests/test_proof_binding.py`, `tests/test_finalization_race.py` |
 | Complete credential structures, including PEM blocks, never reach a provider | Implemented and unit-tested | `tests/test_dlp_structures.py` |
 | Codex CLI route for `gpt-5.6-sol` at xhigh and ultra (previous generation) | Measured live, July 2026 | `docs/provider-verification.md` |
-| Codex CLI route for `gpt-6.1-sol` at xhigh and ultra, and the disabled `gpt-6.1-terra` and `gpt-6-luna` profiles | Configured 2026-11-15, live smoke pending | `docs/provider-verification.md`, `tests/test_model_generation.py` |
+| Codex CLI route for `gpt-6.1-sol` at xhigh and ultra, `gpt-6.1-terra` and `gpt-6-luna` | Measured live, 15 November 2026: one bounded call per profile, schema-valid output | `docs/provider-verification.md`, `tests/test_model_generation.py` |
 | Codex CLI route for `gpt-6-astra` at ultra | Measured live, 8 September 2026, configured-route identity only | `docs/provider-verification.md`, `docs/provider-astra-smoke-20260908.json` |
-| Claude CLI route for the `opus` alias | Measured live in July 2026 as Opus 4.8; the current `claude-opus-5-5` route is configured 2026-11-15, live smoke pending | `docs/provider-verification.md` |
+| Claude CLI route for the `opus` alias | Measured live, 15 November 2026, effective model `claude-opus-5-5`; the July 2026 measurement was Opus 4.8 | `docs/provider-verification.md` |
 | Antigravity `agy` headless transport, `gemini-flash` profile | Implemented and unit-tested; live smoke returned no terminal identity, so the profile ships disabled | `tests/test_agy.py`, `docs/provider-verification.md` |
-| Antigravity `agy` headless transport, `gemini-argon`, `gemini-carbon` and `gemini-hydrogen` profiles | Configured 2026-11-15, live smoke pending; all three ship disabled | `tests/test_model_generation.py`, `docs/provider-verification.md` |
-| ACP transport, `grok` profile | Implemented and unit-tested; the earlier live smoke, run under the `grok-4.6` profile, did not complete initialization; `grok-4.7` is configured 2026-11-15, live smoke pending, and the profile ships disabled | `tests/test_acp.py`, `tests/test_acp_integration.py` |
+| Antigravity `agy` headless transport, `gemini-argon`, `gemini-carbon` and `gemini-hydrogen` profiles | Live smoke, 15 November 2026: `agy` 1.5.9 names the model in its session `init` event only and the terminal result carries no identity, so the adapter rejected each result and all three ship disabled | `tests/test_model_generation.py`, `docs/provider-verification.md` |
+| ACP transport, `grok` profile | Implemented and unit-tested; the earlier live smoke, run under the `grok-4.6` profile, did not complete initialization; the `grok-4.7` smoke of 15 November 2026 stopped at the ACP preflight before any model call, and the profile ships disabled | `tests/test_acp.py`, `tests/test_acp_integration.py` |
 | Handles name a model family, never a version; one handle per family name, effort and compound flag | Implemented and unit-tested | `tests/test_model_generation.py` |
 | OpenAI-compatible route with the output contract in the prompt, `chatgpt-web-high` and `chatgpt-web-xhigh` profiles through a local Agent Web Bridge | Measured live, 13 September 2026, configured-route identity only; the profiles ship disabled behind an activation gate | `tests/test_providers.py`, `docs/provider-verification.md` |
 | Session delegates and a Workflow topology inside Claude Code | Planned, not in 0.7.0; contracts in `docs/roadmap.md` | none yet |
@@ -63,8 +63,8 @@ A test that the author wrote and then passed proves less than it looks. Each rep
 | `self` | the active session: Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.2 or Mythos 5.2; the four earlier identities (Opus 5, Sonnet 5, Haiku 4.5, Fable 5.1) stay admitted | none | drafter, reconciler | always present, never callable |
 | `gpt-sol` | `gpt-6.1-sol` at xhigh | Codex CLI | reviewer, judge | enabled |
 | `gpt-sol-ultra` | `gpt-6.1-sol` at ultra, declared compound | Codex CLI | reviewer, judge | enabled |
-| `gpt-terra` | `gpt-6.1-terra` at xhigh | Codex CLI | reviewer, judge | disabled until a dated route smoke |
-| `gpt-luna` | `gpt-6-luna` at xhigh | Codex CLI | reviewer, judge | disabled until a dated route smoke |
+| `gpt-terra` | `gpt-6.1-terra` at xhigh | Codex CLI | reviewer, judge | enabled (route smoke 15 November 2026) |
+| `gpt-luna` | `gpt-6-luna` at xhigh | Codex CLI | reviewer, judge | enabled (route smoke 15 November 2026) |
 | `astra-ultra` | `gpt-6-astra` at ultra, declared compound | Codex CLI | reviewer, judge | enabled |
 | `claude-opus` | `claude-opus-5-5` via the `opus` alias at xhigh | Claude CLI | reviewer, judge | enabled |
 | `gemini-flash` | `gemini-3.8-flash-high` | Antigravity `agy` headless, sandboxed | reviewer | disabled until a dated identity-attested smoke |

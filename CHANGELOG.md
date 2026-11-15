@@ -5,12 +5,12 @@ All notable changes to autofusion are recorded here.
 ## 0.7.0
 
 Prepared 15 November 2026; the release date is set when it is published. This release moves the
-built-in profiles from the previous model generation to the current one, adds five disabled
+built-in profiles from the previous model generation to the current one, adds five
 profiles, and makes the rule that a handle names a model family and never a version a tested
-invariant. No provider was contacted while it was prepared: every moved or new profile is
-configured and unit-tested, and its live smoke is pending (`docs/provider-verification.md`,
-section "2026-11-15 model generation"). Release gate 6 in `docs/roadmap.md` applies, so no
-release tag exists before those smokes are recorded. Every repair below carries a mutation
+invariant. The configuration was moved without contacting a provider; the live smokes were
+run afterwards, on 15 November 2026, one bounded call per profile
+(`docs/provider-verification.md`, section "2026-11-15 model generation"). Every enabled
+advertised profile has a dated smoke; no release tag has been cut. Every repair below carries a mutation
 note: the repair was reverted once with its tests kept, and the failures named are the
 reproduction tests.
 
@@ -49,10 +49,12 @@ reproduction tests.
 
 ### Added
 
-1. Five disabled profiles behind activation gates, each with `NOT_RUN` verification:
-   `gpt-terra` (`gpt-6.1-terra`) and `gpt-luna` (`gpt-6-luna`) over the Codex CLI route,
+1. Five profiles. `gpt-terra` (`gpt-6.1-terra`) and `gpt-luna` (`gpt-6-luna`) over the Codex
+   CLI route are enabled and admitted to the model allowlist after their live route smoke.
    `gemini-argon` (`gemini-4-argon-high`), `gemini-carbon` (`gemini-4-carbon-high`) and
-   `gemini-hydrogen` (`gemini-4-hydrogen-xhigh`) over the `agy` headless transport.
+   `gemini-hydrogen` (`gemini-4-hydrogen-xhigh`) over the `agy` headless transport ship
+   disabled behind an activation gate with `NOT_RUN` verification: their smoke returned no
+   terminal model identity.
 2. The naming rule. `autofusion.model_naming` holds two pure functions, and
    `tests/test_model_generation.py` pins the shipped profiles to their ids and holds the rule on
    both the built-in defaults and `.fusion.example.json`: a digit in a handle is a violation,
@@ -75,11 +77,25 @@ reproduction tests.
    (`docs/provider-verification.md`). This item was listed as unreleased on the main branch
    before 0.7.0.
 
+### Verification
+
+1. Live route smokes, 15 November 2026, one bounded `autofusion call` per profile with a public
+   toy function, no tools and the packaged reviewer schema. Completed with schema-valid output:
+   `gpt-sol` (19,057 ms), `gpt-sol-ultra` (16,279 ms), `gpt-terra` (13,564 ms), `gpt-luna`
+   (11,338 ms), `astra-ultra` (17,314 ms) on Codex CLI 0.169.0, and `claude-opus` (24,264 ms,
+   effective model `claude-opus-5-5`) on Claude Code 2.1.325. Metadata only, in
+   `docs/provider-smoke-20261115.json`.
+2. `agy` live smoke, 15 November 2026, `agy` 1.5.9, against a scratch configuration with the
+   three Gemini profiles enabled: the adapter rejected each result because the terminal
+   result carries no model identity (`agy` names the model in its session `init` event only).
+   The profiles ship disabled. `agy` 1.1.27 does not know the Gemini 4 ids at all.
+3. Grok ACP smoke, 15 November 2026, grok CLI 1.0.40: the ACP preflight refused to start
+   because a user-level MCP configuration file existed on the smoke machine. No model call
+   was made; the profile ships disabled.
+
 ### Pending
 
-1. Live smokes for `gpt-sol`, `gpt-sol-ultra` and `claude-opus` (enabled), and for the five new
-   profiles and `grok` before any of them is enabled. Each is `NOT_RUN` until the main session
-   records a dated, sandboxed smoke.
+1. A Grok smoke on a machine without user-level MCP configuration.
 2. Verified context windows for the moved and new profiles, replacing the carried numbers.
 
 ## 0.6.0

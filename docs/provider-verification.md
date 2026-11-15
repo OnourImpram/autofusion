@@ -57,21 +57,25 @@ Codex CLI route reported its usage limit reached until 19 September 2026 while t
 
 ## 2026-11-15 model generation
 
-Version 0.7.0 moves the built-in profiles to the model generation of 15 November 2026. This section records that move. It records no live call: no provider was contacted while the configuration was changed, and every row below is `NOT_RUN: main-session smoke pending`. A row is replaced by a dated measurement only after a sandboxed smoke through autofusion itself, with identity taken from the provider's own terminal output where the transport offers it. The July and September measurements above keep their dates and the model names they measured; they are not evidence for the model ids below.
+Version 0.7.0 moves the built-in profiles to the model generation of 15 November 2026. This section records that move and the live smokes that followed it. No provider was contacted while the configuration was changed. The smokes were run afterwards, on 15 November 2026: one bounded `autofusion call` per profile, with a public toy addition function inline in the prompt, no tools requested, and the packaged reviewer output schema. The [bounded smoke record](provider-smoke-20261115.json) stores metadata and hashes only; it contains neither the prompt nor provider output. `call` prints the effective model after the adapter's identity check; it does not print the evidence class, so these rows do not say whether an identity was observed in the provider stream or is the configured route. The July and September measurements above keep their dates and the model names they measured; they are not evidence for the model ids below.
 
 | Handle | Model id | Transport | Shipped state | Smoke state |
 | --- | --- | --- | --- | --- |
-| `gpt-sol` | `gpt-6.1-sol` at xhigh | codex-exec | enabled | NOT_RUN: main-session smoke pending |
-| `gpt-sol-ultra` | `gpt-6.1-sol` at ultra, compound | codex-exec | enabled | NOT_RUN: main-session smoke pending |
-| `gpt-terra` | `gpt-6.1-terra` at xhigh | codex-exec | disabled, gate `main-session-verified-codex-exec-route-smoke` | NOT_RUN: main-session smoke pending |
-| `gpt-luna` | `gpt-6-luna` at xhigh | codex-exec | disabled, gate `main-session-verified-codex-exec-route-smoke` | NOT_RUN: main-session smoke pending |
-| `claude-opus` | alias `opus`, canonical `claude-opus-5-5` at xhigh | claude-exec | enabled | NOT_RUN: main-session smoke pending |
-| `gemini-argon` | `gemini-4-argon-high` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | NOT_RUN: main-session smoke pending |
-| `gemini-carbon` | `gemini-4-carbon-high` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | NOT_RUN: main-session smoke pending |
-| `gemini-hydrogen` | `gemini-4-hydrogen-xhigh` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | NOT_RUN: main-session smoke pending |
-| `grok` | `grok-4.7` | acp | disabled, gate `main-session-verified-acp-permissions-and-identity-smoke` | NOT_RUN: main-session smoke pending |
+| `gpt-sol` | `gpt-6.1-sol` at xhigh | codex-exec | enabled | completed in 19,057 ms, schema-valid, effective `gpt-6.1-sol`, Codex CLI 0.169.0 |
+| `gpt-sol-ultra` | `gpt-6.1-sol` at ultra, compound | codex-exec | enabled | completed in 16,279 ms, schema-valid, effective `gpt-6.1-sol` |
+| `gpt-terra` | `gpt-6.1-terra` at xhigh | codex-exec | enabled after this smoke | completed in 13,564 ms, schema-valid, effective `gpt-6.1-terra` |
+| `gpt-luna` | `gpt-6-luna` at xhigh | codex-exec | enabled after this smoke | completed in 11,338 ms, schema-valid, effective `gpt-6-luna` |
+| `claude-opus` | alias `opus`, canonical `claude-opus-5-5` at xhigh | claude-exec | enabled | completed in 24,264 ms, schema-valid, effective `claude-opus-5-5`, Claude Code 2.1.325 |
+| `gemini-argon` | `gemini-4-argon-high` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | rejected: no terminal model identity, `agy` 1.5.9 |
+| `gemini-carbon` | `gemini-4-carbon-high` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | rejected: no terminal model identity, `agy` 1.5.9 |
+| `gemini-hydrogen` | `gemini-4-hydrogen-xhigh` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | rejected: no terminal model identity, `agy` 1.5.9 |
+| `grok` | `grok-4.7` | acp | disabled, gate `main-session-verified-acp-permissions-and-identity-smoke` | NOT_RUN: the ACP preflight refused to start, no model call was made (grok CLI 1.0.40) |
 
-Unchanged by this move: `astra-ultra` (`gpt-6-astra`, measured 8 September 2026 as recorded above), `gemini-flash` (still disabled; its smoke returned no terminal identity), and the `chatgpt-web-high` and `chatgpt-web-xhigh` profiles.
+Unchanged by this move: `astra-ultra` (`gpt-6-astra`, measured 8 September 2026 as recorded above and again on 15 November 2026: completed in 17,314 ms, schema-valid), `gemini-flash` (still disabled; its smoke returned no terminal identity), and the `chatgpt-web-high` and `chatgpt-web-xhigh` profiles.
+
+`gpt-terra` and `gpt-luna` were first smoked in a scratch copy of the configuration with the profiles enabled (9,233 ms and 11,920 ms, both schema-valid), then enabled in the shipped defaults and smoked again; the table shows the second run. The three Gemini smokes ran against the same kind of scratch copy, because a disabled profile outside the model allowlist cannot be called. With `agy` 1.5.9 each call reached the provider and the adapter then rejected the result: the terminal `result` event carries a status, a response and usage, and no model field. The only place `agy` 1.5.9 names the model is its session `init` event, and an unknown model id is refused there with an explicit error instead of being replaced. The adapter requires terminal identity by design and does not accept the `init` event in its place, so the profiles stay disabled. `agy` 1.1.27 does not list the Gemini 4 ids and fails with `model_unavailable`.
+
+The Grok smoke made no model call. The ACP preflight refuses to spawn the peer while a user-level MCP configuration file exists, and one existed on the smoke machine. That is the preflight working as designed; the route itself remains unmeasured for `grok-4.7`.
 
 The context windows of `gpt-sol`, `gpt-sol-ultra`, `gpt-terra`, `gpt-luna` and `claude-opus` are carried unchanged from the profile each one derives from and say so in `context_window_source`: `carried from <previous id> on 2026-11-15; NOT_VERIFIED for <new id>`. No vendor page was opened for the new ids. The smoke that activates a profile must also replace its carried window with a verified one, or leave it labelled.
 

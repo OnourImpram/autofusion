@@ -1,0 +1,129 @@
+{
+  "date": "2026-11-15",
+  "method": "one bounded autofusion call per profile; public toy function inline in the prompt; no tools requested; packaged reviewer output schema",
+  "schema_hash": "02869d725aa85881e8fc5307ad13d85fba422071d7b1f9e8e8fa65f49223baba",
+  "prompt_hash": "2e20cf3bfc59f52133e81ef896517cd9410136242d247d5b32605eab16068787",
+  "identity_note": "call prints the effective model after the adapter identity check; the evidence class is not printed and is not recorded here",
+  "calls": [
+    {
+      "handle": "gpt-sol",
+      "cli": "codex-cli 0.169.0",
+      "configuration": "shipped defaults",
+      "requested_model": "gpt-6.1-sol",
+      "effective_model": "gpt-6.1-sol",
+      "status": "completed",
+      "duration_ms": 19057,
+      "structured_output_valid": true,
+      "output_hash": "88737206e73071771525e74dc4ed7d858c84bb4b18670fc46863d914f3ef7cc8",
+      "error_class": null
+    },
+    {
+      "handle": "gpt-sol-ultra",
+      "cli": "codex-cli 0.169.0",
+      "configuration": "shipped defaults",
+      "requested_model": "gpt-6.1-sol",
+      "effective_model": "gpt-6.1-sol",
+      "status": "completed",
+      "duration_ms": 16279,
+      "structured_output_valid": true,
+      "output_hash": "69155c24a0f9753eb287758459d059213eba5b84e46e79b77ddc604b155d2fd2",
+      "error_class": null
+    },
+    {
+      "handle": "astra-ultra",
+      "cli": "codex-cli 0.169.0",
+      "configuration": "shipped defaults",
+      "requested_model": "gpt-6-astra",
+      "effective_model": "gpt-6-astra",
+      "status": "completed",
+      "duration_ms": 17314,
+      "structured_output_valid": true,
+      "output_hash": "a7e12075f42204f22df26feff5e284174339786583d30e3b04be7a1867934b8a",
+      "error_class": null
+    },
+    {
+      "handle": "claude-opus",
+      "cli": "Claude Code 2.1.325",
+      "configuration": "shipped defaults",
+      "requested_model": "opus",
+      "effective_model": "claude-opus-5-5",
+      "status": "completed",
+      "duration_ms": 24264,
+      "structured_output_valid": true,
+      "output_hash": "cd516eed6d346235b7d73936f4e52504a7d18005f0c69bcb29839f0574517c31",
+      "error_class": null
+    },
+    {
+      "handle": "gpt-terra",
+      "cli": "codex-cli 0.169.0",
+      "configuration": "shipped defaults",
+      "requested_model": "gpt-6.1-terra",
+      "effective_model": "gpt-6.1-terra",
+      "status": "completed",
+      "duration_ms": 13564,
+      "structured_output_valid": true,
+      "output_hash": "7cace43a9420535db0d082008229927d145c3ad775b03cb65d8bf259e5141f3c",
+      "error_class": null
+    },
+    {
+      "handle": "gpt-luna",
+      "cli": "codex-cli 0.169.0",
+      "configuration": "shipped defaults",
+      "requested_model": "gpt-6-luna",
+      "effective_model": "gpt-6-luna",
+      "status": "completed",
+      "duration_ms": 11338,
+      "structured_output_valid": true,
+      "output_hash": "9f8b1ca201ae86df25d6692641983b42dabce926cbdf60e5e3dc0458ab841e58",
+      "error_class": null
+    },
+    {
+      "handle": "gemini-argon",
+      "cli": "agy 1.5.9",
+      "configuration": "scratch configuration with the profile enabled",
+      "requested_model": null,
+      "effective_model": null,
+      "status": "rejected",
+      "duration_ms": null,
+      "structured_output_valid": null,
+      "output_hash": null,
+      "error_class": "provider response omitted effective model identity"
+    },
+    {
+      "handle": "gemini-carbon",
+      "cli": "agy 1.5.9",
+      "configuration": "scratch configuration with the profile enabled",
+      "requested_model": null,
+      "effective_model": null,
+      "status": "rejected",
+      "duration_ms": null,
+      "structured_output_valid": null,
+      "output_hash": null,
+      "error_class": "provider response omitted effective model identity"
+    },
+    {
+      "handle": "gemini-hydrogen",
+      "cli": "agy 1.5.9",
+      "configuration": "scratch configuration with the profile enabled",
+      "requested_model": null,
+      "effective_model": null,
+      "status": "rejected",
+      "duration_ms": null,
+      "structured_output_valid": null,
+      "output_hash": null,
+      "error_class": "provider response omitted effective model identity"
+    },
+    {
+      "handle": "grok",
+      "cli": "grok 1.0.40",
+      "configuration": "scratch configuration with the profile enabled",
+      "requested_model": null,
+      "effective_model": null,
+      "status": "not_run",
+      "duration_ms": null,
+      "structured_output_valid": null,
+      "output_hash": null,
+      "error_class": "ACP preflight refused to spawn: user-level MCP configuration present; no model call"
+    }
+  ]
+}

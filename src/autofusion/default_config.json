@@ -121,8 +121,6 @@
       "quota_group": "openai-chatgpt"
     },
     "gpt-terra": {
-      "enabled": false,
-      "activation_gate": "main-session-verified-codex-exec-route-smoke",
       "transport": "codex-exec",
       "callable": true,
       "model": "gpt-6.1-terra",
@@ -139,7 +137,7 @@
         "context_window_source": "carried from gpt-5.6-sol on 2026-11-15; NOT_VERIFIED for gpt-6.1-terra",
         "prompt_overhead_tokens": 32768,
         "reserved_output_tokens": 128000,
-        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+        "verification": "live route smoke 2026-11-15: completed with schema-valid output (docs/provider-verification.md)"
       },
       "params": {
         "sandbox": "read-only",
@@ -151,8 +149,6 @@
       "quota_group": "openai-chatgpt"
     },
     "gpt-luna": {
-      "enabled": false,
-      "activation_gate": "main-session-verified-codex-exec-route-smoke",
       "transport": "codex-exec",
       "callable": true,
       "model": "gpt-6-luna",
@@ -169,7 +165,7 @@
         "context_window_source": "carried from gpt-5.6-sol on 2026-11-15; NOT_VERIFIED for gpt-6-luna",
         "prompt_overhead_tokens": 32768,
         "reserved_output_tokens": 128000,
-        "verification": "NOT_RUN: portable defaults require main-session smoke verification"
+        "verification": "live route smoke 2026-11-15: completed with schema-valid output (docs/provider-verification.md)"
       },
       "params": {
         "sandbox": "read-only",
@@ -844,6 +840,8 @@
     "model_allowlist": [
       "gpt-sol",
       "gpt-sol-ultra",
+      "gpt-terra",
+      "gpt-luna",
       "claude-opus",
       "astra-ultra",
       "chatgpt-web-high",
