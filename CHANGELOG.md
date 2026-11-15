@@ -11,6 +11,9 @@ limits themselves are unchanged, and the repository validator now requires the a
 itself where it used to require the label. Schema identifiers (`0.2-alpha`) and the names of past
 releases keep their spelling.
 
+The plugin ships a square listing icon at `plugins/autofusion/.claude-plugin/icon.png` (1024 by 1024
+pixels), drawn from the banner: three independent reviewers meeting in one node.
+
 ## 1.0.0
 
 Released 15 November 2026. The work was prepared as 0.7.0 and is released as 1.0.0, the first major
