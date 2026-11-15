@@ -1,4 +1,13 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/OnourImpram/autofusion/main/docs/autofusion-banner.png" width="100%" alt="autofusion: independent model review, executed checks where applicable, and a traceable record for consequential AI-assisted decisions.">
+</p>
+
 # autofusion
+
+[![ci](https://github.com/OnourImpram/autofusion/actions/workflows/validate.yml/badge.svg)](https://github.com/OnourImpram/autofusion/actions/workflows/validate.yml)
+![license](https://img.shields.io/badge/license-MIT-blue)
+
+**Claude Code-first independent cross-model review, executed checks where applicable, and metadata-only receipts for consequential AI-assisted decisions (alpha runtime).**
 
 autofusion helps people examine consequential AI-assisted decisions through independent model review, executed checks where applicable, and a traceable record of what changed. Its purpose is to make important work easier to challenge and verify before people rely on it.
 
@@ -141,6 +150,13 @@ Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu are 
 3. Two transports originally shipped disabled because their live smokes on 8 September 2026 did not return attested identity; the four Gemini profiles on `agy` now ship enabled after the 15 November 2026 adapter update and dated smokes, while enabling any still-disabled transport or profile locally requires your own dated smoke.
 4. The ownership of orphaned descendants of a provider process is guaranteed on Windows only through Job Objects assigned after a suspended spawn; the window between spawn and assignment is documented in `CHANGELOG.md`.
 5. Whether cross-model review beats same-model self-review on real decisions has not been measured here. Treat any such claim, from this project or another, as a hypothesis until a comparative evaluation with held-out graders exists.
+
+## Related projects
+
+- [claude-oauth](https://github.com/OnourImpram/claude-oauth): Run Google, xAI and OpenAI models inside Claude Code over your own OAuth sessions. The native claude path is never touched.
+- [routeledger](https://github.com/OnourImpram/routeledger): Which model actually served each turn of your Claude Code session, and where routing quietly diverged from what you configured. Read-only, offline.
+- [mneme](https://github.com/OnourImpram/mneme): Plain-Markdown memory for Claude Code and MCP. Local retrieval, redaction before indexing, no model on the Stop path.
+- [mergen](https://github.com/OnourImpram/mergen): Rechecks a completion claim against the repository itself and holds the workflow when the required proof is missing.
 
 ## Documents
 
