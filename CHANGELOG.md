@@ -2,11 +2,65 @@
 
 All notable changes to autofusion are recorded here.
 
-## Unreleased
+## 0.7.0
+
+Prepared 15 November 2026; the release date is set when it is published. This release moves the
+built-in profiles from the previous model generation to the current one, adds five disabled
+profiles, and makes the rule that a handle names a model family and never a version a tested
+invariant. No provider was contacted while it was prepared: every moved or new profile is
+configured and unit-tested, and its live smoke is pending (`docs/provider-verification.md`,
+section "2026-11-15 model generation"). Release gate 6 in `docs/roadmap.md` applies, so no
+release tag exists before those smokes are recorded. Every repair below carries a mutation
+note: the repair was reverted once with its tests kept, and the failures named are the
+reproduction tests.
+
+### Changed
+
+1. Moved profiles. `gpt-sol` and `gpt-sol-ultra` pin `gpt-6.1-sol` (family `gpt-6.1`),
+   `claude-opus` keeps the `opus` alias with canonical model `claude-opus-5-5`, and `grok`
+   pins `grok-4.7`. Handles, panels, presets and packs are unchanged and follow the moved ids.
+   The July and September measurements in `docs/provider-verification.md` keep their dates and
+   the model names they measured; they are not evidence for the new ids.
+   Mutation: 57 failed with the shipped configuration and the example reverted to the previous
+   generation (the new profile tests, the fixture-bound contract tests, the Astra quota test and
+   the identity tests among them).
+2. Self identities. `self` admits Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.2 and Mythos 5.2 in
+   addition to the four identities of 0.6.0, each with explicit vendor and family metadata.
+3. Mythos is self-only, exactly like Fable. One helper, `names_self_only` in `identity.py`
+   (it replaces `names_fable`), now covers both families at configuration load, admission, the
+   HTTP boundary and the `agy` and ACP adapters, and the migration message names both. The two
+   adapters used to match Fable by prefix and now match by substring like the rest of the policy.
+   Mutation: 41 failed with Mythos removed from the helper; 7 failed (3 ACP, 4 agy) with only
+   the two adapters reverted to their 0.6.0 checks.
+4. Shared quota. The `openai-chatgpt` group lists `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna`
+   and `gpt-6-astra`. Its recorded source is an operator statement that four ids answered on one
+   account on 2026-11-15, not a smoke record of this repository.
+5. Context windows. The windows of `gpt-sol`, `gpt-sol-ultra`, `claude-opus` and the new OpenAI
+   profiles are carried from the profile each one derives from, and `context_window_source`
+   says `carried from <previous id> on 2026-11-15; NOT_VERIFIED for <new id>` instead of citing
+   a page that was not opened.
+6. Fixtures. The synthetic receipt, analysis and trusted-attestation fixtures moved to the new
+   ids. The self-identity hash and the analysis hash were recomputed by the documented method,
+   after that method had reproduced both old hashes.
+7. Version agreement. `scripts/validate_repository.py` now also requires `pyproject.toml` and
+   `src/autofusion/__init__.py` to carry the same version as the marketplace and plugin
+   manifests. Mutation: 2 failed with the check reverted (the pyproject and package arms; the
+   marketplace and plugin arms were already covered by the earlier check).
 
 ### Added
 
-1. OpenAI-compatible transport option `params.structured_output: "prompt"`: the response
+1. Five disabled profiles behind activation gates, each with `NOT_RUN` verification:
+   `gpt-terra` (`gpt-6.1-terra`) and `gpt-luna` (`gpt-6-luna`) over the Codex CLI route,
+   `gemini-argon` (`gemini-4-argon-high`), `gemini-carbon` (`gemini-4-carbon-high`) and
+   `gemini-hydrogen` (`gemini-4-hydrogen-xhigh`) over the `agy` headless transport.
+2. The naming rule. `autofusion.model_naming` holds two pure functions, and
+   `tests/test_model_generation.py` pins the shipped profiles to their ids and holds the rule on
+   both the built-in defaults and `.fusion.example.json`: a digit in a handle is a violation,
+   and so is a second handle for the same family name, effort and compound flag, with negative
+   arms built from fixture configurations.
+   Mutation: 7 failed with the rule reverted; 5 failed with only the version arm reverted;
+   3 failed with only the duplicate arm reverted.
+3. OpenAI-compatible transport option `params.structured_output: "prompt"`: the response
    schema travels inside the prompt instead of `response_format`, for endpoints that refuse
    API-level output contracts. Local schema validation is unchanged, so an ignored
    instruction fails output validation rather than being trusted. `params.session_header`
@@ -18,7 +72,15 @@ All notable changes to autofusion are recorded here.
    carries the schema and no `response_format`; the session header differs per call; output
    that violates the schema is rejected; an unknown mode is a configuration error.
    Live: one `call` through the bridge returned schema-valid output in 14,216 ms
-   (`docs/provider-verification.md`).
+   (`docs/provider-verification.md`). This item was listed as unreleased on the main branch
+   before 0.7.0.
+
+### Pending
+
+1. Live smokes for `gpt-sol`, `gpt-sol-ultra` and `claude-opus` (enabled), and for the five new
+   profiles and `grok` before any of them is enabled. Each is `NOT_RUN` until the main session
+   records a dated, sandboxed smoke.
+2. Verified context windows for the moved and new profiles, replacing the carried numbers.
 
 ## 0.6.0
 

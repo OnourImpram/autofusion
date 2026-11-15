@@ -33,7 +33,7 @@ If you work intensely with AI, the recommendation is simple: keep one model for 
 
 | Claim | Status | Evidence |
 | --- | --- | --- |
-| `self` is non-callable; Fable 5.1 is admitted only as `self` | Implemented and unit-tested | `tests/test_identity_migration.py`, `tests/test_admission.py`; mutation notes in `CHANGELOG.md` |
+| `self` is non-callable; Fable and Mythos are admitted only as `self` | Implemented and unit-tested | `tests/test_identity_migration.py`, `tests/test_admission.py`; mutation notes in `CHANGELOG.md` |
 | Uniform admission for every dispatched participant, including advisor and direct calls | Implemented and unit-tested | `tests/test_admission.py` |
 | Routing minimums enforced against the actual panel, not its label | Implemented and unit-tested | `tests/test_config_policy.py`, `tests/test_routing_aliases.py` |
 | Cost caps and redaction policy can be tightened by local configuration, never relaxed | Implemented and unit-tested | `tests/test_config_policy.py` |
@@ -42,13 +42,16 @@ If you work intensely with AI, the recommendation is simple: keep one model for 
 | Coverage gaps and reviewer abstention survive analysis, reconciliation and receipts | Implemented and unit-tested | `tests/test_analysis_coverage.py`, `tests/test_pending_binding.py` |
 | Proof capsules bind to the reviewed revision and survive finalization retries | Implemented and unit-tested | `tests/test_proof_binding.py`, `tests/test_finalization_race.py` |
 | Complete credential structures, including PEM blocks, never reach a provider | Implemented and unit-tested | `tests/test_dlp_structures.py` |
-| Codex CLI route for `gpt-5.6-sol` at xhigh and ultra | Measured live, July 2026 | `docs/provider-verification.md` |
+| Codex CLI route for `gpt-5.6-sol` at xhigh and ultra (previous generation) | Measured live, July 2026 | `docs/provider-verification.md` |
+| Codex CLI route for `gpt-6.1-sol` at xhigh and ultra, and the disabled `gpt-6.1-terra` and `gpt-6-luna` profiles | Configured 2026-11-15, live smoke pending | `docs/provider-verification.md`, `tests/test_model_generation.py` |
 | Codex CLI route for `gpt-6-astra` at ultra | Measured live, 8 September 2026, configured-route identity only | `docs/provider-verification.md`, `docs/provider-astra-smoke-20260908.json` |
-| Claude CLI route for the `opus` alias | Measured live in July 2026 as Opus 4.8; the current `claude-opus-5` contract is unit-tested, not yet live-smoked | `docs/provider-verification.md` |
+| Claude CLI route for the `opus` alias | Measured live in July 2026 as Opus 4.8; the current `claude-opus-5-5` route is configured 2026-11-15, live smoke pending | `docs/provider-verification.md` |
 | Antigravity `agy` headless transport, `gemini-flash` profile | Implemented and unit-tested; live smoke returned no terminal identity, so the profile ships disabled | `tests/test_agy.py`, `docs/provider-verification.md` |
-| ACP transport, `grok` profile | Implemented and unit-tested; live smoke did not complete initialization, so the profile ships disabled | `tests/test_acp.py`, `tests/test_acp_integration.py` |
+| Antigravity `agy` headless transport, `gemini-argon`, `gemini-carbon` and `gemini-hydrogen` profiles | Configured 2026-11-15, live smoke pending; all three ship disabled | `tests/test_model_generation.py`, `docs/provider-verification.md` |
+| ACP transport, `grok` profile | Implemented and unit-tested; the earlier live smoke, run under the `grok-4.6` profile, did not complete initialization; `grok-4.7` is configured 2026-11-15, live smoke pending, and the profile ships disabled | `tests/test_acp.py`, `tests/test_acp_integration.py` |
+| Handles name a model family, never a version; one handle per family name, effort and compound flag | Implemented and unit-tested | `tests/test_model_generation.py` |
 | OpenAI-compatible route with the output contract in the prompt, `chatgpt-web-high` and `chatgpt-web-xhigh` profiles through a local Agent Web Bridge | Measured live, 13 September 2026, configured-route identity only; the profiles ship disabled behind an activation gate | `tests/test_providers.py`, `docs/provider-verification.md` |
-| Session delegates and a Workflow topology inside Claude Code | Planned for 0.6.x; contracts in `docs/roadmap.md` | none yet |
+| Session delegates and a Workflow topology inside Claude Code | Planned, not in 0.7.0; contracts in `docs/roadmap.md` | none yet |
 | Cross-model review improves decision quality over same-model self-review | Not measured | requires the comparative evaluation program in `docs/roadmap.md` |
 
 A test that the author wrote and then passed proves less than it looks. Each repair in this repository carries a mutation note: the repair was reverted once with the test kept, the whole suite was run, and the failing test is named in `CHANGELOG.md`. A repair whose reversal fails nothing is not counted as measured.
@@ -57,16 +60,23 @@ A test that the author wrote and then passed proves less than it looks. Each rep
 
 | Handle | Model | Transport | Role | Default |
 | --- | --- | --- | --- | --- |
-| `self` | the active session: Opus 5, Sonnet 5, Haiku 4.5 or Fable 5.1 | none | drafter, reconciler | always present, never callable |
-| `gpt-sol` | `gpt-5.6-sol` at xhigh | Codex CLI | reviewer, judge | enabled |
-| `gpt-sol-ultra` | `gpt-5.6-sol` at ultra, declared compound | Codex CLI | reviewer, judge | enabled |
+| `self` | the active session: Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.2 or Mythos 5.2; the four earlier identities (Opus 5, Sonnet 5, Haiku 4.5, Fable 5.1) stay admitted | none | drafter, reconciler | always present, never callable |
+| `gpt-sol` | `gpt-6.1-sol` at xhigh | Codex CLI | reviewer, judge | enabled |
+| `gpt-sol-ultra` | `gpt-6.1-sol` at ultra, declared compound | Codex CLI | reviewer, judge | enabled |
+| `gpt-terra` | `gpt-6.1-terra` at xhigh | Codex CLI | reviewer, judge | disabled until a dated route smoke |
+| `gpt-luna` | `gpt-6-luna` at xhigh | Codex CLI | reviewer, judge | disabled until a dated route smoke |
 | `astra-ultra` | `gpt-6-astra` at ultra, declared compound | Codex CLI | reviewer, judge | enabled |
-| `claude-opus` | `claude-opus-5` via the `opus` alias at xhigh | Claude CLI | reviewer, judge | enabled |
+| `claude-opus` | `claude-opus-5-5` via the `opus` alias at xhigh | Claude CLI | reviewer, judge | enabled |
 | `gemini-flash` | `gemini-3.8-flash-high` | Antigravity `agy` headless, sandboxed | reviewer | disabled until a dated identity-attested smoke |
-| `grok` | `grok-4.6` | ACP over stdio, read-only, tools denied | reviewer | disabled until a dated smoke |
+| `gemini-argon` | `gemini-4-argon-high` | Antigravity `agy` headless, sandboxed | reviewer | disabled until a dated identity-attested smoke |
+| `gemini-carbon` | `gemini-4-carbon-high` | Antigravity `agy` headless, sandboxed | reviewer | disabled until a dated identity-attested smoke |
+| `gemini-hydrogen` | `gemini-4-hydrogen-xhigh` | Antigravity `agy` headless, sandboxed | reviewer | disabled until a dated identity-attested smoke |
+| `grok` | `grok-4.7` | ACP over stdio, read-only, tools denied | reviewer | disabled until a dated smoke |
 | `chatgpt-web-high`, `chatgpt-web-xhigh` | ChatGPT Web at the high and extra-high reasoning efforts, browser session | OpenAI-compatible HTTP to a loopback Agent Web Bridge (same author, not public yet), schema in the prompt, `HWB_API_KEY` | reviewer | disabled until the operator's own bridge smoke; separate `openai-chatgpt-web` quota group |
 
-Ultra is a configured execution mode, not a separate model identity. Hidden workers of compound profiles do not count as independent votes. Sol, Astra and Terra share the `openai-chatgpt` quota group; changing models does not escape quota exhaustion. Fable is permitted only as `self`; callable profiles, aliases, overlays and panel roles cannot execute it, and legacy `claude-fable`, `dual-fable` and `external-council-fable` configurations fail with a migration error naming their replacements.
+Handles name a model family and never a version: `gpt-sol` is Sol in whatever version the profile currently pins, so panels, presets and packs keep working when the version moves. The version lives in the profile's `model` and `canonical_model`. A digit in a handle is rejected by `tests/test_model_generation.py`, and so is a second handle for the same family name, effort and compound flag.
+
+Ultra is a configured execution mode, not a separate model identity. Hidden workers of compound profiles do not count as independent votes. Sol, Terra, Luna and Astra share the `openai-chatgpt` quota group; changing models does not escape quota exhaustion. The context windows of the moved and new OpenAI and Claude profiles are carried from the profile each one derives from and labelled `NOT_VERIFIED` for the new model id in `context_window_source`; the new profiles also carry `NOT_RUN` as their verification state until a main-session smoke replaces it. Fable and Mythos are permitted only as `self`; callable profiles, aliases, overlays and panel roles cannot execute either, and legacy `claude-fable`, `dual-fable` and `external-council-fable` configurations fail with a migration error naming their replacements.
 
 Every call record keeps `configured_model`, `observed_model`, `identity_evidence` and `quota_group` separate. A Codex turn whose JSONL omits model identity records `identity_evidence=configured-route` and `observed_model=null`; that is routing evidence, not observed identity. There is no silent fallback to another model.
 
@@ -102,7 +112,7 @@ autofusion config-validate --config .fusion.example.json
 Or from a versioned release wheel downloaded from the GitHub release page and checked against its published SHA-256:
 
 ~~~text
-python -m pip install ./autofusion-0.6.0-py3-none-any.whl
+python -m pip install ./autofusion-0.7.0-py3-none-any.whl
 ~~~
 
 Example invocations:

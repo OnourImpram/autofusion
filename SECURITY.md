@@ -6,8 +6,8 @@ invariants, each with a test that fails when the invariant is removed (see the m
 `CHANGELOG.md`):
 
 1. **The active session is never callable.** `self` is a sentinel; no Python path can invoke it, and
-   `claude-fable-5-1` is permitted only as `self`, never as a reviewer, judge, delegate target or
-   alias.
+   the Fable and Mythos families (`claude-fable-5-1`, `claude-fable-5-2`, `claude-mythos-5-2`) are
+   permitted only as `self`, never as a reviewer, judge, delegate target or alias.
 2. **Reviewer text cannot execute commands.** Grounding runs only the verification commands the
    repository declares and you approve; generated tests run only in the Docker proof runner with
    network denied, a read-only root and dropped capabilities.

@@ -54,3 +54,25 @@ command and the smoke above followed.
 This is operational telemetry for one bounded call, not a claim about ChatGPT's terms, quota
 or model identity. The ChatGPT web session and the Codex CLI share no quota: on the same day the
 Codex CLI route reported its usage limit reached until 19 September 2026 while this route answered.
+
+## 2026-11-15 model generation
+
+Version 0.7.0 moves the built-in profiles to the model generation of 15 November 2026. This section records that move. It records no live call: no provider was contacted while the configuration was changed, and every row below is `NOT_RUN: main-session smoke pending`. A row is replaced by a dated measurement only after a sandboxed smoke through autofusion itself, with identity taken from the provider's own terminal output where the transport offers it. The July and September measurements above keep their dates and the model names they measured; they are not evidence for the model ids below.
+
+| Handle | Model id | Transport | Shipped state | Smoke state |
+| --- | --- | --- | --- | --- |
+| `gpt-sol` | `gpt-6.1-sol` at xhigh | codex-exec | enabled | NOT_RUN: main-session smoke pending |
+| `gpt-sol-ultra` | `gpt-6.1-sol` at ultra, compound | codex-exec | enabled | NOT_RUN: main-session smoke pending |
+| `gpt-terra` | `gpt-6.1-terra` at xhigh | codex-exec | disabled, gate `main-session-verified-codex-exec-route-smoke` | NOT_RUN: main-session smoke pending |
+| `gpt-luna` | `gpt-6-luna` at xhigh | codex-exec | disabled, gate `main-session-verified-codex-exec-route-smoke` | NOT_RUN: main-session smoke pending |
+| `claude-opus` | alias `opus`, canonical `claude-opus-5-5` at xhigh | claude-exec | enabled | NOT_RUN: main-session smoke pending |
+| `gemini-argon` | `gemini-4-argon-high` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | NOT_RUN: main-session smoke pending |
+| `gemini-carbon` | `gemini-4-carbon-high` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | NOT_RUN: main-session smoke pending |
+| `gemini-hydrogen` | `gemini-4-hydrogen-xhigh` | agy-headless | disabled, gate `main-session-verified-sandbox-and-terminal-identity-smoke` | NOT_RUN: main-session smoke pending |
+| `grok` | `grok-4.7` | acp | disabled, gate `main-session-verified-acp-permissions-and-identity-smoke` | NOT_RUN: main-session smoke pending |
+
+Unchanged by this move: `astra-ultra` (`gpt-6-astra`, measured 8 September 2026 as recorded above), `gemini-flash` (still disabled; its smoke returned no terminal identity), and the `chatgpt-web-high` and `chatgpt-web-xhigh` profiles.
+
+The context windows of `gpt-sol`, `gpt-sol-ultra`, `gpt-terra`, `gpt-luna` and `claude-opus` are carried unchanged from the profile each one derives from and say so in `context_window_source`: `carried from <previous id> on 2026-11-15; NOT_VERIFIED for <new id>`. No vendor page was opened for the new ids. The smoke that activates a profile must also replace its carried window with a verified one, or leave it labelled.
+
+The `openai-chatgpt` quota group now lists `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna` and `gpt-6-astra`. Its recorded source is the operator statement that four ids answered on one account on 2026-11-15; that is not a smoke record of this repository. The self identities added in 0.7.0 (Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.2, Mythos 5.2) are session identities attested at run time, not callable routes, so no smoke applies to them. The 8 September 2026 policy paragraph above names the identities of that date; the current expectation for the Claude CLI `opus` route is `claude-opus-5-5`.
