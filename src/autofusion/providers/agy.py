@@ -15,6 +15,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory, TemporaryFile
 
 from autofusion.errors import OutputValidationError, ProviderError
+from autofusion.identity import names_self_only
 from autofusion.models import CallStatus, ModelProfile, ProviderRequest, ProviderResult
 from autofusion.providers._job import WindowsJob
 from autofusion.providers.base import (
@@ -146,11 +147,8 @@ class AgyProvider:
     def invoke(self, request: ProviderRequest) -> ProviderResult:
         if not self.profile.enabled or not self.profile.callable:
             raise ProviderError("agy profile is disabled or non-callable")
-        if any(
-            name.casefold().startswith(("claude-fable", "fable"))
-            for name in (self.profile.model, self.profile.canonical_model)
-        ):
-            raise ProviderError("Fable is restricted to the non-callable self session")
+        if names_self_only([self.profile.model, self.profile.canonical_model]):
+            raise ProviderError("Fable and Mythos are restricted to the non-callable self session")
         if not math.isfinite(request.timeout_s) or request.timeout_s <= 0:
             raise ProviderError("agy deadline must be finite and positive")
         if request.max_output_chars <= 0:

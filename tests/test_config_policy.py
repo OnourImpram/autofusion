@@ -14,9 +14,9 @@ from autofusion.policy import resolve_route
 def test_builtin_profiles_and_quality_alias() -> None:
     config = load_config()
     assert config.model("self").callable is False
-    assert config.model("gpt-sol").canonical_model == "gpt-5.6-sol"
+    assert config.model("gpt-sol").canonical_model == "gpt-6.1-sol"
     assert config.model("gpt-sol-ultra").compound is True
-    assert config.model("claude-opus").canonical_model == "claude-opus-5"
+    assert config.model("claude-opus").canonical_model == "claude-opus-5-5"
     assert "claude-fable" not in config.section("models")
     assert config.preset("quality")[0] == "high"
 

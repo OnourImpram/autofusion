@@ -7,8 +7,10 @@ from dataclasses import dataclass
 from autofusion.errors import ConfigurationError, ProviderError
 from autofusion.models import ModelProfile
 
-FABLE_MIGRATION = (
-    "Fable is self-only; replace callable Fable with claude-opus, "
+SELF_ONLY_FAMILIES = ("fable", "mythos")
+
+SELF_ONLY_MIGRATION = (
+    "Fable is self-only, and so is Mythos; replace callable Fable or Mythos with claude-opus, "
     "dual-fable with dual-opus, and external-council-fable with external-council"
 )
 
@@ -19,35 +21,38 @@ class SessionIdentity:
     family: str
 
 
-def names_fable(value: object) -> bool:
+def names_self_only(value: object) -> bool:
+    """True when any string inside ``value`` names a self-only family (Fable or Mythos)."""
+
     if isinstance(value, str):
-        return "fable" in value.casefold()
+        text = value.casefold()
+        return any(family in text for family in SELF_ONLY_FAMILIES)
     if isinstance(value, dict):
-        return any(names_fable(key) or names_fable(item) for key, item in value.items())
+        return any(names_self_only(key) or names_self_only(item) for key, item in value.items())
     if isinstance(value, list):
-        return any(names_fable(item) for item in value)
+        return any(names_self_only(item) for item in value)
     return False
 
 
-def reject_fable_routes(data: dict[str, object]) -> None:
+def reject_self_only_routes(data: dict[str, object]) -> None:
     """Reject legacy routes even when a later merge would drop their allowlist entry."""
 
     models = data.get("models")
     if isinstance(models, dict):
         for handle, raw in models.items():
-            if handle != "self" and (names_fable(handle) or names_fable(raw)):
-                raise ConfigurationError(FABLE_MIGRATION)
+            if handle != "self" and (names_self_only(handle) or names_self_only(raw)):
+                raise ConfigurationError(SELF_ONLY_MIGRATION)
     for section in ("panels", "presets", "routing", "guardrails", "advisors"):
-        if names_fable(data.get(section)):
-            raise ConfigurationError(FABLE_MIGRATION)
+        if names_self_only(data.get(section)):
+            raise ConfigurationError(SELF_ONLY_MIGRATION)
 
 
 def assert_executable_identity(profile: ModelProfile) -> None:
     """Apply the self-only policy even to providers injected without config loading."""
 
-    if names_fable(
+    if names_self_only(
         [profile.handle, profile.model, profile.canonical_model, profile.family, profile.params]
     ):
-        raise ProviderError(FABLE_MIGRATION)
+        raise ProviderError(SELF_ONLY_MIGRATION)
     if profile.transport == "self" or not profile.callable:
         raise ProviderError(f"provider {profile.handle} is non-callable")

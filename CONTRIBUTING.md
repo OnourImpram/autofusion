@@ -28,8 +28,11 @@ All of these run in CI on Python 3.11 through 3.14, on Linux and Windows.
   `docs/provider-verification.md` keep their dates and model names; current contracts change.
 - **No live credentials anywhere.** Fixtures are synthetic and say so. If you find a leak, report it
   by location and type, never by value (see `SECURITY.md`).
-- **Fable stays self-only.** No change may make `claude-fable-5-1` callable as a reviewer, judge or
-  delegate target.
+- **Fable and Mythos stay self-only.** No change may make `claude-fable-5-1`, `claude-fable-5-2` or
+  `claude-mythos-5-2` callable as a reviewer, judge or delegate target.
+- **Handles name a family, never a version.** A model move changes the profile's `model` and
+  `canonical_model`, not its handle; `tests/test_model_generation.py` enforces it. Carry a
+  context window with an explicit `NOT_VERIFIED` label rather than citing a page you did not open.
 - **Conventional Commits**, English, one logical change per commit, staged file by file.
 
 ## Adding a provider transport

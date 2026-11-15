@@ -16,7 +16,7 @@ from autofusion.registry import ProviderRegistry
 def test_grok_portable_profile_stays_disabled(tmp_path: Path) -> None:
     config = load_config(repo_root=tmp_path, global_path=tmp_path / "no-global.json")
     profile = config.model("grok")
-    assert profile.model == profile.canonical_model == "grok-4.6"
+    assert profile.model == profile.canonical_model == "grok-4.7"
     assert profile.transport == "acp" and not profile.enabled
     assert profile.capabilities["read_only"] is True
     assert profile.capabilities["repo_access"] is False
@@ -38,7 +38,7 @@ def test_grok_registry_honors_executable_override() -> None:
             "models": {
                 "grok": {
                     "transport": "acp",
-                    "model": "grok-4.6",
+                    "model": "grok-4.7",
                     "params": {"executable": "controlled-grok"},
                 }
             }
@@ -69,7 +69,7 @@ def test_grok_doctor_probe_respects_disabled_profile(
                 "grok": {
                     "enabled": enabled,
                     "transport": "acp",
-                    "model": "grok-4.6",
+                    "model": "grok-4.7",
                     "params": {"executable": sys.executable},
                 }
             }
@@ -88,7 +88,7 @@ def test_grok_doctor_missing_executable_is_blocking(tmp_path: Path) -> None:
             "models": {
                 "grok": {
                     "transport": "acp",
-                    "model": "grok-4.6",
+                    "model": "grok-4.7",
                     "params": {"executable": str(tmp_path / "absent-grok")},
                 }
             }

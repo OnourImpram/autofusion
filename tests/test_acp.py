@@ -289,6 +289,8 @@ def test_acp_observes_grok_model_state_extension(tmp_path: Path) -> None:
     replace(_profile(), enabled=False), replace(_profile(), callable=False),
     replace(_profile(), model="claude-fable-5"),
     replace(_profile(), canonical_model="Claude-Fable-5-1"), replace(_profile(), model="fable"),
+    replace(_profile(), model="claude-mythos-5-2"),
+    replace(_profile(), canonical_model="Claude-Mythos-5-2"), replace(_profile(), model="mythos"),
 ])
 def test_acp_admission_blocks_disabled_noncallable_and_fable(
     tmp_path: Path, profile: ModelProfile,

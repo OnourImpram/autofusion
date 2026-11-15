@@ -124,6 +124,16 @@ Status: items 1 to 4 and 6 shipped in 0.6.0 with unit tests and mutation notes i
 
 These are implementation milestones. A live transport is verified only by its dated provider-verification record.
 
+## 0.7.0: model generation of 2026-11-15
+
+Status: implemented for 0.7.0 with unit tests. The live smokes of 15 November 2026 are recorded in `docs/provider-verification.md` and `docs/provider-smoke-20261115.json`: every enabled advertised profile has a dated smoke. No release tag has been cut.
+
+1. Move the built-in profiles to the current generation: `gpt-6.1-sol` for `gpt-sol` and `gpt-sol-ultra`, `claude-opus-5-5` for `claude-opus`, `grok-4.7` for `grok`.
+2. Add `gpt-terra` and `gpt-luna`, enabled after their route smoke, and `gemini-argon`, `gemini-carbon` and `gemini-hydrogen`, disabled behind an activation gate because their smoke returned no terminal model identity.
+3. Handles name a model family and never a version; one handle per family name, effort and compound flag. `tests/test_model_generation.py` holds the rule.
+4. Mythos is self-only exactly like Fable. Validated self identities gain Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.2 and Mythos 5.2; the four earlier identities stay admitted.
+5. Context windows of moved and new profiles are carried with an explicit `NOT_VERIFIED` label for the new model id, not cited to a page that was not opened.
+
 ## 1.0: production hardening
 
 1. Add a calibrated, correlation-aware adaptive router.

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 from autofusion.errors import NonCallableProviderError, ProviderError
+from autofusion.identity import names_self_only
 from autofusion.models import CallStatus, ModelProfile, ProviderRequest, ProviderResult
 from autofusion.providers._job import WindowsJob
 from autofusion.providers.base import (
@@ -539,9 +540,10 @@ class AcpProvider:
     def invoke(self, request: ProviderRequest) -> ProviderResult:
         if not self.profile.enabled or not self.profile.callable:
             raise NonCallableProviderError("ACP profile is disabled or non-callable")
-        if any(value.casefold() == "fable" or value.casefold().startswith("claude-fable")
-               for value in (self.profile.model, self.profile.canonical_model)):
-            raise NonCallableProviderError("Fable is reserved for the non-callable self provider")
+        if names_self_only([self.profile.model, self.profile.canonical_model]):
+            raise NonCallableProviderError(
+                "Fable and Mythos are reserved for the non-callable self provider"
+            )
         if not math.isfinite(request.timeout_s) or request.timeout_s <= 0:
             raise ProviderError("ACP timeout must be positive and finite")
         if request.max_output_chars < 0:

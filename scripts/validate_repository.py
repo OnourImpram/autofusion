@@ -4,6 +4,7 @@ import copy
 import json
 import logging
 import re
+import tomllib
 from pathlib import Path
 from typing import Any, cast
 
@@ -45,6 +46,22 @@ REQUIRED_MODELS = {
     "claude-opus",
     "astra-ultra",
 }
+
+SELF_ONLY = ("fable", "mythos")
+
+SELF_ALLOWED_MODELS = {
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-haiku-4-5-20251001",
+    "claude-fable-5-1",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    "claude-fable-5-2",
+    "claude-mythos-5-2",
+}
+
+OPENAI_QUOTA_MODELS = {"gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna", "gpt-6-astra"}
 
 REQUIRED_PRESETS = {
     "fast",
@@ -191,6 +208,20 @@ def validate_versions() -> None:
         plugin.get("version"),
     }
     require(len(versions) == 1, "marketplace and plugin versions must match")
+
+    declared = as_object(
+        tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8")).get("project"),
+        "pyproject project table must be an object",
+    ).get("version")
+    package = re.search(
+        r'^__version__ = "([^"]+)"$',
+        (ROOT / "src" / "autofusion" / "__init__.py").read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    require(
+        package is not None and {declared, package.group(1)} == versions,
+        "pyproject, package, marketplace and plugin versions must match",
+    )
 
     descriptions = (
         marketplace.get("description"),
@@ -638,8 +669,12 @@ def validate_identity_policy(
         aliases = model.get("aliases", [])
         identities.extend(aliases if isinstance(aliases, list) else [aliases])
         require(
-            not any(isinstance(value, str) and "fable" in value.lower() for value in identities),
-            f"migration required: {handle} names self-only Fable; use claude-opus externally",
+            not any(
+                isinstance(value, str) and any(family in value.lower() for family in SELF_ONLY)
+                for value in identities
+            ),
+            f"migration required: {handle} names self-only Fable or Mythos; "
+            "use claude-opus externally",
         )
     for legacy, replacement in (
         ("dual-fable", "dual-opus"),
@@ -689,9 +724,9 @@ def validate_astra_contract(config: dict[str, Any], models: dict[str, Any]) -> N
     shared = as_object(groups.get("openai-chatgpt"), "openai-chatgpt quota group must exist")
     require(
         set(as_string_list(shared.get("models"), "quota models must be a string array"))
-        == {"gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra"}
+        == OPENAI_QUOTA_MODELS
         and shared.get("shared_exhaustion") is True,
-        "openai-chatgpt quota group must share exhaustion across Sol, Astra, and Terra",
+        "openai-chatgpt quota group must share exhaustion across Sol, Terra, Luna, and Astra",
     )
     for handle in ("gpt-sol", "gpt-sol-ultra", "astra-ultra"):
         profile = as_object(models.get(handle), f"{handle} must be an object")
@@ -742,27 +777,27 @@ def validate_config() -> None:
                 "self.allowed_models must be a string array",
             )
         )
-        == {"claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001", "claude-fable-5-1"},
+        == SELF_ALLOWED_MODELS,
         "self allowed model identities must remain explicit",
     )
     require(
-        gpt_sol.get("model") == "gpt-5.6-sol"
+        gpt_sol.get("model") == "gpt-6.1-sol"
         and gpt_sol.get("effort") == "xhigh"
         and gpt_sol.get("compound") is False
         and gpt_sol.get("callable") is True,
-        "gpt-sol must map to non-compound gpt-5.6-sol xhigh",
+        "gpt-sol must map to non-compound gpt-6.1-sol xhigh",
     )
     require(
-        gpt_ultra.get("model") == "gpt-5.6-sol"
+        gpt_ultra.get("model") == "gpt-6.1-sol"
         and gpt_ultra.get("effort") == "ultra"
         and gpt_ultra.get("compound") is True
         and gpt_ultra.get("worker_visibility") == "opaque"
         and gpt_ultra.get("callable") is True,
-        "gpt-sol-ultra must map to opaque compound gpt-5.6-sol ultra",
+        "gpt-sol-ultra must map to opaque compound gpt-6.1-sol ultra",
     )
     require(
         claude_opus.get("model") == "opus"
-        and claude_opus.get("canonical_model") == "claude-opus-5"
+        and claude_opus.get("canonical_model") == "claude-opus-5-5"
         and claude_opus.get("callable") is True,
         "claude-opus mapping mismatch",
     )
@@ -826,6 +861,17 @@ def validate_negative_config_guards() -> None:
         "enabled": False,
     }
     require_config_rejected("disallowed Fable callable alias", candidate)
+
+    candidate = copy.deepcopy(valid)
+    models = as_object(candidate.get("models"), "models must be an object")
+    models["legacy-reviewer"] = {
+        "transport": "claude-exec",
+        "model": "mythos",
+        "canonical_model": "claude-mythos-5-2",
+        "callable": True,
+        "enabled": False,
+    }
+    require_config_rejected("disallowed Mythos callable alias", candidate)
 
     candidate = copy.deepcopy(valid)
     panels = as_object(candidate.get("panels"), "panels must be an object")

@@ -31,7 +31,9 @@ Supported topologies are review, adversarial-review, dual-review, panel-rank, an
 
 Explicit topology and reviewer arguments override preset choices only when policy permits them.
 
-Fable is self-only: neither `claude-fable-5-1` nor legacy `claude-fable-5` may be called through a profile, alias, overlay, or external role. Replace legacy `claude-fable` profiles with `claude-opus`, `dual-fable` with `dual-opus`, and `external-council-fable` with `external-council`. Current self defaults include Opus 5, Sonnet 5, Haiku 4.5, and Fable 5.1; identity must remain bound to the frozen run.
+Fable and Mythos are self-only: none of `claude-fable-5-1`, `claude-fable-5-2`, legacy `claude-fable-5` or `claude-mythos-5-2` may be called through a profile, alias, overlay, or external role. Replace legacy `claude-fable` profiles with `claude-opus`, `dual-fable` with `dual-opus`, and `external-council-fable` with `external-council`. Current self defaults include Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.2 and Mythos 5.2, and still admit Opus 5, Sonnet 5, Haiku 4.5 and Fable 5.1; identity must remain bound to the frozen run.
+
+Handles name a model family and never a version, so `gpt-sol`, `gpt-terra`, `gpt-luna` and `claude-opus` keep working when the profile moves to a newer version. `gpt-terra` and `gpt-luna` are enabled after their route smoke of 15 November 2026. `gemini-argon`, `gemini-carbon` and `gemini-hydrogen` ship disabled behind an activation gate: their smoke returned no terminal model identity.
 
 ## Operating contract
 

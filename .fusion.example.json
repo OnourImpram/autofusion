@@ -9,7 +9,12 @@
         "claude-opus-5",
         "claude-sonnet-5",
         "claude-haiku-4-5-20251001",
-        "claude-fable-5-1"
+        "claude-fable-5-1",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+        "claude-haiku-5-5",
+        "claude-fable-5-2",
+        "claude-mythos-5-2"
       ],
       "vendor": "anthropic",
       "family": "active-claude-session",
@@ -30,6 +35,26 @@
         "claude-fable-5-1": {
           "vendor": "anthropic",
           "family": "claude-fable"
+        },
+        "claude-opus-5-5": {
+          "vendor": "anthropic",
+          "family": "claude-opus"
+        },
+        "claude-sonnet-5-5": {
+          "vendor": "anthropic",
+          "family": "claude-sonnet"
+        },
+        "claude-haiku-5-5": {
+          "vendor": "anthropic",
+          "family": "claude-haiku"
+        },
+        "claude-fable-5-2": {
+          "vendor": "anthropic",
+          "family": "claude-fable"
+        },
+        "claude-mythos-5-2": {
+          "vendor": "anthropic",
+          "family": "claude-mythos"
         }
       },
       "capabilities": {
@@ -42,9 +67,9 @@
     "gpt-sol": {
       "transport": "codex-exec",
       "callable": true,
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6.1-sol",
       "vendor": "openai",
-      "family": "gpt-5.6",
+      "family": "gpt-6.1",
       "effort": "xhigh",
       "context": "repo-snapshot",
       "compound": false,
@@ -53,7 +78,7 @@
         "structured_output": "prompt-and-schema",
         "read_only": true,
         "context_window_tokens": 1050000,
-        "context_window_source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        "context_window_source": "carried from gpt-5.6-sol on 2026-11-15; NOT_VERIFIED for gpt-6.1-sol",
         "prompt_overhead_tokens": 32768,
         "reserved_output_tokens": 128000
       },
@@ -69,9 +94,9 @@
     "gpt-sol-ultra": {
       "transport": "codex-exec",
       "callable": true,
-      "model": "gpt-5.6-sol",
+      "model": "gpt-6.1-sol",
       "vendor": "openai",
-      "family": "gpt-5.6",
+      "family": "gpt-6.1",
       "effort": "ultra",
       "context": "repo-snapshot",
       "compound": true,
@@ -81,7 +106,7 @@
         "structured_output": "prompt-and-schema",
         "read_only": true,
         "context_window_tokens": 1050000,
-        "context_window_source": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+        "context_window_source": "carried from gpt-5.6-sol on 2026-11-15; NOT_VERIFIED for gpt-6.1-sol",
         "prompt_overhead_tokens": 32768,
         "reserved_output_tokens": 128000
       },
@@ -99,7 +124,7 @@
       "transport": "claude-exec",
       "callable": true,
       "model": "opus",
-      "canonical_model": "claude-opus-5",
+      "canonical_model": "claude-opus-5-5",
       "vendor": "anthropic",
       "family": "claude-opus",
       "effort": "xhigh",
@@ -110,7 +135,7 @@
         "structured_output": "native-schema",
         "read_only": true,
         "context_window_tokens": 1000000,
-        "context_window_source": "https://platform.claude.com/docs/en/models/opus-5/whats-new-opus-5",
+        "context_window_source": "carried from claude-opus-5 on 2026-11-15; NOT_VERIFIED for claude-opus-5-5",
         "prompt_overhead_tokens": 32768,
         "reserved_output_tokens": 128000
       },
@@ -150,8 +175,8 @@
       "activation_gate": "main-session-verified-acp-permissions-and-identity-smoke",
       "transport": "acp",
       "callable": true,
-      "model": "grok-4.6",
-      "canonical_model": "grok-4.6",
+      "model": "grok-4.7",
+      "canonical_model": "grok-4.7",
       "vendor": "xai",
       "family": "grok",
       "effort": "xhigh",
@@ -658,11 +683,12 @@
   "quota_groups": {
     "openai-chatgpt": {
       "models": [
-        "gpt-5.6-sol",
-        "gpt-6-astra",
-        "gpt-5.6-terra"
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6-luna",
+        "gpt-6-astra"
       ],
-      "source": "operator-measured-2026-09-08",
+      "source": "operator-stated shared ChatGPT quota; four ids answered on one account, 2026-11-15",
       "shared_exhaustion": true
     }
   }

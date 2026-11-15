@@ -274,7 +274,7 @@ footer p { max-width: none; margin: 0; }
           <a class="btn primary" href="#start">Run your first review</a>
           <a class="btn" href="https://github.com/OnourImpram/autofusion">Read the source</a>
         </div>
-        <p class="note">Version 0.6.0, September 2026. Python 3.11 and later, a Claude Code plugin, MIT.</p>
+        <p class="note">Version 0.7.0, November 2026. Python 3.11 and later, a Claude Code plugin, MIT.</p>
       </div>
 
       <figure aria-labelledby="ledger-title">
@@ -401,7 +401,7 @@ footer p { max-width: none; margin: 0; }
         <table>
           <thead><tr><th scope="col">Claim</th><th scope="col">Status</th><th scope="col">Where the evidence lives</th></tr></thead>
           <tbody>
-            <tr><td><code>self</code> is non-callable; Fable 5.1 is admitted only as <code>self</code></td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_identity_migration.py</code>, mutation note in CHANGELOG</td></tr>
+            <tr><td><code>self</code> is non-callable; Fable and Mythos are admitted only as <code>self</code></td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_identity_migration.py</code>, mutation note in CHANGELOG</td></tr>
             <tr><td>Uniform admission for panel, advisor and direct calls</td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_admission.py</code></td></tr>
             <tr><td>Routing minimums checked against the actual panel, not its label</td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_routing_aliases.py</code></td></tr>
             <tr><td>Guardrails tighten by local configuration, never relax</td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_config_policy.py</code></td></tr>
@@ -410,12 +410,15 @@ footer p { max-width: none; margin: 0; }
             <tr><td>Coverage gaps and abstention survive into the receipt</td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_analysis_coverage.py</code></td></tr>
             <tr><td>Proof capsules bind to the reviewed revision and survive retries</td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_proof_binding.py</code></td></tr>
             <tr><td>Complete credential structures never reach a provider</td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_dlp_structures.py</code></td></tr>
-            <tr><td>Codex CLI route, <code>gpt-5.6-sol</code> at xhigh and ultra</td><td><span class="st live">live, July 2026</span></td><td><code>docs/provider-verification.md</code></td></tr>
+            <tr><td>Codex CLI route, <code>gpt-5.6-sol</code> at xhigh and ultra (previous generation)</td><td><span class="st live">live, July 2026</span></td><td><code>docs/provider-verification.md</code></td></tr>
+            <tr><td>Codex CLI route, <code>gpt-6.1-sol</code> at xhigh and ultra, <code>gpt-6.1-terra</code>, <code>gpt-6-luna</code></td><td><span class="st none">measured live, 15 November 2026</span></td><td><code>docs/provider-verification.md</code>, <code>tests/test_model_generation.py</code></td></tr>
             <tr><td>Codex CLI route, <code>gpt-6-astra</code> at ultra</td><td><span class="st live">live, 8 Sep 2026</span></td><td>configured-route identity only; <code>docs/provider-astra-smoke-20260908.json</code></td></tr>
-            <tr><td>Claude CLI route, <code>claude-opus-5</code></td><td><span class="st tested">unit-tested</span></td><td>July 2026 live measurement was Opus 4.8; the current contract has no live smoke yet</td></tr>
-            <tr><td>Antigravity <code>agy</code> headless transport</td><td><span class="st off">ships disabled</span></td><td>live smoke returned no terminal identity; <code>tests/test_agy.py</code></td></tr>
-            <tr><td>ACP transport for Grok</td><td><span class="st off">ships disabled</span></td><td>live smoke did not finish initialization; <code>tests/test_acp.py</code></td></tr>
-            <tr><td>Session delegates and a Workflow topology inside Claude Code</td><td><span class="st none">planned</span></td><td><code>docs/roadmap.md</code>, 0.6.x</td></tr>
+            <tr><td>Claude CLI route, <code>claude-opus-5-5</code></td><td><span class="st none">measured live, 15 November 2026</span></td><td>one bounded call, schema-valid output; the July 2026 live measurement was Opus 4.8</td></tr>
+            <tr><td>Antigravity <code>agy</code> headless transport</td><td><span class="st off">ships disabled</span></td><td>live smoke of <code>gemini-flash</code> returned no terminal identity; <code>tests/test_agy.py</code></td></tr>
+            <tr><td>Antigravity <code>agy</code> profiles <code>gemini-argon</code>, <code>gemini-carbon</code>, <code>gemini-hydrogen</code></td><td><span class="st off">ships disabled</span></td><td>live smoke of 15 November 2026 returned no terminal identity (<code>agy</code> 1.5.9 names the model in its session init event only); <code>tests/test_model_generation.py</code></td></tr>
+            <tr><td>ACP transport for Grok</td><td><span class="st off">ships disabled</span></td><td>the earlier live smoke, run under the <code>grok-4.6</code> profile, did not finish initialization; the <code>grok-4.7</code> smoke of 15 November 2026 stopped at the ACP preflight before any model call; <code>tests/test_acp.py</code></td></tr>
+            <tr><td>Handles name a model family, never a version</td><td><span class="st tested">unit-tested</span></td><td><code>tests/test_model_generation.py</code></td></tr>
+            <tr><td>Session delegates and a Workflow topology inside Claude Code</td><td><span class="st none">planned</span></td><td><code>docs/roadmap.md</code>, not in 0.7.0</td></tr>
             <tr><td>Cross-model review beats same-model self-review on real decisions</td><td><span class="st none">not measured</span></td><td>requires the comparative evaluation program in the roadmap</td></tr>
           </tbody>
         </table>
@@ -464,8 +467,8 @@ footer p { max-width: none; margin: 0; }
   "participants": [
     {"handle": "astra-ultra", "configured_model": "gpt-6-astra",
      "observed_model": null, "identity_evidence": "configured-route"},
-    {"handle": "claude-opus", "configured_model": "claude-opus-5",
-     "observed_model": "claude-opus-5", "identity_evidence": "usage"}
+    {"handle": "claude-opus", "configured_model": "claude-opus-5-5",
+     "observed_model": "claude-opus-5-5", "identity_evidence": "usage"}
   ],
   "findings": {"confirmed": 1, "unresolved": 1, "advisory": 1},
   "grounding": [{"id": "verify:pytest", "outcome": "failed", "trust": "repository"}]
@@ -509,7 +512,7 @@ autofusion config-validate --config .fusion.example.json</code></pre>
       <h2 id="limits-h">Limits, stated plainly</h2>
       <ul>
         <li><strong>This is an alpha runtime.</strong> Assurance is limited to the tested invariants above and in <a href="https://github.com/OnourImpram/autofusion/blob/main/SECURITY.md">SECURITY.md</a>. No cryptographic authenticity of provider identity, subscription entitlement or bills is claimed.</li>
-        <li><strong>Shared quotas.</strong> Sol, Astra and Terra share one OpenAI quota group. Switching between them does not escape exhaustion, and a run that loses a required reviewer to quota records degraded state rather than fused success.</li>
+        <li><strong>Shared quotas.</strong> Sol, Terra, Luna and Astra share one OpenAI quota group. Switching between them does not escape exhaustion, and a run that loses a required reviewer to quota records degraded state rather than fused success.</li>
         <li><strong>Two transports ship disabled.</strong> The Antigravity and ACP lanes are implemented and tested, but their live smokes on 8 September 2026 did not return attested identity. Enabling them locally requires your own dated smoke.</li>
         <li><strong>Context fit is a conservative byte bound.</strong> Opaque session history, later tool exploration and hidden workers are not measured; the architecture notes say exactly what is counted.</li>
         <li><strong>The main claim is unmeasured.</strong> Whether cross-model review beats same-model self-review on real decisions has not been measured here. Treat any such claim, from this project or another, as a hypothesis until a comparative evaluation with held-out graders exists.</li>

@@ -6,19 +6,19 @@
   "participants": [
     {
       "source_id": "self",
-      "effective_model": "claude-opus-5",
+      "effective_model": "claude-opus-5-5",
       "family": "claude-opus",
       "compound": false,
       "worker_visibility": "not-applicable",
       "status": "completed",
       "call_id": null,
       "output_hash": "2222222222222222222222222222222222222222222222222222222222222222",
-      "identity_hash": "871f29dccd733a7c04e082161c49c89a7fbe00c6a55587c7195f94f3d6671369"
+      "identity_hash": "d89005a8ca6036521f47fdef4249753d7eccaa3c3a96f0ee44e203a5493c1f4e"
     },
     {
       "source_id": "gpt-sol",
-      "effective_model": "gpt-5.6-sol",
-      "family": "gpt-5.6",
+      "effective_model": "gpt-6.1-sol",
+      "family": "gpt-6.1",
       "compound": false,
       "worker_visibility": "not-applicable",
       "status": "completed",

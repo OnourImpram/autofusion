@@ -782,6 +782,12 @@ def exercise_negative_cases(
     )
 
     candidate = clone(valid)
+    first_call(candidate)["effective_model"] = "claude-mythos-5-2"
+    assert_rejected(
+        "deliberately disallowed Mythos external identity", candidate, schema, config
+    )
+
+    candidate = clone(valid)
     candidate["self_model"] = "fabricated-model"
     assert_rejected("fabricated self model identity", candidate, schema, config)
 
@@ -890,11 +896,11 @@ def exercise_negative_cases(
 
     candidate = clone(valid)
     candidate["requested_participants"] = ["self", "claude-opus"]
-    candidate["self_model"] = "claude-opus-5"
+    candidate["self_model"] = "claude-opus-5-5"
     call = first_call(candidate)
     call["handle"] = "claude-opus"
     call["requested_model"] = "opus"
-    call["effective_model"] = "claude-opus-5"
+    call["effective_model"] = "claude-opus-5-5"
     call["vendor"] = "anthropic"
     call["family"] = "claude-opus"
     call["mode"] = "xhigh"

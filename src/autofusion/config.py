@@ -10,7 +10,12 @@ from importlib.resources import files
 from pathlib import Path
 
 from autofusion.errors import ConfigurationError
-from autofusion.identity import FABLE_MIGRATION, SessionIdentity, names_fable, reject_fable_routes
+from autofusion.identity import (
+    SELF_ONLY_MIGRATION,
+    SessionIdentity,
+    names_self_only,
+    reject_self_only_routes,
+)
 from autofusion.models import ModelProfile
 from autofusion.util import JsonObject, deep_copy_json, read_json_object
 
@@ -124,7 +129,7 @@ def cost_limit(value: object) -> float | None:
 def merge_layers(base: JsonObject, overlay: JsonObject) -> JsonObject:
     """Merge one approved layer without allowing guardrail weakening."""
 
-    reject_fable_routes(overlay)
+    reject_self_only_routes(overlay)
     base_guardrails = _as_object(base.get("guardrails", {}), "guardrails")
     overlay_guardrails = _as_object(overlay.get("guardrails", {}), "guardrails")
     merged_guardrails = _merge_guardrails(base_guardrails, overlay_guardrails)
@@ -240,11 +245,11 @@ class FusionConfig:
 
     def model(self, handle: str) -> ModelProfile:
         models = self.section("models")
-        if handle != "self" and names_fable(handle):
-            raise ConfigurationError(FABLE_MIGRATION)
+        if handle != "self" and names_self_only(handle):
+            raise ConfigurationError(SELF_ONLY_MIGRATION)
         raw = _as_object(models.get(handle), f"models.{handle}")
-        if handle != "self" and names_fable(raw):
-            raise ConfigurationError(FABLE_MIGRATION)
+        if handle != "self" and names_self_only(raw):
+            raise ConfigurationError(SELF_ONLY_MIGRATION)
         transport = str(raw.get("transport", ""))
         callable_value = raw.get("callable", transport != "self")
         model = str(raw.get("model", handle))
@@ -278,8 +283,8 @@ class FusionConfig:
         )
 
     def panel(self, name: str) -> JsonObject:
-        if names_fable(name):
-            raise ConfigurationError(FABLE_MIGRATION)
+        if names_self_only(name):
+            raise ConfigurationError(SELF_ONLY_MIGRATION)
         return _as_object(self.section("panels").get(name), f"panels.{name}")
 
     def session_identity(self, model: str) -> SessionIdentity:
@@ -377,10 +382,8 @@ def validate_participant(
         raise ConfigurationError(f"uses disabled model: {handle}")
     if not profile.callable or profile.transport == "self":
         raise ConfigurationError(f"participant is not callable: {handle}")
-    if enabled and any(
-        "fable" in identity.lower() for identity in (handle, profile.model, profile.canonical_model)
-    ):
-        raise ConfigurationError("Fable is permitted only as self")
+    if enabled and names_self_only([handle, profile.model, profile.canonical_model]):
+        raise ConfigurationError("Fable and Mythos are permitted only as self")
     if profile.compound:
         compound = _as_object(config.section("routing").get("compound", {}), "compound")
         roles = _as_object(compound.get("allowed_roles", {}), "compound.allowed_roles")
@@ -389,7 +392,7 @@ def validate_participant(
 
 
 def validate_config(config: FusionConfig) -> None:
-    reject_fable_routes(config.data)
+    reject_self_only_routes(config.data)
     models = config.section("models")
     panels = config.section("panels")
     presets = config.section("presets")

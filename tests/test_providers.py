@@ -315,7 +315,7 @@ def test_cli_rejects_identity_mismatch(tmp_path: Path) -> None:
 
 def test_codex_cli_uses_pinned_model_when_jsonl_omits_identity(tmp_path: Path) -> None:
     provider = CliTransportProvider(
-        _profile(model="gpt-5.6-sol", canonical_model="gpt-5.6-sol"),
+        _profile(model="gpt-6.1-sol", canonical_model="gpt-6.1-sol"),
         CodexExecAdapter(),
         RecordingRunner(_outcome('{"type":"turn.completed","usage":{}}')),
     )
@@ -323,12 +323,12 @@ def test_codex_cli_uses_pinned_model_when_jsonl_omits_identity(tmp_path: Path) -
     result = provider.invoke(_request(tmp_path))
 
     assert result.status is CallStatus.COMPLETED
-    assert result.effective_model == "gpt-5.6-sol"
+    assert result.effective_model == "gpt-6.1-sol"
 
 
 def test_codex_cli_rejects_missing_identity_without_completed_turn(tmp_path: Path) -> None:
     provider = CliTransportProvider(
-        _profile(model="gpt-5.6-sol", canonical_model="gpt-5.6-sol"),
+        _profile(model="gpt-6.1-sol", canonical_model="gpt-6.1-sol"),
         CodexExecAdapter(),
         RecordingRunner(_outcome('{"type":"item.completed","item":{"type":"agent_message"}}')),
     )
@@ -461,7 +461,7 @@ def test_claude_cli_rejects_ambiguous_auxiliary_usage(tmp_path: Path) -> None:
     envelope = {
         "modelUsage": {
             "claude-haiku-helper": {"inputTokens": 1},
-            "claude-opus-5": {"inputTokens": 10},
+            "claude-opus-5-5": {"inputTokens": 10},
         },
         "structured_output": {"answer": "ok"},
         "usage": {"input_tokens": 11, "output_tokens": 2},
@@ -470,7 +470,7 @@ def test_claude_cli_rejects_ambiguous_auxiliary_usage(tmp_path: Path) -> None:
         _profile(
             transport="claude-exec",
             model="opus",
-            canonical_model="claude-opus-5",
+            canonical_model="claude-opus-5-5",
         ),
         ClaudeCliAdapter(executable="fake-claude"),
         RecordingRunner(_outcome(json.dumps(envelope))),
@@ -484,7 +484,7 @@ def test_claude_cli_accepts_dominant_canonical_model_usage(tmp_path: Path) -> No
     envelope = {
         "modelUsage": {
             "claude-haiku-helper": {"outputTokens": 3},
-            "claude-opus-5": {"outputTokens": 300},
+            "claude-opus-5-5": {"outputTokens": 300},
         },
         "structured_output": {"answer": "ok"},
     }
@@ -492,7 +492,7 @@ def test_claude_cli_accepts_dominant_canonical_model_usage(tmp_path: Path) -> No
         _profile(
             transport="claude-exec",
             model="opus",
-            canonical_model="claude-opus-5",
+            canonical_model="claude-opus-5-5",
         ),
         ClaudeCliAdapter(executable="fake-claude"),
         RecordingRunner(_outcome(json.dumps(envelope))),
@@ -501,7 +501,7 @@ def test_claude_cli_accepts_dominant_canonical_model_usage(tmp_path: Path) -> No
     result = provider.invoke(_request(tmp_path))
 
     assert result.status is CallStatus.COMPLETED
-    assert result.effective_model == "claude-opus-5"
+    assert result.effective_model == "claude-opus-5-5"
 
 
 def test_claude_cli_rejects_unexpected_auxiliary_models(tmp_path: Path) -> None:
@@ -516,7 +516,7 @@ def test_claude_cli_rejects_unexpected_auxiliary_models(tmp_path: Path) -> None:
         _profile(
             transport="claude-exec",
             model="opus",
-            canonical_model="claude-opus-5",
+            canonical_model="claude-opus-5-5",
         ),
         ClaudeCliAdapter(executable="fake-claude"),
         RecordingRunner(_outcome(json.dumps(envelope))),
