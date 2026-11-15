@@ -1,0 +1,23 @@
+# autofusion
+
+> Claude Code-first cross-model review, executed checks where applicable, and metadata-only receipts for consequential AI-assisted decisions (alpha runtime). The active Claude Code session drafts and reconciles findings, independent reviewers examine one frozen packet, trusted commands ground eligible claims, and unresolved disagreement stays visible.
+
+## Overview
+
+- [Project page](https://onourimpram.github.io/autofusion/): Overview page for autofusion (`docs/index.html`).
+- [Repository](https://github.com/OnourImpram/autofusion): Source repository on GitHub.
+- [README](https://raw.githubusercontent.com/OnourImpram/autofusion/main/README.md): Method, measured claims, built-in model profiles, topologies, installation, configuration and stated limits.
+- [CHANGELOG](https://raw.githubusercontent.com/OnourImpram/autofusion/main/CHANGELOG.md): Release history, including prepared 0.7.0 changes, mutation notes and dated smoke records.
+- [SECURITY](https://raw.githubusercontent.com/OnourImpram/autofusion/main/SECURITY.md): Tested invariants and vulnerability reporting path.
+
+## Documentation
+
+- [Architecture](https://onourimpram.github.io/autofusion/architecture.md): Architecture reference, including context accounting limits.
+- [Safety model](https://onourimpram.github.io/autofusion/safety-model.md): Safety model documentation.
+- [Fusion topologies](https://onourimpram.github.io/autofusion/fusion-topologies.md): Topologies (`review`, `adversarial-review`, `dual-review`, `panel-rank`, `advisor`, `adaptive`) and overrides.
+- [Fusion packs](https://onourimpram.github.io/autofusion/fusion-packs.md): Artifact-specific packs and minimum presets.
+- [Proof Fusion](https://onourimpram.github.io/autofusion/proof-fusion.md): Post-review evidence stage and Docker proof runner requirements.
+- [Provider verification](https://onourimpram.github.io/autofusion/provider-verification.md): Dated live transport and identity smoke measurements.
+- [Roadmap](https://onourimpram.github.io/autofusion/roadmap.md): Planned session delegates, Workflow topology, and comparative evaluation program.
+- [Competitive research](https://onourimpram.github.io/autofusion/competitive-research.md): Competitive research documentation.
+- [Product differentiators](https://onourimpram.github.io/autofusion/product-differentiators.md): Product differentiators documentation.
