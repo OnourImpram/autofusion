@@ -60,7 +60,7 @@ TABLE: dict[str, Row] = {
         "agy-headless",
         "high",
         False,
-        False,
+        True,
         "flash",
     ),
     "gemini-argon": Row(
@@ -70,7 +70,7 @@ TABLE: dict[str, Row] = {
         "agy-headless",
         "high",
         False,
-        False,
+        True,
         "argon",
     ),
     "gemini-carbon": Row(
@@ -80,7 +80,7 @@ TABLE: dict[str, Row] = {
         "agy-headless",
         "high",
         False,
-        False,
+        True,
         "carbon",
     ),
     "gemini-hydrogen": Row(
@@ -90,7 +90,7 @@ TABLE: dict[str, Row] = {
         "agy-headless",
         "xhigh",
         False,
-        False,
+        True,
         "hydrogen",
     ),
     "grok": Row("grok-4.7", "grok-4.7", "grok", "acp", "xhigh", False, False, "grok"),
@@ -98,9 +98,11 @@ TABLE: dict[str, Row] = {
 NEW_HANDLES = ("gpt-terra", "gpt-luna", "gemini-argon", "gemini-carbon", "gemini-hydrogen")
 DISABLED = tuple(handle for handle, row in TABLE.items() if not row.enabled)
 ENABLED = tuple(handle for handle, row in TABLE.items() if row.enabled)
-# Activated on 2026-11-15 after a live route smoke each; the three Gemini profiles failed theirs
-# (no terminal identity) and stay disabled with the NOT_RUN text.
-ACTIVATED = ("gpt-terra", "gpt-luna")
+# Activated on 2026-11-15 after a live route smoke each. The Gemini profiles failed their first
+# smoke (the terminal result names no model) and passed once the adapter read the model from the
+# session init event, bound to the result by conversation id.
+AGY_HANDLES = ("gemini-flash", "gemini-argon", "gemini-carbon", "gemini-hydrogen")
+ACTIVATED = ("gpt-terra", "gpt-luna", *AGY_HANDLES)
 SMOKED = (
     "live route smoke 2026-11-15: completed with schema-valid output "
     "(docs/provider-verification.md)"
@@ -173,10 +175,9 @@ def test_disabled_profiles_name_an_activation_gate(handle: str) -> None:
 
 
 @pytest.mark.parametrize("handle", ["gemini-argon", "gemini-carbon", "gemini-hydrogen"])
-def test_new_gemini_profiles_have_the_shape_and_gate_of_gemini_flash(handle: str) -> None:
+def test_new_gemini_profiles_have_the_shape_of_gemini_flash(handle: str) -> None:
     models = _models(DEFAULT_CONFIG)
     flash, profile = models["gemini-flash"], models[handle]
-    assert profile["activation_gate"] == flash["activation_gate"]
     assert profile["capabilities"] == flash["capabilities"]
     for key in ("transport", "callable", "vendor", "family", "context", "compound"):
         assert profile[key] == flash[key]
@@ -192,9 +193,16 @@ def test_new_openai_profiles_have_the_shape_of_gpt_sol(handle: str) -> None:
     assert set(profile["capabilities"]) == set(sol["capabilities"]) | {"verification"}
 
 
-@pytest.mark.parametrize("handle", [h for h in NEW_HANDLES if h not in ACTIVATED])
-def test_new_profiles_without_a_passing_smoke_say_so(handle: str) -> None:
+@pytest.mark.parametrize("handle", DISABLED)
+def test_disabled_profiles_claim_no_passing_smoke(handle: str) -> None:
     assert _models(DEFAULT_CONFIG)[handle]["capabilities"]["verification"] == NOT_RUN
+
+
+@pytest.mark.parametrize("handle", AGY_HANDLES)
+def test_agy_profiles_take_identity_from_the_session_init(handle: str) -> None:
+    capabilities = _models(DEFAULT_CONFIG)[handle]["capabilities"]
+    assert capabilities["identity_source"] == "session-init-model"
+    assert capabilities["usage_source"] == "terminal-result"
 
 
 @pytest.mark.parametrize("handle", ACTIVATED)
@@ -211,7 +219,7 @@ def test_enabled_profiles_carry_no_gate_and_are_admitted(handle: str) -> None:
     assert handle in data["guardrails"]["model_allowlist"]
 
 
-NOT_ACTIVATED = ("gemini-flash", "gemini-argon", "gemini-carbon", "gemini-hydrogen", "grok")
+NOT_ACTIVATED = ("grok",)
 
 
 @pytest.mark.parametrize("handle", NOT_ACTIVATED)
