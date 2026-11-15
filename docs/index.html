@@ -517,7 +517,7 @@ autofusion config-validate --config .fusion.example.json</code></pre>
     <div class="wrap">
       <h2 id="limits-h">Limits, stated plainly</h2>
       <ul>
-        <li><strong>This is an alpha runtime.</strong> Assurance is limited to the tested invariants above and in <a href="https://github.com/OnourImpram/autofusion/blob/main/SECURITY.md">SECURITY.md</a>. No cryptographic authenticity of provider identity, subscription entitlement or bills is claimed.</li>
+        <li><strong>Assurance is limited to the tested invariants</strong> above and in <a href="https://github.com/OnourImpram/autofusion/blob/main/SECURITY.md">SECURITY.md</a>. No cryptographic authenticity of provider identity, subscription entitlement or bills is claimed.</li>
         <li><strong>Shared quotas.</strong> Sol, Terra, Luna and Astra share one OpenAI quota group. Switching between them does not escape exhaustion, and a run that loses a required reviewer to quota records degraded state rather than fused success.</li>
         <li><strong>Two transports ship disabled.</strong> The Antigravity and ACP lanes are implemented and tested, but their live smokes on 8 September 2026 did not return attested identity. Enabling them locally requires your own dated smoke.</li>
         <li><strong>Context fit is a conservative byte bound.</strong> Opaque session history, later tool exploration and hidden workers are not measured; the architecture notes say exactly what is counted.</li>

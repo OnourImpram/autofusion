@@ -2,6 +2,15 @@
 
 All notable changes to autofusion are recorded here.
 
+## Unreleased
+
+The stage label "alpha" is removed from the description of the current runtime: the README Limits
+section, the project page, the plugin and marketplace descriptions, the two skill notes and four
+documents. The `Development Status :: 3 - Alpha` classifier is dropped from `pyproject.toml`. The
+limits themselves are unchanged, and the repository validator now requires the assurance sentence
+itself where it used to require the label. Schema identifiers (`0.2-alpha`) and the names of past
+releases keep their spelling.
+
 ## 1.0.0
 
 Released 15 November 2026. The work was prepared as 0.7.0 and is released as 1.0.0, the first major
