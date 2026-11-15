@@ -249,6 +249,26 @@ def test_agy_admission_before_spawn(tmp_path: Path, status: str) -> None:
         AgyProvider(p, executable=str(tmp_path / "must-not-start")).invoke(request(tmp_path))
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("canonical_model", "claude-mythos-5-2"),
+        ("canonical_model", "Claude-Mythos-5-2"),
+        ("model", "mythos"),
+        ("model", "claude-mythos"),
+    ],
+)
+def test_agy_admission_rejects_mythos_before_spawn(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    from autofusion.providers.agy import AgyProvider
+
+    p = replace(profile(), model="alias", canonical_model="alias")
+    p = replace(p, model=value) if field == "model" else replace(p, canonical_model=value)
+    with pytest.raises(ProviderError, match="Fable and Mythos"):
+        AgyProvider(p, executable=str(tmp_path / "must-not-start")).invoke(request(tmp_path))
+
+
 @pytest.mark.parametrize("timeout", [0.0, -1.0, float("nan"), float("inf")])
 def test_agy_invalid_deadline_before_spawn(tmp_path: Path, timeout: float) -> None:
     from autofusion.providers.agy import AgyProvider

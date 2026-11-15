@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import copy
 import importlib
+import shutil
+import tomllib
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -13,6 +16,35 @@ def test_repository_current_identity_contract() -> None:
     repository.validate_config()
 
 
+VERSIONED_FILES = (
+    "pyproject.toml",
+    "src/autofusion/__init__.py",
+    ".claude-plugin/marketplace.json",
+    "plugins/autofusion/.claude-plugin/plugin.json",
+)
+
+
+@pytest.mark.parametrize("drifted", VERSIONED_FILES)
+def test_repository_versions_must_agree_in_every_manifest(
+    drifted: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for relative in VERSIONED_FILES:
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(repository.ROOT / relative, target)
+    monkeypatch.setattr(repository, "ROOT", tmp_path)
+    repository.validate_versions()  # positive arm: the copies agree
+
+    manifest = tomllib.loads((tmp_path / "pyproject.toml").read_text(encoding="utf-8"))
+    current = manifest["project"]["version"]
+    path = tmp_path / drifted
+    text = path.read_text(encoding="utf-8")
+    assert f'"{current}"' in text
+    path.write_text(text.replace(f'"{current}"', f'"{current}.post1"'), encoding="utf-8")
+    with pytest.raises(repository.ValidationError, match="versions must match"):
+        repository.validate_versions()
+
+
 @pytest.mark.parametrize("field", ["model", "canonical_model", "family", "aliases"])
 def test_repository_rejects_fable_under_unrelated_handle(field: str) -> None:
     candidate = repository.load_json(repository.ROOT / ".fusion.example.json")
@@ -22,6 +54,19 @@ def test_repository_rejects_fable_under_unrelated_handle(field: str) -> None:
     candidate["models"]["legacy-reviewer"] = profile
 
     with pytest.raises(repository.ValidationError, match=r"migration required.*claude-opus"):
+        repository.validate_config_candidate(candidate)
+
+
+@pytest.mark.parametrize("field", ["model", "canonical_model", "family", "aliases"])
+def test_repository_rejects_mythos_under_unrelated_handle(field: str) -> None:
+    candidate = repository.load_json(repository.ROOT / ".fusion.example.json")
+    profile: dict[str, Any] = copy.deepcopy(candidate["models"]["claude-opus"])
+    profile[field] = ["claude-mythos-5-2"] if field == "aliases" else "claude-mythos-5-2"
+    profile["enabled"] = False
+    candidate["models"]["legacy-reviewer"] = profile
+
+    expected = r"migration required.*Mythos.*claude-opus"
+    with pytest.raises(repository.ValidationError, match=expected):
         repository.validate_config_candidate(candidate)
 
 
@@ -41,10 +86,10 @@ def test_repository_rejects_legacy_fable_panel(legacy: str, replacement: str) ->
     ("field", "value"),
     [
         ("transport", "openai-compatible"),
-        ("model", "gpt-5.6-sol"),
-        ("canonical_model", "gpt-5.6-sol"),
+        ("model", "gpt-6.1-sol"),
+        ("canonical_model", "gpt-6.1-sol"),
         ("vendor", "other"),
-        ("family", "gpt-5.6"),
+        ("family", "gpt-6.1"),
         ("effort", "xhigh"),
         ("compound", False),
         ("worker_visibility", "transparent"),
@@ -93,8 +138,9 @@ def test_repository_requires_shared_profile_quota_group(handle: str) -> None:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("models", ["gpt-5.6-sol", "gpt-6-astra"]),
-        ("models", ["gpt-5.6-sol", "gpt-6-astra", "gpt-5.6-terra", "unknown"]),
+        ("models", ["gpt-6.1-sol", "gpt-6-astra"]),
+        ("models", ["gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna"]),
+        ("models", ["gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna", "gpt-6-astra", "unknown"]),
         ("shared_exhaustion", False),
     ],
 )

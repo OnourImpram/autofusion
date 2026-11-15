@@ -11,9 +11,9 @@
   "consulted": false,
   "cross_model": true,
   "compound": false,
-  "self_model": "claude-opus-5",
+  "self_model": "claude-opus-5-5",
   "self_identity_source": "runtime-attested",
-  "self_identity_hash": "871f29dccd733a7c04e082161c49c89a7fbe00c6a55587c7195f94f3d6671369",
+  "self_identity_hash": "d89005a8ca6036521f47fdef4249753d7eccaa3c3a96f0ee44e203a5493c1f4e",
   "task_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "packet_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -26,10 +26,10 @@
     {
       "call_id": "call-1",
       "handle": "gpt-sol",
-      "requested_model": "gpt-5.6-sol",
-      "effective_model": "gpt-5.6-sol",
+      "requested_model": "gpt-6.1-sol",
+      "effective_model": "gpt-6.1-sol",
       "vendor": "openai",
-      "family": "gpt-5.6",
+      "family": "gpt-6.1",
       "mode": "xhigh",
       "compound": false,
       "worker_visibility": "not-applicable",
@@ -45,7 +45,7 @@
       "routing_attestation_hash": "8888888888888888888888888888888888888888888888888888888888888888"
     }
   ],
-  "analysis_hash": "2132850683004967df21bc79109eaa976db4b45390a861fcc75d88961b3e50a7",
+  "analysis_hash": "26a3499cde3733cc838f9a9c4bcfb869f4939939a7e3b7e420266a338895e845",
   "budgets": {
     "max_calls": 1,
     "used_calls": 1,

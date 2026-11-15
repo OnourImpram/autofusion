@@ -18,14 +18,20 @@ from autofusion.registry import ProviderRegistry
 
 def test_current_self_and_reviewer_identities() -> None:
     config = load_config()
-    assert config.model("claude-opus").canonical_model == "claude-opus-5"
+    assert config.model("claude-opus").canonical_model == "claude-opus-5-5"
     assert set(config.data["models"]["self"]["allowed_models"]) == {
         "claude-opus-5",
         "claude-sonnet-5",
         "claude-haiku-4-5-20251001",
         "claude-fable-5-1",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+        "claude-haiku-5-5",
+        "claude-fable-5-2",
+        "claude-mythos-5-2",
     }
     assert "claude-fable" not in config.section("models")
+    assert "claude-mythos" not in config.section("models")
 
 
 @pytest.mark.parametrize("identity", ["claude-fable-5", "claude-fable-5-1", "fable", "FABLE"])
@@ -43,6 +49,52 @@ def test_callable_fable_alias_overlay_is_rejected(identity: str, field: str) -> 
                 }
             }
         )
+
+
+@pytest.mark.parametrize(
+    "identity",
+    ["claude-mythos-5-2", "claude-mythos", "mythos", "MYTHOS", "Claude-Mythos-5-2"],
+)
+@pytest.mark.parametrize("field", ["model", "canonical_model", "family", "alias_for"])
+def test_callable_mythos_alias_overlay_is_rejected(identity: str, field: str) -> None:
+    with pytest.raises(ConfigurationError, match=r"self-only.*claude-opus") as caught:
+        load_config(
+            overrides={
+                "models": {
+                    "renamed-reviewer": {
+                        "transport": "claude-exec",
+                        "callable": True,
+                        field: identity,
+                    }
+                }
+            }
+        )
+    assert "Mythos" in str(caught.value) and "Fable" in str(caught.value)
+
+
+@pytest.mark.parametrize("identity", ["claude-fable-5-2", "fable", "claude-mythos-5-2", "mythos"])
+def test_self_only_migration_message_names_both_families(identity: str) -> None:
+    with pytest.raises(ConfigurationError) as caught:
+        load_config(
+            overrides={
+                "models": {
+                    "renamed-reviewer": {
+                        "transport": "claude-exec",
+                        "callable": True,
+                        "model": identity,
+                    }
+                }
+            }
+        )
+    message = str(caught.value)
+    assert "Fable" in message and "Mythos" in message and "self-only" in message
+
+
+@pytest.mark.parametrize("section", ["panels", "presets", "guardrails", "routing"])
+def test_mythos_in_a_policy_section_is_rejected_like_fable(section: str) -> None:
+    for family in ("claude-fable-5-2", "claude-mythos-5-2"):
+        with pytest.raises(ConfigurationError, match="self-only"):
+            load_config(overrides={section: {"note": [family]}})
 
 
 @pytest.mark.parametrize(
@@ -65,6 +117,17 @@ def test_disabled_or_unreferenced_fable_profile_is_still_rejected() -> None:
         validate_config(FusionConfig(data, ()))
 
 
+def test_disabled_or_unreferenced_mythos_profile_is_still_rejected() -> None:
+    data = load_config().data
+    data["models"]["renamed"] = {
+        "transport": "claude-exec",
+        "model": "claude-mythos-5-2",
+        "enabled": False,
+    }
+    with pytest.raises(ConfigurationError, match="self-only"):
+        validate_config(FusionConfig(data, ()))
+
+
 @pytest.mark.parametrize(
     "model,family",
     [
@@ -72,6 +135,11 @@ def test_disabled_or_unreferenced_fable_profile_is_still_rejected() -> None:
         ("claude-fable-5-1", "claude-fable"),
         ("claude-sonnet-5", "claude-sonnet"),
         ("claude-haiku-4-5-20251001", "claude-haiku"),
+        ("claude-opus-5-5", "claude-opus"),
+        ("claude-sonnet-5-5", "claude-sonnet"),
+        ("claude-haiku-5-5", "claude-haiku"),
+        ("claude-fable-5-2", "claude-fable"),
+        ("claude-mythos-5-2", "claude-mythos"),
     ],
 )
 def test_self_uses_validated_session_family(tmp_path: Path, model: str, family: str) -> None:
@@ -141,6 +209,25 @@ def test_runtime_registry_rejects_injected_callable_fable() -> None:
         registry.get("claude-opus")
 
 
+@pytest.mark.parametrize("model", ["claude-mythos-5-2", "claude-mythos", "mythos"])
+def test_runtime_registry_rejects_injected_callable_mythos(model: str) -> None:
+    profile = replace(load_config().model("claude-opus"), model=model)
+    registry = ProviderRegistry({"claude-opus": type("Forbidden", (), {"profile": profile})()})
+    with pytest.raises(ProviderError, match="self-only"):
+        registry.get("claude-opus")
+
+
+@pytest.mark.parametrize("canonical", ["claude-mythos-5-2", "Claude-Mythos"])
+def test_direct_cli_adapter_rejects_mythos_before_execution(
+    tmp_path: Path, canonical: str
+) -> None:
+    profile = replace(load_config().model("claude-opus"), canonical_model=canonical)
+    request = ProviderRequest("r", "c", "claude-opus", "review", {}, tmp_path, 1, 100)
+    provider = CliTransportProvider(profile, ClaudeCliAdapter(), None)  # type: ignore[arg-type]
+    with pytest.raises(ProviderError, match="self-only"):
+        provider.invoke(request)
+
+
 def test_direct_cli_adapter_rejects_fable_before_execution(tmp_path: Path) -> None:
     profile = replace(load_config().model("claude-opus"), canonical_model="claude-fable-5")
     request = ProviderRequest("r", "c", "claude-opus", "review", {}, tmp_path, 1, 100)
@@ -150,7 +237,9 @@ def test_direct_cli_adapter_rejects_fable_before_execution(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize("provider_type", [AnthropicHttpProvider, OpenAICompatibleHttpProvider])
-@pytest.mark.parametrize("model", ["claude-fable-5", "claude-fable-5-1"])
+@pytest.mark.parametrize(
+    "model", ["claude-fable-5", "claude-fable-5-1", "claude-fable-5-2", "claude-mythos-5-2"]
+)
 def test_fable_self_profile_cannot_be_executed_by_http(
     tmp_path: Path,
     model: str,

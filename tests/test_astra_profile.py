@@ -29,9 +29,10 @@ def test_astra_ultra_profile_and_shared_quota() -> None:
     assert profile.quota_group == config.model("gpt-sol").quota_group == "openai-chatgpt"
     assert config.model("gpt-sol-ultra").quota_group == profile.quota_group
     assert set(config.section("quota_groups")[profile.quota_group]["models"]) == {
-        "gpt-5.6-sol",
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6-luna",
         "gpt-6-astra",
-        "gpt-5.6-terra",
     }
     assert "astra-ultra" in config.section("guardrails")["model_allowlist"]
     assert config.section("routing")["compound"]["allowed_roles"]["astra-ultra"] == [

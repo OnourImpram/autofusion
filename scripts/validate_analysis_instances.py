@@ -951,6 +951,12 @@ def exercise_negative_cases(
     )
 
     candidate = clone(valid)
+    second_participant(candidate)["effective_model"] = "claude-mythos-5-2"
+    assert_rejected(
+        "deliberately disallowed Mythos participant identity", candidate, schema, config
+    )
+
+    candidate = clone(valid)
     first_finding(candidate)["verification_id"] = "python.untrusted"
     assert_rejected("untrusted finding verification", candidate, schema, config)
 
