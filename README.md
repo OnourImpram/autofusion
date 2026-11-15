@@ -7,7 +7,7 @@
 [![ci](https://github.com/OnourImpram/autofusion/actions/workflows/validate.yml/badge.svg)](https://github.com/OnourImpram/autofusion/actions/workflows/validate.yml)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
-**Claude Code-first independent cross-model review, executed checks where applicable, and metadata-only receipts for consequential AI-assisted decisions (alpha runtime).**
+**Claude Code-first independent cross-model review, executed checks where applicable, and metadata-only receipts for consequential AI-assisted decisions.**
 
 autofusion helps people examine consequential AI-assisted decisions through independent model review, executed checks where applicable, and a traceable record of what changed. Its purpose is to make important work easier to challenge and verify before people rely on it.
 
@@ -60,7 +60,7 @@ If you work intensely with AI, the recommendation is simple: keep one model for 
 | ACP transport, `grok` profile | Implemented and unit-tested; the earlier live smoke, run under the `grok-4.6` profile, did not complete initialization; the `grok-4.7` smoke of 15 November 2026 stopped at the ACP preflight before any model call, and the profile ships disabled | `tests/test_acp.py`, `tests/test_acp_integration.py` |
 | Handles name a model family, never a version; one handle per family name, effort and compound flag | Implemented and unit-tested | `tests/test_model_generation.py` |
 | OpenAI-compatible route with the output contract in the prompt, `chatgpt-web-high` and `chatgpt-web-xhigh` profiles through a local Agent Web Bridge | Measured live, 13 September 2026, configured-route identity only; the profiles ship disabled behind an activation gate | `tests/test_providers.py`, `docs/provider-verification.md` |
-| Session delegates and a Workflow topology inside Claude Code | Planned, not in 0.7.0; contracts in `docs/roadmap.md` | none yet |
+| Session delegates and a Workflow topology inside Claude Code | Planned, not in 1.0.0; contracts in `docs/roadmap.md` | none yet |
 | Cross-model review improves decision quality over same-model self-review | Not measured | requires the comparative evaluation program in `docs/roadmap.md` |
 
 A test that the author wrote and then passed proves less than it looks. Each repair in this repository carries a mutation note: the repair was reverted once with the test kept, the whole suite was run, and the failing test is named in `CHANGELOG.md`. A repair whose reversal fails nothing is not counted as measured.
@@ -121,7 +121,7 @@ autofusion config-validate --config .fusion.example.json
 Or from a versioned release wheel downloaded from the GitHub release page and checked against its published SHA-256:
 
 ~~~text
-python -m pip install ./autofusion-0.7.0-py3-none-any.whl
+python -m pip install ./autofusion-1.0.0-py3-none-any.whl
 ~~~
 
 Example invocations:
