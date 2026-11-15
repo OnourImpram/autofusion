@@ -145,7 +145,7 @@ Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu are 
 
 ## Limits
 
-1. This is an alpha runtime. Assurance is limited to the tested invariants listed above and in `SECURITY.md`; the project does not yet claim cryptographic authenticity of external model usage, subscription entitlements or provider bills.
+1. Assurance is limited to the tested invariants listed above and in `SECURITY.md`; the project does not yet claim cryptographic authenticity of external model usage, subscription entitlements or provider bills.
 2. Context admission uses a conservative byte bound over the packet, prompt, schema and mandatory files. Opaque session history, later tool exploration and hidden workers are not measured; see [context accounting](docs/architecture.md).
 3. Two transports originally shipped disabled because their live smokes on 8 September 2026 did not return attested identity; the four Gemini profiles on `agy` now ship enabled after the 15 November 2026 adapter update and dated smokes, while enabling any still-disabled transport or profile locally requires your own dated smoke.
 4. The ownership of orphaned descendants of a provider process is guaranteed on Windows only through Job Objects assigned after a suspended spawn; the window between spawn and assignment is documented in `CHANGELOG.md`.

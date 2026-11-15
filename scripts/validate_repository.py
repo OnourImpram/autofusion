@@ -505,7 +505,7 @@ def validate_extended_orchestration(config: dict[str, Any]) -> None:
     )
     require(
         orchestration.get("marginal_value_stop") == "shadow",
-        "marginal-value stopping must remain shadow-only in alpha",
+        "marginal-value stopping must remain shadow-only",
     )
 
     provider = as_object(
@@ -1197,7 +1197,7 @@ def validate_claim_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     readme_lower = readme.lower()
     require(
-        "alpha runtime" in readme_lower,
+        "assurance is limited to the tested invariants" in readme_lower,
         "README must state the implementation boundary",
     )
     require(
@@ -1206,7 +1206,7 @@ def validate_claim_boundaries() -> None:
     )
     require(
         "does not yet claim cryptographic authenticity" in readme_lower,
-        "README must preserve the alpha provenance boundary",
+        "README must preserve the provenance boundary",
     )
     require(
         "override a preset only inside immutable global policy" in readme_lower,

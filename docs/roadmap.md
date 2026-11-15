@@ -20,7 +20,7 @@ Exit criteria: the plugin and documentation expose a coherent, truthful target c
 
 Historical July scope. The Claude transport remains available for Opus; external Fable execution is no longer permitted.
 
-Status: implemented as alpha runtime, except the live Claude Code plus GPT Sol proof remains a release gate.
+Status: implemented, except the live Claude Code plus GPT Sol proof remains a release gate.
 
 1. Add the Python package and typed provider protocol.
 2. Implement self as a non-callable sentinel.
@@ -46,7 +46,7 @@ Exit criteria:
 
 ## 0.3: adaptive and comparative orchestration
 
-Status: core orchestration primitives are implemented as alpha. Live calibration and provider-performance evidence remain pending.
+Status: core orchestration primitives are implemented. Live calibration and provider-performance evidence remain pending.
 
 1. Add panel-rank with blind identities and answer-order reversal.
 2. Add the advisor consultation mode.

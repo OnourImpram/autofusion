@@ -4,7 +4,7 @@
     "name": "Onour Impram",
     "email": ""
   },
-  "description": "Skill-only Claude Code first cross-model review workflow with an optional alpha helper runtime.",
+  "description": "Skill-only Claude Code first cross-model review workflow with an optional helper runtime.",
   "version": "1.0.0",
   "plugins": [
     {

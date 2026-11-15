@@ -11,7 +11,7 @@ This is an escalation workflow. It is not an autopilot.
 
 ## Current repository status
 
-The repository contains an alpha helper runtime, but this Claude Code plugin remains skill-first. The skill can orchestrate the self-driven workflow and may call the helper CLI when it is installed and verified. If the helper CLI or another verified callable route is unavailable, state that limitation and do not claim the unavailable operation ran.
+The repository contains a helper runtime, but this Claude Code plugin remains skill-first. The skill can orchestrate the self-driven workflow and may call the helper CLI when it is installed and verified. If the helper CLI or another verified callable route is unavailable, state that limitation and do not claim the unavailable operation ran.
 
 ## Invocation
 

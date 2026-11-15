@@ -62,7 +62,7 @@ Each callable profile declares:
 11. Privacy, parameter, region, and fallback constraints.
 12. Cost, latency, and throughput metadata when available.
 
-The alpha implementation includes codex-exec, claude-exec, OpenAI-compatible HTTP, Anthropic HTTP, and deterministic fake transports. Live use still depends on provider availability, credentials, effective-model attestation, and the configured policy.
+The implementation includes codex-exec, claude-exec, OpenAI-compatible HTTP, Anthropic HTTP, and deterministic fake transports. Live use still depends on provider availability, credentials, effective-model attestation, and the configured policy.
 
 Provider fallback is safe only when the concrete effective model remains allowed and the resulting panel still satisfies context and independence quorum. Same-model endpoint fallback is the default. Different-model substitution requires explicit policy and cannot bypass a moderation or policy block.
 
@@ -206,7 +206,7 @@ Terminal product verdicts are ship, revise, blocked, degraded, failed, cancelled
 
 Every material transition is also appended to an idempotent hash-chained journal. Reusing an idempotency key with a different payload fails. The status surface can recover pending reconciliation metadata and verify the journal chain.
 
-The alpha journal does not automatically resume a provider call interrupted mid-dispatch. Provider dispatch requires a future durable job and call-attempt protocol so a restart cannot duplicate a paid call or misstate its completion.
+The journal does not automatically resume a provider call interrupted mid-dispatch. Provider dispatch requires a future durable job and call-attempt protocol so a restart cannot duplicate a paid call or misstate its completion.
 
 ## Precedent and outcome memory
 
@@ -236,8 +236,8 @@ Receipts must resolve their preset to a concrete panel and must match that panel
 
 ## Cost and Runner Attestation
 
-Per-call cost verification records a cost source and provider usage hash. Confirmed grounding records an invocation hash, runner attestation hash, and runner trust class. These fields are structural contract inputs in the alpha repository. The future engine must bind them to captured runner logs and provider usage records before public claims can move from structural validation to runtime authenticity.
+Per-call cost verification records a cost source and provider usage hash. Confirmed grounding records an invocation hash, runner attestation hash, and runner trust class. These fields are structural contract inputs in this repository. The future engine must bind them to captured runner logs and provider usage records before public claims can move from structural validation to runtime authenticity.
 
-The current alpha uses `tests/fixtures/trusted-attestations.json` as a stand-in trust root for validator fixtures. It is not a production signing system, but it prevents a fixture from passing merely by inventing plausible 64-character hashes.
+The current runtime uses `tests/fixtures/trusted-attestations.json` as a stand-in trust root for validator fixtures. It is not a production signing system, but it prevents a fixture from passing merely by inventing plausible 64-character hashes.
 
 Proof capsules have an additional runtime gate. `autofusion prove` signs the domain-separated capsule and runner-hash bundle with an operator-controlled local HMAC key. `finalize` requires the configured active key ID and verifies the signature before proof can alter reconciliation. This establishes local signer authenticity only. Managed key rotation, external runner identity, hardware-backed custody, and production execution-log provenance remain 1.0 work.

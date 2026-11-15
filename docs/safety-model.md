@@ -199,7 +199,7 @@ A grounding result is confirmed only when an approved verifier completes, return
 
 ## Linked Provenance Boundary
 
-The alpha contract links receipt and analysis artifacts by run id, packet hash, panel, topology, participant call ids, output hashes, and the analysis artifact hash. This is structural provenance validation. Runtime authenticity still depends on the future engine hashing trusted runtime evidence from Claude Code and external calls.
+The contract links receipt and analysis artifacts by run id, packet hash, panel, topology, participant call ids, output hashes, and the analysis artifact hash. This is structural provenance validation. Runtime authenticity still depends on the future engine hashing trusted runtime evidence from Claude Code and external calls.
 
 ## Receipt Verdict Reconciliation
 
@@ -207,4 +207,4 @@ A receipt is not allowed to summarize a different reality than the linked analys
 
 ## Trusted Attestation Registry
 
-Self-declared hashes are insufficient. Alpha contract fixtures now require runner, routing, cost, and self identity references to resolve through `tests/fixtures/trusted-attestations.json`. Proof capsules additionally require a verified local HMAC signature. In production these controls must be replaced or extended by trusted runtime evidence captured from Claude Code, verifier execution, provider routing metadata, provider or entitlement usage records, and managed signing infrastructure.
+Self-declared hashes are insufficient. Contract fixtures now require runner, routing, cost, and self identity references to resolve through `tests/fixtures/trusted-attestations.json`. Proof capsules additionally require a verified local HMAC signature. In production these controls must be replaced or extended by trusted runtime evidence captured from Claude Code, verifier execution, provider routing metadata, provider or entitlement usage records, and managed signing infrastructure.
