@@ -2,15 +2,16 @@
 
 All notable changes to autofusion are recorded here.
 
-## 0.7.0
+## 1.0.0
 
-Prepared 15 November 2026; the release date is set when it is published. This release moves the
+Released 15 November 2026. The work was prepared as 0.7.0 and is released as 1.0.0, the first major
+version. This release moves the
 built-in profiles from the previous model generation to the current one, adds five
 profiles, and makes the rule that a handle names a model family and never a version a tested
 invariant. The configuration was moved without contacting a provider; the live smokes were
 run afterwards, on 15 November 2026, one bounded call per profile
 (`docs/provider-verification.md`, section "2026-11-15 model generation"). Every enabled
-advertised profile has a dated smoke; no release tag has been cut. Every repair below carries a mutation
+advertised profile has a dated smoke. Every repair below carries a mutation
 note: the repair was reverted once with its tests kept, and the failures named are the
 reproduction tests.
 
@@ -93,7 +94,7 @@ reproduction tests.
    that violates the schema is rejected; an unknown mode is a configuration error.
    Live: one `call` through the bridge returned schema-valid output in 14,216 ms
    (`docs/provider-verification.md`). This item was listed as unreleased on the main branch
-   before 0.7.0.
+   before 1.0.0.
 
 ### Verification
 

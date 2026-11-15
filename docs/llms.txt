@@ -1,13 +1,13 @@
 # autofusion
 
-> Claude Code-first cross-model review, executed checks where applicable, and metadata-only receipts for consequential AI-assisted decisions (alpha runtime). The active Claude Code session drafts and reconciles findings, independent reviewers examine one frozen packet, trusted commands ground eligible claims, and unresolved disagreement stays visible.
+> Claude Code-first cross-model review, executed checks where applicable, and metadata-only receipts for consequential AI-assisted decisions. The active Claude Code session drafts and reconciles findings, independent reviewers examine one frozen packet, trusted commands ground eligible claims, and unresolved disagreement stays visible.
 
 ## Overview
 
 - [Project page](https://onourimpram.github.io/autofusion/): Overview page for autofusion (`docs/index.html`).
 - [Repository](https://github.com/OnourImpram/autofusion): Source repository on GitHub.
 - [README](https://raw.githubusercontent.com/OnourImpram/autofusion/main/README.md): Method, measured claims, built-in model profiles, topologies, installation, configuration and stated limits.
-- [CHANGELOG](https://raw.githubusercontent.com/OnourImpram/autofusion/main/CHANGELOG.md): Release history, including prepared 0.7.0 changes, mutation notes and dated smoke records.
+- [CHANGELOG](https://raw.githubusercontent.com/OnourImpram/autofusion/main/CHANGELOG.md): Release history, including the 1.0.0 changes, mutation notes and dated smoke records.
 - [SECURITY](https://raw.githubusercontent.com/OnourImpram/autofusion/main/SECURITY.md): Tested invariants and vulnerability reporting path.
 
 ## Documentation
