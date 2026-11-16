@@ -7,7 +7,7 @@
 [![ci](https://github.com/OnourImpram/autofusion/actions/workflows/validate.yml/badge.svg)](https://github.com/OnourImpram/autofusion/actions/workflows/validate.yml)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
-**Claude Code-first independent cross-model review, executed checks where applicable, and metadata-only receipts for consequential AI-assisted decisions (alpha runtime).**
+**Claude Code-first independent cross-model review, executed checks where applicable, and metadata-only receipts for consequential AI-assisted decisions.**
 
 autofusion helps people examine consequential AI-assisted decisions through independent model review, executed checks where applicable, and a traceable record of what changed. Its purpose is to make important work easier to challenge and verify before people rely on it.
 
@@ -60,7 +60,7 @@ If you work intensely with AI, the recommendation is simple: keep one model for 
 | ACP transport, `grok` profile | Implemented and unit-tested; the earlier live smoke, run under the `grok-4.6` profile, did not complete initialization; the `grok-4.7` smoke of 15 November 2026 stopped at the ACP preflight before any model call, and the profile ships disabled | `tests/test_acp.py`, `tests/test_acp_integration.py` |
 | Handles name a model family, never a version; one handle per family name, effort and compound flag | Implemented and unit-tested | `tests/test_model_generation.py` |
 | OpenAI-compatible route with the output contract in the prompt, `chatgpt-web-high` and `chatgpt-web-xhigh` profiles through a local Agent Web Bridge | Measured live, 13 September 2026, configured-route identity only; the profiles ship disabled behind an activation gate | `tests/test_providers.py`, `docs/provider-verification.md` |
-| Session delegates and a Workflow topology inside Claude Code | Planned, not in 0.7.0; contracts in `docs/roadmap.md` | none yet |
+| Session delegates and a Workflow topology inside Claude Code | Planned, not in 1.0.0; contracts in `docs/roadmap.md` | none yet |
 | Cross-model review improves decision quality over same-model self-review | Not measured | requires the comparative evaluation program in `docs/roadmap.md` |
 
 A test that the author wrote and then passed proves less than it looks. Each repair in this repository carries a mutation note: the repair was reverted once with the test kept, the whole suite was run, and the failing test is named in `CHANGELOG.md`. A repair whose reversal fails nothing is not counted as measured.
@@ -121,7 +121,7 @@ autofusion config-validate --config .fusion.example.json
 Or from a versioned release wheel downloaded from the GitHub release page and checked against its published SHA-256:
 
 ~~~text
-python -m pip install ./autofusion-0.7.0-py3-none-any.whl
+python -m pip install ./autofusion-1.0.0-py3-none-any.whl
 ~~~
 
 Example invocations:
@@ -145,11 +145,27 @@ Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu are 
 
 ## Limits
 
-1. This is an alpha runtime. Assurance is limited to the tested invariants listed above and in `SECURITY.md`; the project does not yet claim cryptographic authenticity of external model usage, subscription entitlements or provider bills.
+1. Assurance is limited to the tested invariants listed above and in `SECURITY.md`; the project does not yet claim cryptographic authenticity of external model usage, subscription entitlements or provider bills.
 2. Context admission uses a conservative byte bound over the packet, prompt, schema and mandatory files. Opaque session history, later tool exploration and hidden workers are not measured; see [context accounting](docs/architecture.md).
 3. Two transports originally shipped disabled because their live smokes on 8 September 2026 did not return attested identity; the four Gemini profiles on `agy` now ship enabled after the 15 November 2026 adapter update and dated smokes, while enabling any still-disabled transport or profile locally requires your own dated smoke.
 4. The ownership of orphaned descendants of a provider process is guaranteed on Windows only through Job Objects assigned after a suspended spawn; the window between spawn and assignment is documented in `CHANGELOG.md`.
 5. Whether cross-model review beats same-model self-review on real decisions has not been measured here. Treat any such claim, from this project or another, as a hypothesis until a comparative evaluation with held-out graders exists.
+
+## Data and privacy
+
+autofusion sends the artifacts you select to the model providers you configure, through your own CLIs or
+endpoints and under your own accounts, so each provider's own terms and retention apply to what it receives.
+Nothing is sent to the author: the project runs no service and receives no data.
+
+- Credential-shaped text is redacted, or blocks dispatch, before a packet reaches a provider.
+- Receipts are written locally and are metadata-only by default: hashes, identities, decisions and
+  timestamps, not raw prompts or source content.
+- Telemetry is off. The runtime builds a telemetry record only when the caller explicitly enables it, and
+  the record carries approved metadata fields only.
+- The plugin does not read or store personal data on its own; it reads what you put in the packet.
+
+Questions and defect reports go to [Issues](https://github.com/OnourImpram/autofusion/issues); report anything
+exploitable per [SECURITY.md](SECURITY.md).
 
 ## Related projects
 

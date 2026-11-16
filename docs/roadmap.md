@@ -20,7 +20,7 @@ Exit criteria: the plugin and documentation expose a coherent, truthful target c
 
 Historical July scope. The Claude transport remains available for Opus; external Fable execution is no longer permitted.
 
-Status: implemented as alpha runtime, except the live Claude Code plus GPT Sol proof remains a release gate.
+Status: implemented, except the live Claude Code plus GPT Sol proof remains a release gate.
 
 1. Add the Python package and typed provider protocol.
 2. Implement self as a non-callable sentinel.
@@ -46,7 +46,7 @@ Exit criteria:
 
 ## 0.3: adaptive and comparative orchestration
 
-Status: core orchestration primitives are implemented as alpha. Live calibration and provider-performance evidence remain pending.
+Status: core orchestration primitives are implemented. Live calibration and provider-performance evidence remain pending.
 
 1. Add panel-rank with blind identities and answer-order reversal.
 2. Add the advisor consultation mode.
@@ -124,9 +124,9 @@ Status: items 1 to 4 and 6 shipped in 0.6.0 with unit tests and mutation notes i
 
 These are implementation milestones. A live transport is verified only by its dated provider-verification record.
 
-## 0.7.0: model generation of 2026-11-15
+## 1.0.0: model generation of 2026-11-15
 
-Status: implemented for 0.7.0 with unit tests. The live smokes of 15 November 2026 are recorded in `docs/provider-verification.md` and `docs/provider-smoke-20261115.json`: every enabled advertised profile has a dated smoke. No release tag has been cut.
+Status: implemented for 1.0.0 with unit tests. The live smokes of 15 November 2026 are recorded in `docs/provider-verification.md` and `docs/provider-smoke-20261115.json`: every enabled advertised profile has a dated smoke. Released as 1.0.0 on 15 November 2026.
 
 1. Move the built-in profiles to the current generation: `gpt-6.1-sol` for `gpt-sol` and `gpt-sol-ultra`, `claude-opus-5-5` for `claude-opus`, `grok-4.7` for `grok`.
 2. Add `gpt-terra` and `gpt-luna`, enabled after their route smoke, and `gemini-argon`, `gemini-carbon` and `gemini-hydrogen` over `agy`, which initially stayed disabled after their first smoke returned no terminal model identity and were enabled alongside `gemini-flash` after updating `agy` session identity and running dated smokes on 15 November 2026.

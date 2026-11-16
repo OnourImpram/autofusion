@@ -2,15 +2,32 @@
 
 All notable changes to autofusion are recorded here.
 
-## 0.7.0
+## Unreleased
 
-Prepared 15 November 2026; the release date is set when it is published. This release moves the
+The stage label "alpha" is removed from the description of the current runtime: the README Limits
+section, the project page, the plugin and marketplace descriptions, the two skill notes and four
+documents. The `Development Status :: 3 - Alpha` classifier is dropped from `pyproject.toml`. The
+limits themselves are unchanged, and the repository validator now requires the assurance sentence
+itself where it used to require the label. Schema identifiers (`0.2-alpha`) and the names of past
+releases keep their spelling.
+
+The plugin ships a square listing icon at `plugins/autofusion/.claude-plugin/icon.png` (1024 by 1024
+pixels), drawn from the banner: three independent reviewers meeting in one node.
+
+The README gains a "Data and privacy" section that states what leaves the machine and where, from
+`SECURITY.md`, the safety model and the telemetry module. `plugin.json` names the project page as
+homepage and documentation, the issue tracker as support and that section as the privacy statement.
+
+## 1.0.0
+
+Released 15 November 2026. The work was prepared as 0.7.0 and is released as 1.0.0, the first major
+version. This release moves the
 built-in profiles from the previous model generation to the current one, adds five
 profiles, and makes the rule that a handle names a model family and never a version a tested
 invariant. The configuration was moved without contacting a provider; the live smokes were
 run afterwards, on 15 November 2026, one bounded call per profile
 (`docs/provider-verification.md`, section "2026-11-15 model generation"). Every enabled
-advertised profile has a dated smoke; no release tag has been cut. Every repair below carries a mutation
+advertised profile has a dated smoke. Every repair below carries a mutation
 note: the repair was reverted once with its tests kept, and the failures named are the
 reproduction tests.
 
@@ -93,7 +110,7 @@ reproduction tests.
    that violates the schema is rejected; an unknown mode is a configuration error.
    Live: one `call` through the bridge returned schema-valid output in 14,216 ms
    (`docs/provider-verification.md`). This item was listed as unreleased on the main branch
-   before 0.7.0.
+   before 1.0.0.
 
 ### Verification
 

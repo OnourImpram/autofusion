@@ -1,12 +1,15 @@
 {
   "name": "autofusion",
   "displayName": "autofusion",
-  "version": "0.7.0",
-  "description": "Skill-only Claude Code first adaptive cross-model review protocol with an optional alpha helper runtime.",
+  "version": "1.0.0",
+  "description": "Skill-only Claude Code first adaptive cross-model review protocol with an optional helper runtime.",
   "author": {
     "name": "Onour Impram"
   },
-  "homepage": "https://github.com/OnourImpram/autofusion",
+  "homepage": "https://onourimpram.github.io/autofusion/",
+  "documentationUrl": "https://onourimpram.github.io/autofusion/",
+  "supportUrl": "https://github.com/OnourImpram/autofusion/issues",
+  "privacyPolicyUrl": "https://github.com/OnourImpram/autofusion#data-and-privacy",
   "repository": "https://github.com/OnourImpram/autofusion",
   "license": "MIT",
   "keywords": ["claude-code", "codex", "multi-model", "model-routing", "review", "verification"],

@@ -92,4 +92,4 @@ autofusion finalize RUN_ID \
 
 ## Current boundary
 
-The alpha runtime validates and executes supplied intents and overlays. It does not yet ask a model to author the proof test automatically. It also does not prove that two human-readable author labels correspond to cryptographically attested people or agents. Those are separate provenance milestones.
+The runtime validates and executes supplied intents and overlays. It does not yet ask a model to author the proof test automatically. It also does not prove that two human-readable author labels correspond to cryptographically attested people or agents. Those are separate provenance milestones.
