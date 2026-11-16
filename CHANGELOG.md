@@ -14,6 +14,10 @@ releases keep their spelling.
 The plugin ships a square listing icon at `plugins/autofusion/.claude-plugin/icon.png` (1024 by 1024
 pixels), drawn from the banner: three independent reviewers meeting in one node.
 
+The README gains a "Data and privacy" section that states what leaves the machine and where, from
+`SECURITY.md`, the safety model and the telemetry module. `plugin.json` names the project page as
+homepage and documentation, the issue tracker as support and that section as the privacy statement.
+
 ## 1.0.0
 
 Released 15 November 2026. The work was prepared as 0.7.0 and is released as 1.0.0, the first major

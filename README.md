@@ -151,6 +151,22 @@ Third-party compound orchestrators such as OpenRouter Fusion or Sakana Fugu are 
 4. The ownership of orphaned descendants of a provider process is guaranteed on Windows only through Job Objects assigned after a suspended spawn; the window between spawn and assignment is documented in `CHANGELOG.md`.
 5. Whether cross-model review beats same-model self-review on real decisions has not been measured here. Treat any such claim, from this project or another, as a hypothesis until a comparative evaluation with held-out graders exists.
 
+## Data and privacy
+
+autofusion sends the artifacts you select to the model providers you configure, through your own CLIs or
+endpoints and under your own accounts, so each provider's own terms and retention apply to what it receives.
+Nothing is sent to the author: the project runs no service and receives no data.
+
+- Credential-shaped text is redacted, or blocks dispatch, before a packet reaches a provider.
+- Receipts are written locally and are metadata-only by default: hashes, identities, decisions and
+  timestamps, not raw prompts or source content.
+- Telemetry is off. The runtime builds a telemetry record only when the caller explicitly enables it, and
+  the record carries approved metadata fields only.
+- The plugin does not read or store personal data on its own; it reads what you put in the packet.
+
+Questions and defect reports go to [Issues](https://github.com/OnourImpram/autofusion/issues); report anything
+exploitable per [SECURITY.md](SECURITY.md).
+
 ## Related projects
 
 - [claude-oauth](https://github.com/OnourImpram/claude-oauth): Run Google, xAI and OpenAI models inside Claude Code over your own OAuth sessions. The native claude path is never touched.
